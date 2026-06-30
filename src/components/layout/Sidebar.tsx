@@ -21,7 +21,7 @@ const navItems = [
   { label: 'List', href: '/lists', icon: LayoutList },
   { label: 'Workflow', href: '/workflows', icon: GitBranch },
   { separator: true },
-  { label: 'Settings', href: '/settings', icon: Settings },
+  { label: 'Developer API', href: '/developer', icon: Settings },
 ];
 
 export function Sidebar() {
@@ -53,29 +53,30 @@ export function Sidebar() {
   };
 
   return (
-    <div className={`flex flex-col bg-slate-900 border-r border-slate-800 transition-all duration-200 shrink-0 ${isCollapsed ? 'w-16' : 'w-60'}`}>
-      <div className="flex h-14 shrink-0 items-center justify-center border-b border-slate-800">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded bg-teal-500 font-bold text-white text-xs">
-            HG
-          </div>
-          {!isCollapsed && <span className="font-semibold text-white tracking-tight">People</span>}
+    <div className={`flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 ease-in-out shrink-0 ${isCollapsed ? 'w-16' : 'w-60'}`}>
+      <div className="flex h-14 shrink-0 items-center justify-center border-b border-sidebar-border px-4">
+        <div className="flex items-center w-full">
+          {!isCollapsed ? (
+            <span className="font-bold text-sidebar-foreground tracking-tight font-[Helvetica,Arial,sans-serif] text-lg truncate">Harvest Generation</span>
+          ) : (
+            <span className="font-bold text-sidebar-foreground tracking-tight font-[Helvetica,Arial,sans-serif] text-lg mx-auto">HG</span>
+          )}
         </div>
       </div>
 
       <nav className="flex-1 space-y-1 p-2 overflow-y-auto">
         {navItems.map((item, index) => {
           if (item.separator) {
-            return <div key={`sep-${index}`} className="my-2 border-t border-slate-800" />;
+            return <div key={`sep-${index}`} className="my-2 border-t border-sidebar-border" />;
           }
 
           const Icon = item.icon!;
           const isActive = pathname.startsWith(item.href!);
           
-          const linkClasses = `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+          const linkClasses = `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ${
             isActive 
-              ? 'bg-slate-700 text-white' 
-              : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-sm' 
+              : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'
           } ${isCollapsed ? 'justify-center' : ''}`;
 
           const content = (
@@ -102,22 +103,22 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="border-t border-slate-800 p-2 shrink-0">
-        <div className={`flex items-center gap-3 rounded-md px-3 py-2 ${isCollapsed ? 'justify-center' : ''}`}>
-          <Avatar className="h-8 w-8 bg-teal-500 text-white">
-            <AvatarFallback className="bg-teal-500 text-white">
+      <div className="border-t border-sidebar-border p-3 shrink-0">
+        <div className={`flex items-center gap-3 rounded-xl px-2 py-2 transition-all ${isCollapsed ? 'justify-center' : 'hover:bg-sidebar-accent/50'}`}>
+          <Avatar className="h-8 w-8 bg-primary text-primary-foreground shadow-sm">
+            <AvatarFallback className="bg-primary text-primary-foreground font-medium">
               {userEmail ? userEmail.charAt(0).toUpperCase() : 'U'}
             </AvatarFallback>
           </Avatar>
           {!isCollapsed && (
             <div className="flex flex-1 flex-col overflow-hidden">
-              <span className="truncate text-sm font-medium text-white">{userEmail}</span>
+              <span className="truncate text-sm font-medium text-sidebar-foreground">{userEmail}</span>
             </div>
           )}
           {!isCollapsed && (
             <button 
               onClick={handleSignOut}
-              className="text-slate-400 hover:text-white transition-colors"
+              className="text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors"
               title="Sign out"
             >
               <LogOut className="h-4 w-4" />
@@ -128,7 +129,7 @@ export function Sidebar() {
           <div className="mt-2 flex justify-center">
             <button 
               onClick={handleSignOut}
-              className="text-slate-400 hover:text-white transition-colors p-2"
+              className="text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors p-2 rounded-lg hover:bg-sidebar-accent"
               title="Sign out"
             >
               <LogOut className="h-5 w-5" />
@@ -137,10 +138,10 @@ export function Sidebar() {
         )}
       </div>
 
-      <div className="border-t border-slate-800 p-2 flex justify-center shrink-0">
+      <div className="border-t border-sidebar-border p-2 flex justify-center shrink-0">
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
         >
           {isCollapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
         </button>

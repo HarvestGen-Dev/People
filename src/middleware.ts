@@ -5,7 +5,8 @@ export async function middleware(request: NextRequest) {
   // Allow API routes and auth routes to pass through
   if (
     request.nextUrl.pathname.startsWith('/api/') ||
-    request.nextUrl.pathname.startsWith('/login')
+    request.nextUrl.pathname.startsWith('/login') ||
+    request.nextUrl.pathname.startsWith('/e/')
   ) {
     return NextResponse.next()
   }

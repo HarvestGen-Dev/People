@@ -40,3 +40,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# dev scripts and keys
+test-*.js
+test-*.sh
+update-*.js
+create-*.js
+fix-rls.*
+
+# supabase
+supabase/.temp/
+supabase/.branches/

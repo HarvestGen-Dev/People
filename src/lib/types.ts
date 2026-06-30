@@ -25,6 +25,7 @@ export interface Person {
   status: 'active' | 'visitor' | 'inactive' | 'child';
   campus: string | null;
   household_id: string | null;
+  metadata: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }
@@ -68,6 +69,24 @@ export interface PersonWithRelations extends Person {
   household?: Household | null;
   person_tags?: PersonTag[];
   person_field_values?: PersonFieldValue[];
+  person_roles?: PersonRole[];
+}
+
+export interface Role {
+  id: string;
+  name: string;
+  category: string | null;
+  description: string | null;
+  created_at: string;
+}
+
+export interface PersonRole {
+  id: string;
+  person_id: string;
+  role_id: string;
+  status: 'active' | 'inactive' | 'pending';
+  created_at: string;
+  role?: Role;
 }
 
 export interface Note {
@@ -137,6 +156,7 @@ export interface ListPeople {
 
 export interface ApiKey {
   id: string;
+  church_id: string;
   name: string;
   description: string | null;
   key_prefix: string;
@@ -155,6 +175,7 @@ export interface Webhook {
   events: string[];
   secret: string;
   is_active: boolean;
+  deliveries?: any[];
   created_at: string;
 }
 
@@ -169,3 +190,74 @@ export interface WebhookDelivery {
   failed_at: string | null;
   created_at: string;
 }
+
+export type EventStatus = 'draft' | 'published' | 'closed';
+export type RegistrationStatus = 'pending_review' | 'approved' | 'rejected';
+
+export interface Event {
+  id: string;
+  church_id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  cover_image_url: string | null;
+  location: string | null;
+  start_at: string;
+  end_at: string | null;
+  capacity: number | null;
+  price: number;
+  currency: string;
+  payment_qr_url: string | null;
+  payment_link: string | null;
+  payment_instructions: string | null;
+  status: EventStatus;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EventRegistration {
+  id: string;
+  church_id: string;
+  event_id: string;
+  person_id: string | null;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string | null;
+  guests: number;
+  amount_due: number;
+  payment_proof_url: string | null;
+  paid_checkbox: boolean;
+  status: RegistrationStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
+  confirmation_email_sent_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EventWithStats extends Event {
+  registration_count: number;
+  pending_count: number;
+  approved_count: number;
+  spots_remaining: number | null;
+}
+
+
+
+export type PersonSummary = {
+  id: string
+  first_name: string
+  last_name: string
+  email: string | null
+  phone: string | null
+  status: string
+  campus: string | null
+  photo_url: string | null
+  tags: Array<{ id: string; name: string; color: string }>
+  created_at: string
+  updated_at: string
+}
+
