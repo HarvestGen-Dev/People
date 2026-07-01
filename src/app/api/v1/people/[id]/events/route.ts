@@ -44,7 +44,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       }
     });
 
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error ? error.message : 'Unable to load events',
+      },
+      { status: 500 }
+    );
   }
 }

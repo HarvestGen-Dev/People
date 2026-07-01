@@ -1,26 +1,33 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import {
+  adminApiError,
+  requireTenantContext,
+} from '@/lib/tenant-context';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { churchId } = await requireTenantContext();
     const supabase = createServiceClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { id } = await params;
-    const { data, error } = await supabase.from('workflows').select('*').eq('id', id).single();
+    const { data, error } = await supabase
+      .from('workflows')
+      .select('*')
+      .eq('id', id)
+      .eq('church_id', churchId)
+      .single();
     if (error) throw error;
     return NextResponse.json({ data });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return adminApiError(error);
   }
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { churchId } = await requireTenantContext({ requireManager: true });
     const supabase = createServiceClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { id } = await params;
     const body = await request.json();
@@ -33,29 +40,33 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
+      .eq('church_id', churchId)
       .select()
       .single();
 
     if (error) throw error;
     return NextResponse.json({ data });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return adminApiError(error);
   }
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { churchId } = await requireTenantContext({ requireManager: true });
     const supabase = createServiceClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { id } = await params;
 
-    const { error } = await supabase.from('workflows').delete().eq('id', id);
+    const { error } = await supabase
+      .from('workflows')
+      .delete()
+      .eq('id', id)
+      .eq('church_id', churchId);
 
     if (error) throw error;
     return NextResponse.json({ data: { success: true } });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return adminApiError(error);
   }
 }

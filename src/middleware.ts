@@ -2,10 +2,9 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
-  // Allow API routes and auth routes to pass through
+  // Allow API routes and event links to pass through completely without session checks
   if (
     request.nextUrl.pathname.startsWith('/api/') ||
-    request.nextUrl.pathname.startsWith('/login') ||
     request.nextUrl.pathname.startsWith('/e/')
   ) {
     return NextResponse.next()
@@ -31,8 +30,23 @@ export async function middleware(request: NextRequest) {
   )
 
   const { data: { session } } = await supabase.auth.getSession()
+
+  // If trying to access protected route without session
   if (!session) {
-    return NextResponse.redirect(new URL('/login', request.url))
+    // Only redirect to login if it's not a public route
+    if (
+      request.nextUrl.pathname !== '/' &&
+      request.nextUrl.pathname !== '/login' &&
+      request.nextUrl.pathname !== '/signup' &&
+      request.nextUrl.pathname !== '/guide'
+    ) {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
+  } else {
+    // If logged in, redirect away from landing page and login page
+    if (request.nextUrl.pathname === '/' || request.nextUrl.pathname === '/login') {
+      return NextResponse.redirect(new URL('/dashboard', request.url))
+    }
   }
 
   return response

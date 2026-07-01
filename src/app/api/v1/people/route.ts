@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateApiKey } from '@/lib/api-auth';
 import { createServiceClient } from '@/lib/supabase/server';
+import { adminApiError } from '@/lib/tenant-context';
+import { assertTenantRecords } from '@/lib/tenant-references';
 
 export async function GET(request: NextRequest) {
   const auth = await validateApiKey(request, 'people:read');
@@ -68,7 +70,9 @@ export async function GET(request: NextRequest) {
       status: p.status,
       campus: p.campus,
       photo_url: p.photo_url,
-      tags: (p.person_tags || []).map((pt: any) => pt.tag).filter(Boolean),
+      tags: (p.person_tags || [])
+        .map((personTag: { tag: unknown }) => personTag.tag)
+        .filter(Boolean),
       created_at: p.created_at,
       updated_at: p.updated_at,
     }));
@@ -85,8 +89,8 @@ export async function GET(request: NextRequest) {
       }
     });
 
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return adminApiError(error);
   }
 }
 
@@ -104,6 +108,9 @@ export async function POST(request: NextRequest) {
     if (!body.first_name || !body.last_name) {
       return NextResponse.json({ error: 'first_name and last_name are required' }, { status: 400 });
     }
+
+    const tagIds = Array.isArray(body.tag_ids) ? body.tag_ids : [];
+    await assertTenantRecords('tags', tagIds, churchId, 'tags');
 
     if (body.email) {
       const { data: existing } = await supabase
@@ -139,8 +146,9 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error;
 
-    if (body.tag_ids && Array.isArray(body.tag_ids) && body.tag_ids.length > 0) {
-      const tagInserts = body.tag_ids.map((tagId: string) => ({
+    if (tagIds.length > 0) {
+      const tagInserts = tagIds.map((tagId: string) => ({
+        church_id: churchId,
         person_id: person.id,
         tag_id: tagId,
       }));
@@ -152,7 +160,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ data: { id: person.id } }, { status: 201 });
 
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return adminApiError(error);
   }
 }

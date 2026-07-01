@@ -1,36 +1,77 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { dispatchWebhook } from '@/lib/webhooks';
+import {
+  adminApiError,
+  requireTenantContext,
+} from '@/lib/tenant-context';
+import {
+  assertTenantAssignee,
+  assertWorkflowStep,
+} from '@/lib/tenant-references';
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { churchId } = await requireTenantContext({ requireManager: true });
     const supabase = createServiceClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { id } = await params;
     const body = await request.json();
-    
-    // Prevent overriding completed_at via PATCH, handled by /complete
-    delete body.completed_at;
 
-    const { data: oldCard } = await supabase.from('workflow_cards').select('current_step_id').eq('id', id).single();
+    const { data: oldCard } = await supabase
+      .from('workflow_cards')
+      .select('current_step_id, workflow_id')
+      .eq('id', id)
+      .eq('church_id', churchId)
+      .single();
+
+    if (!oldCard) {
+      return NextResponse.json(
+        { error: 'Workflow card not found' },
+        { status: 404 }
+      );
+    }
+
+    await Promise.all([
+      body.current_step_id !== undefined
+        ? assertWorkflowStep(
+            body.current_step_id,
+            oldCard.workflow_id,
+            churchId
+          )
+        : Promise.resolve(),
+      body.assigned_to !== undefined
+        ? assertTenantAssignee(body.assigned_to, churchId)
+        : Promise.resolve(),
+    ]);
+
+    const updates = {
+      ...(body.current_step_id !== undefined
+        ? { current_step_id: body.current_step_id }
+        : {}),
+      ...(body.assigned_to !== undefined
+        ? { assigned_to: body.assigned_to || null }
+        : {}),
+      ...(body.due_date !== undefined
+        ? { due_date: body.due_date || null }
+        : {}),
+      ...(body.notes !== undefined ? { notes: body.notes || null } : {}),
+      updated_at: new Date().toISOString(),
+    };
 
     const { data: updatedCard, error } = await supabase
       .from('workflow_cards')
-      .update({
-        ...body,
-        updated_at: new Date().toISOString()
-      })
+      .update(updates)
       .eq('id', id)
+      .eq('church_id', churchId)
       .select('*, workflows(name, church_id), workflow_steps(name)')
       .single();
 
     if (error) throw error;
 
     // Check if step changed for webhook
-    if (body.current_step_id && oldCard && oldCard.current_step_id !== body.current_step_id && updatedCard) {
-      dispatchWebhook(updatedCard.workflows.church_id, 'person.status_changed', {
+    if (body.current_step_id && oldCard.current_step_id !== body.current_step_id && updatedCard) {
+      dispatchWebhook(churchId, 'person.status_changed', {
         person_id: updatedCard.person_id,
         workflow: updatedCard.workflows.name,
         step: updatedCard.workflow_steps?.name,
@@ -39,24 +80,27 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     return NextResponse.json({ data: updatedCard });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return adminApiError(error);
   }
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { churchId } = await requireTenantContext({ requireManager: true });
     const supabase = createServiceClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { id } = await params;
 
-    const { error } = await supabase.from('workflow_cards').delete().eq('id', id);
+    const { error } = await supabase
+      .from('workflow_cards')
+      .delete()
+      .eq('id', id)
+      .eq('church_id', churchId);
 
     if (error) throw error;
     return NextResponse.json({ data: { success: true } });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return adminApiError(error);
   }
 }

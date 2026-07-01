@@ -85,11 +85,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
 
     if (insertError) throw insertError;
 
-    let responseStatus = initialStatus;
+    const responseStatus = initialStatus;
 
     if (isFree) {
       // Run auto-approve pipeline inline
-      await approveRegistration(registration.id, null);
+      await approveRegistration(registration.id, event.church_id, null);
     }
 
     const reference = `REG-${registration.id.substring(0, 6).toUpperCase()}`;
@@ -102,7 +102,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
       }
     });
 
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error ? error.message : 'Unable to register for event',
+      },
+      { status: 500 }
+    );
   }
 }

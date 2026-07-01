@@ -4,25 +4,15 @@ import { Topbar } from '@/components/layout/Topbar';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { requireTenantContext } from '@/lib/tenant-context';
 
 export const metadata = {
   title: 'New Person | HarvestGen',
 };
 
 export default async function NewPersonPage() {
+  const { churchId } = await requireTenantContext({ requireManager: true });
   const supabase = createServiceClient();
-  
-  // We need to fetch tags, fieldDefinitions, and households for the current church
-  const { data: { user } } = await supabase.auth.getUser();
-  const churchSlug = user?.user_metadata?.church_slug || 'harvestgen';
-  
-  const { data: church } = await supabase
-    .from('churches')
-    .select('id')
-    .eq('slug', churchSlug)
-    .single();
-
-  const churchId = church?.id;
 
   const [
     { data: tags },

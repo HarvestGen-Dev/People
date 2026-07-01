@@ -1,39 +1,27 @@
 import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import { startOfMonth, startOfWeek } from 'date-fns'
 import { Users, UserPlus, TrendingUp, Activity, User } from 'lucide-react'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
+import { requireTenantContext } from '@/lib/tenant-context'
 
 export default async function DashboardPage() {
+  const { churchId } = await requireTenantContext()
   const supabase = await createClient()
-
-  // Verify auth
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const churchSlug = user.user_metadata?.church_slug || 'harvestgen'
-  const { data: church } = await supabase
-    .from('churches')
-    .select('id')
-    .eq('slug', churchSlug)
-    .single()
-
-  if (!church) redirect('/login')
 
   // Fetch stats in parallel
   const [activeRes, visitorRes, newRes, eventsRes] = await Promise.all([
-    supabase.from('people').select('id', { count: 'exact' }).eq('church_id', church.id).eq('status', 'active'),
-    supabase.from('people').select('id', { count: 'exact' }).eq('church_id', church.id).eq('status', 'visitor'),
-    supabase.from('people').select('id', { count: 'exact' }).eq('church_id', church.id).gte('created_at', startOfMonth(new Date()).toISOString()),
-    supabase.from('person_events').select('id', { count: 'exact' }).eq('church_id', church.id).gte('occurred_at', startOfWeek(new Date()).toISOString()),
+    supabase.from('people').select('id', { count: 'exact' }).eq('church_id', churchId).eq('status', 'active'),
+    supabase.from('people').select('id', { count: 'exact' }).eq('church_id', churchId).eq('status', 'visitor'),
+    supabase.from('people').select('id', { count: 'exact' }).eq('church_id', churchId).gte('created_at', startOfMonth(new Date()).toISOString()),
+    supabase.from('person_events').select('id', { count: 'exact' }).eq('church_id', churchId).gte('occurred_at', startOfWeek(new Date()).toISOString()),
   ])
 
   // Fetch recent activity
   const { data: recentActivity } = await supabase
     .from('person_events')
     .select('*, people(id, first_name, last_name)')
-    .eq('church_id', church.id)
+    .eq('church_id', churchId)
     .order('occurred_at', { ascending: false })
     .limit(20)
 
@@ -53,7 +41,7 @@ export default async function DashboardPage() {
         workflow_steps(name)
       )
     `)
-    .eq('church_id', church.id)
+    .eq('church_id', churchId)
     .eq('status', 'visitor')
     .gte('created_at', startOfMonth(new Date()).toISOString())
     .order('created_at', { ascending: false })
@@ -138,7 +126,7 @@ export default async function DashboardPage() {
                     </td>
                   </tr>
                 ) : (
-                  newVisitors?.map((visitor: any) => {
+                  newVisitors?.map((visitor) => {
                     // Determine source
                     const firstEvent = visitor.person_events?.[0];
                     let sourceText = 'Manual';
@@ -203,7 +191,7 @@ export default async function DashboardPage() {
               {recentActivity?.length === 0 ? (
                 <p className="text-slate-500 text-sm text-center py-4">No recent activity.</p>
               ) : (
-                recentActivity?.map((activity: any) => (
+                recentActivity?.map((activity) => (
                   <div key={activity.id} className="flex gap-4">
                     <div className="mt-1">
                       {activity.type === 'registration' ? (

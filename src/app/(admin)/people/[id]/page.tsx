@@ -8,7 +8,7 @@ import { Topbar } from '@/components/layout/Topbar';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
-import { redirect } from 'next/navigation';
+import { requireTenantContext } from '@/lib/tenant-context';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -19,19 +19,15 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function PersonProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = await createClient();
-  
-  // Verify auth
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
+  const { churchId } = await requireTenantContext();
 
-  const person = await getPersonById(id);
+  const person = await getPersonById(id, churchId);
   if (!person) notFound();
 
   const [notes, events, workflowCards] = await Promise.all([
-    getPersonNotes(person.id),
-    getPersonEvents(person.id),
-    getPersonWorkflowCards(person.id)
+    getPersonNotes(person.id, churchId),
+    getPersonEvents(person.id, churchId),
+    getPersonWorkflowCards(person.id, churchId)
   ]);
 
   const getStatusColor = (status: string) => {
@@ -42,12 +38,6 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
       case 'inactive': return 'bg-slate-100 text-slate-700 border-transparent';
       default: return 'bg-slate-100 text-slate-700 border-transparent';
     }
-  };
-
-  const getAge = (birthdate: string) => {
-    const ageDifMs = Date.now() - new Date(birthdate).getTime();
-    const ageDate = new Date(ageDifMs);
-    return Math.abs(ageDate.getUTCFullYear() - 1970);
   };
 
   return (
@@ -72,18 +62,20 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
               <Badge className={`capitalize shadow-none font-medium px-2.5 py-0.5 ${getStatusColor(person.status)}`}>
                 {person.status}
               </Badge>
-              {person.person_tags?.map((pt: any) => (
-                <Badge key={pt.tag.id} style={{ backgroundColor: pt.tag.color + '20', color: pt.tag.color, borderColor: pt.tag.color + '40' }} className="border shadow-none py-0.5" variant="outline">
-                  {pt.tag.name}
-                </Badge>
-              ))}
+              {person.person_tags?.map((personTag) =>
+                personTag.tag ? (
+                  <Badge key={personTag.tag.id} style={{ backgroundColor: personTag.tag.color + '20', color: personTag.tag.color, borderColor: personTag.tag.color + '40' }} className="border shadow-none py-0.5" variant="outline">
+                    {personTag.tag.name}
+                  </Badge>
+                ) : null
+              )}
             </div>
             
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-3 text-sm text-muted-foreground font-medium">
               {person.email && <span className="flex items-center gap-1.5"><User className="h-4 w-4 text-primary/70" /> {person.email}</span>}
               {person.phone && <span className="flex items-center gap-1.5"><Phone className="h-4 w-4 text-primary/70" /> {person.phone}</span>}
               {person.campus && <span className="flex items-center gap-1.5"><MapPin className="h-4 w-4 text-primary/70" /> {person.campus}</span>}
-              {person.birthdate && <span className="flex items-center gap-1.5"><Cake className="h-4 w-4 text-primary/70" /> Age {getAge(person.birthdate)}</span>}
+              {person.birthdate && <span className="flex items-center gap-1.5"><Cake className="h-4 w-4 text-primary/70" /> Born {format(new Date(person.birthdate), 'd MMM yyyy')}</span>}
             </div>
             <div className="text-xs text-muted-foreground mt-3">
               Member since {person.created_at ? format(new Date(person.created_at), 'MMM yyyy') : '—'}
@@ -94,7 +86,7 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
 
       <div className="p-8 max-w-7xl mx-auto pt-0">
         <PersonProfile 
-          person={person as any} 
+          person={person}
           notes={notes} 
           events={events} 
           workflowCards={workflowCards} 

@@ -3,6 +3,28 @@
 Base URL: https://people.harvestgen.org/api/v1
 Auth: Authorization: Bearer <api_key>
 
+<!-- AGENT: BACKEND -->
+## Administrator onboarding
+
+People accounts are invitation-only. A signed-in church owner or administrator
+can create a single-use invitation that expires after seven days:
+
+```bash
+curl -X POST https://people.harvestgen.org/api/admin/invitations \
+  -H "Content-Type: application/json" \
+  -H "Cookie: <authenticated-session-cookie>" \
+  -d '{
+    "email": "admin@example.com",
+    "role": "member",
+    "expires_in_days": 7
+  }'
+```
+
+The response contains `invite_url`. It is the only response that exposes the
+raw invitation token; the database stores only its SHA-256 hash. Only church
+owners can issue invitations with the `admin` role. Include `church_id` when
+the current user administers more than one church.
+
 ## Quick Start
 
 ### Step 1: Get an API key
@@ -17,6 +39,18 @@ curl -X POST https://people.harvestgen.org/api/v1/people/lookup \
   -H "Content-Type: application/json" \
   -d '{"email": "user@example.com", "source": "shepherd"}'
 ```
+
+### Lookup behavior
+
+<!-- AGENT: INTEGRATION -->
+
+- Emails are trimmed and matched case-insensitively.
+- Malaysian local phones such as `012-345 6789` match their `+60` form.
+- A new unmatched identity creates a person with `visitor` status.
+- Concurrent requests for the same identity return one person.
+- HTTP `409` with `code: "identity_conflict"` means either multiple people
+  share the supplied phone or the email and phone match different people.
+  Do not choose a record automatically; send the case for manual resolution.
 
 ### Step 3: Push an event
 ```bash

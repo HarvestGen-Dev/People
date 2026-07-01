@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Event } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { requireTenantContext } from '@/lib/tenant-context';
 
 export const metadata = {
   title: 'Edit Event | HarvestGen',
@@ -19,6 +20,7 @@ import { DeleteEventButton } from '@/components/events/DeleteEventButton';
 import { DuplicateEventButton } from '@/components/events/DuplicateEventButton';
 
 export default async function EditEventPage({ params }: { params: Promise<{ id: string }> }) {
+  const { churchId } = await requireTenantContext({ requireManager: true });
   const supabase = createServiceClient();
   const { id } = await params;
   
@@ -26,6 +28,7 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
     .from('events')
     .select('*')
     .eq('id', id)
+    .eq('church_id', churchId)
     .single();
     
   if (error || !event) {
@@ -36,7 +39,8 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
   const { count } = await supabase
     .from('event_registrations')
     .select('*', { count: 'exact', head: true })
-    .eq('event_id', id);
+    .eq('event_id', id)
+    .eq('church_id', churchId);
 
   const hasRegistrations = (count || 0) > 0;
   

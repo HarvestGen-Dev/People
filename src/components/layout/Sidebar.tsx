@@ -11,12 +11,14 @@ import {
   Settings, 
   ChevronLeft, 
   ChevronRight,
-  LogOut
+  LogOut,
+  Home
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 const navItems = [
+  { label: 'Dashboard', href: '/dashboard', icon: Home },
   { label: 'Users', href: '/people', icon: Users },
   { label: 'List', href: '/lists', icon: LayoutList },
   { label: 'Workflow', href: '/workflows', icon: GitBranch },

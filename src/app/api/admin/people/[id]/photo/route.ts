@@ -1,16 +1,26 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import {
+  adminApiError,
+  requireTenantContext,
+} from '@/lib/tenant-context';
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { churchId } = await requireTenantContext({ requireManager: true });
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     const { id } = await params;
+    const { data: person } = await supabase
+      .from('people')
+      .select('id')
+      .eq('id', id)
+      .eq('church_id', churchId)
+      .maybeSingle();
+    if (!person) {
+      return NextResponse.json({ error: 'Person not found' }, { status: 404 });
+    }
+
     const formData = await request.formData();
     const file = formData.get('file') as File;
 
@@ -28,7 +38,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const timestamp = Date.now();
     const ext = file.name.split('.').pop();
-    const filePath = `${id}/${timestamp}.${ext}`;
+    const filePath = `${churchId}/${id}/${timestamp}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from('people-photos')
@@ -44,12 +54,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { error: updateError } = await supabase
       .from('people')
       .update({ photo_url: publicUrl })
-      .eq('id', id);
+      .eq('id', id)
+      .eq('church_id', churchId);
 
     if (updateError) throw updateError;
 
     return NextResponse.json({ data: { photo_url: publicUrl } });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return adminApiError(error);
   }
 }

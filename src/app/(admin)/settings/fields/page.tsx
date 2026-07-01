@@ -1,23 +1,15 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { Topbar } from '@/components/layout/Topbar';
 import { FieldsManager } from '@/components/settings/FieldsManager';
+import { requireTenantContext } from '@/lib/tenant-context';
 
 export const metadata = {
   title: 'Custom Fields | Settings',
 };
 
 export default async function FieldsSettingsPage() {
+  const { churchId } = await requireTenantContext({ requireManager: true });
   const supabase = createServiceClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const churchSlug = user?.user_metadata?.church_slug || 'harvestgen';
-
-  const { data: church } = await supabase
-    .from('churches')
-    .select('id')
-    .eq('slug', churchSlug)
-    .single();
-
-  const churchId = church?.id;
 
   const { data: fields } = await supabase
     .from('field_definitions')

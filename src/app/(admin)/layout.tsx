@@ -1,8 +1,11 @@
 import React from 'react';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Topbar } from '@/components/layout/Topbar';
+import { requireTenantContext } from '@/lib/tenant-context';
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  await requireTenantContext();
+
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />

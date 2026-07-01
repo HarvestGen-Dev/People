@@ -1,23 +1,15 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { Topbar } from '@/components/layout/Topbar';
 import { ListIndexManager } from '@/components/lists/ListIndexManager';
+import { requireTenantContext } from '@/lib/tenant-context';
 
 export const metadata = {
   title: 'Lists | People',
 };
 
 export default async function ListsPage() {
+  const { churchId } = await requireTenantContext();
   const supabase = createServiceClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const churchSlug = user?.user_metadata?.church_slug || 'harvestgen';
-
-  const { data: church } = await supabase
-    .from('churches')
-    .select('id')
-    .eq('slug', churchSlug)
-    .single();
-
-  const churchId = church?.id;
 
   // Fetch all lists with static member counts
   const { data: lists } = await supabase

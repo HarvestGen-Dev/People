@@ -6,22 +6,22 @@ import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getPersonById } from '@/lib/queries/person';
+import { requireTenantContext } from '@/lib/tenant-context';
 
 export const metadata = {
   title: 'Edit Person | HarvestGen',
 };
 
 export default async function EditPersonPage({ params }: { params: Promise<{ id: string }> }) {
+  const { churchId } = await requireTenantContext({ requireManager: true });
   const supabase = createServiceClient();
   const { id } = await params;
-  const person = await getPersonById(id);
+  const person = await getPersonById(id, churchId);
   
   if (!person) {
     notFound();
   }
   
-  const churchId = (person as any).church_id;
-
   const [
     { data: tags },
     { data: fieldDefinitions },
@@ -46,7 +46,7 @@ export default async function EditPersonPage({ params }: { params: Promise<{ id:
 
       <div className="p-8 max-w-5xl mx-auto animate-in fade-in-50 duration-300">
         <PersonForm 
-          person={person as any}
+          person={person}
           tags={tags || []} 
           fieldDefinitions={fieldDefinitions || []} 
           households={households || []} 

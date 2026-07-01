@@ -35,7 +35,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
       .getPublicUrl(filePath);
 
     return NextResponse.json({ data: { url: publicUrl } });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error ? error.message : 'Unable to upload proof',
+      },
+      { status: 500 }
+    );
   }
 }

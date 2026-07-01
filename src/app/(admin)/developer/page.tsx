@@ -3,37 +3,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Key, Plus, Terminal, Activity, ShieldCheck, Check } from 'lucide-react';
-import { redirect } from 'next/navigation';
+import { requireTenantContext } from '@/lib/tenant-context';
+import type { ApiKey } from '@/lib/types';
 
 export default async function DeveloperPage() {
+  const { churchId, churchName } = await requireTenantContext({
+    requireManager: true,
+  });
   const supabase = await createClient();
-  
-  // Get the current user
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    redirect('/login');
-  }
 
-  // Get their church slug from metadata
-  const churchSlug = user.user_metadata?.church_slug || 'harvestgen';
-
-  // Look up the actual church_id
-  const { data: church } = await supabase
-    .from('churches')
-    .select('id, name')
-    .eq('slug', churchSlug)
-    .single();
-
-  let apiKeys: any[] = [];
-  if (church) {
-    // Fetch API keys for this church
-    const { data } = await supabase
-      .from('api_keys')
-      .select('*')
-      .eq('church_id', church.id)
-      .order('created_at', { ascending: false });
-    if (data) apiKeys = data;
-  }
+  let apiKeys: ApiKey[] = [];
+  const { data } = await supabase
+    .from('api_keys')
+    .select('*')
+    .eq('church_id', churchId)
+    .order('created_at', { ascending: false });
+  if (data) apiKeys = data;
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-8 animate-in fade-in-50 duration-300">
@@ -55,7 +40,7 @@ export default async function DeveloperPage() {
             <CardTitle className="flex items-center gap-2 text-xl">
               <Key className="h-5 w-5 text-primary" /> Active API Keys
             </CardTitle>
-            <CardDescription className="text-base">Keys are securely bound to {church?.name || 'your organization'}.</CardDescription>
+            <CardDescription className="text-base">Keys are securely bound to {churchName}.</CardDescription>
           </CardHeader>
           <CardContent>
             {apiKeys.length === 0 ? (

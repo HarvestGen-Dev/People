@@ -5,12 +5,14 @@ import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { RegistrationsTable } from '@/components/events/RegistrationsTable';
+import { requireTenantContext } from '@/lib/tenant-context';
 
 export const metadata = {
   title: 'Registrations | HarvestGen',
 };
 
 export default async function EventRegistrationsPage({ params }: { params: Promise<{ id: string }> }) {
+  const { churchId } = await requireTenantContext({ requireManager: true });
   const supabase = createServiceClient();
   const { id } = await params;
 
@@ -18,6 +20,7 @@ export default async function EventRegistrationsPage({ params }: { params: Promi
     .from('events')
     .select('id, name, price')
     .eq('id', id)
+    .eq('church_id', churchId)
     .single();
 
   if (eventError || !event) {
@@ -28,6 +31,7 @@ export default async function EventRegistrationsPage({ params }: { params: Promi
     .from('event_registrations')
     .select('*')
     .eq('event_id', id)
+    .eq('church_id', churchId)
     .order('created_at', { ascending: false });
 
   return (

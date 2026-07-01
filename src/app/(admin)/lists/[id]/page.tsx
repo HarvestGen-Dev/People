@@ -4,23 +4,15 @@ import { evaluateSmartList } from '@/lib/lists/evaluate';
 import { SmartListDetail } from '@/components/lists/SmartListDetail';
 import { StaticListDetail } from '@/components/lists/StaticListDetail';
 import { notFound } from 'next/navigation';
+import { requireTenantContext } from '@/lib/tenant-context';
 
 export const metadata = {
   title: 'List | People',
 };
 
 export default async function ListDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { churchId } = await requireTenantContext();
   const supabase = createServiceClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const churchSlug = user?.user_metadata?.church_slug || 'harvestgen';
-
-  const { data: church } = await supabase
-    .from('churches')
-    .select('id')
-    .eq('slug', churchSlug)
-    .single();
-
-  const churchId = church?.id;
   const { id } = await params;
 
   const { data: list } = await supabase
@@ -37,7 +29,7 @@ export default async function ListDetailPage({ params }: { params: Promise<{ id:
   let people: any[] = [];
   
   if (list.type === 'smart') {
-    const evalResult = await evaluateSmartList(list.filters, churchId!);
+    const evalResult = await evaluateSmartList(list.filters, churchId);
     people = evalResult.people;
     
     // We need tags for the builder inside the detail page just in case we render it or want to map tag names

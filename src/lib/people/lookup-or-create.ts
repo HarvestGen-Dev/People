@@ -7,50 +7,60 @@ interface LookupParams {
   phone?: string | null;
   first_name: string;
   last_name: string;
-  source: string;
+}
+
+export class PersonIdentityConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PersonIdentityConflictError';
+  }
 }
 
 export async function lookupOrCreatePerson(params: LookupParams): Promise<{ person: PersonWithRelations; found: boolean }> {
   const supabase = createServiceClient();
-  const { church_id, email, phone, first_name, last_name, source } = params;
+  const { church_id, email, phone, first_name, last_name } = params;
 
-  let query = supabase.from('people').select('*').eq('church_id', church_id);
-  
-  if (email && phone) {
-    query = query.or(`email.eq.${email},phone.eq.${phone}`);
-  } else if (email) {
-    query = query.eq('email', email);
-  } else if (phone) {
-    query = query.eq('phone', phone);
-  } else {
-    // Cannot lookup without email or phone, so just create
-  }
-
-  if (email || phone) {
-    const { data: existing } = await query.limit(1);
-    if (existing && existing.length > 0) {
-      return { person: existing[0] as PersonWithRelations, found: true };
+  const { data: outcomes, error: lookupError } = await supabase.rpc(
+    'lookup_or_create_person',
+    {
+      p_church_id: church_id,
+      p_email: email ?? null,
+      p_phone: phone ?? null,
+      p_first_name: first_name,
+      p_last_name: last_name,
     }
+  );
+
+  if (lookupError) {
+    throw new Error(lookupError.message);
   }
 
-  // Not found, create as visitor
-  const { data: newPerson, error: insertError } = await supabase
+  const outcome = outcomes?.[0];
+  if (!outcome) {
+    throw new Error('Identity lookup returned no result');
+  }
+
+  if (outcome.result_conflict) {
+    throw new PersonIdentityConflictError(outcome.result_conflict);
+  }
+
+  if (!outcome.result_person_id) {
+    throw new Error('Identity lookup returned no person');
+  }
+
+  const { data: person, error: personError } = await supabase
     .from('people')
-    .insert({
-      church_id,
-      first_name,
-      last_name,
-      email: email || null,
-      phone: phone || null,
-      status: 'visitor',
-      campus: 'Bandar Sunway',
-    })
     .select('*')
+    .eq('id', outcome.result_person_id)
+    .eq('church_id', church_id)
     .single();
 
-  if (insertError) {
-    throw new Error(insertError.message);
+  if (personError || !person) {
+    throw new Error(personError?.message ?? 'Identity lookup person not found');
   }
 
-  return { person: newPerson as PersonWithRelations, found: false };
+  return {
+    person: person as PersonWithRelations,
+    found: outcome.result_found,
+  };
 }

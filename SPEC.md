@@ -41,6 +41,39 @@ CREATE TABLE churches (
 );
 ```
 
+### Church Memberships & Invitations
+
+<!-- AGENT: ARCHITECT -->
+
+`church_memberships` is the authorization source of truth connecting Supabase
+users to tenants. The `church_slug` value in auth user metadata may be retained
+temporarily for display or routing compatibility, but it must not grant access.
+
+```sql
+CREATE TABLE church_memberships (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  church_id   UUID NOT NULL REFERENCES churches(id) ON DELETE CASCADE,
+  user_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  role        TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'member')),
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (church_id, user_id)
+);
+```
+
+New accounts are invitation-only. Invitations are tenant-bound, expire, are
+single-use, and store a SHA-256 token hash rather than the raw invitation token.
+Only owners and administrators may issue invitations; only owners may invite
+administrators.
+
+RLS resolves access through `church_memberships`:
+
+- Owners and administrators can read and mutate ordinary tenant data.
+- Members can read ordinary tenant data but cannot mutate it.
+- API keys, webhooks, and webhook deliveries are manager-only.
+- Invitation rows are service-role-only so token hashes are never exposed.
+- Church and membership creation remain service-mediated operations.
+
 ### Core People
 
 ```sql
@@ -63,6 +96,8 @@ CREATE TABLE people (
   last_name       TEXT NOT NULL,
   email           TEXT,                   -- Unique per church (enforced via unique constraint)
   phone           TEXT,
+  email_normalized TEXT GENERATED ALWAYS AS (normalize_person_email(email)) STORED,
+  phone_normalized TEXT GENERATED ALWAYS AS (normalize_person_phone(phone)) STORED,
   gender          TEXT CHECK (gender IN ('male', 'female', 'other', 'prefer_not_to_say')),
   birthdate       DATE,
   marital_status  TEXT CHECK (marital_status IN ('single', 'married', 'divorced', 'widowed')),
@@ -80,7 +115,18 @@ CREATE TABLE people (
 
 CREATE INDEX idx_people_tenant_email ON people(church_id, email);
 CREATE INDEX idx_people_tenant_status ON people(church_id, status);
+CREATE UNIQUE INDEX people_church_email_normalized_key
+  ON people(church_id, email_normalized)
+  WHERE email_normalized IS NOT NULL;
+CREATE INDEX idx_people_church_phone_normalized
+  ON people(church_id, phone_normalized)
+  WHERE phone_normalized IS NOT NULL;
 ```
+
+Email identity is trimmed and case-insensitive. Malaysian local phone numbers
+beginning with `0` normalize to `+60`; punctuation and spacing are ignored.
+Phones are indexed but not unique because multiple people may legitimately
+share one number.
 
 ### Custom Fields & Tags
 
@@ -158,12 +204,36 @@ CREATE TABLE api_keys (
 
 All endpoints require `Authorization: Bearer <api_key>`. The API Key resolution intrinsically determines the `church_id` context. Integrations never need to pass `church_id` directly in payloads.
 
+`POST /people/lookup` is atomic and concurrency-safe. It returns an existing
+person when email or phone has one unambiguous match, creates a visitor when no
+match exists, and returns HTTP `409` with code `identity_conflict` when a phone
+matches multiple people or email and phone identify different people.
+
+### Admin tenant resolution
+
+<!-- AGENT: BACKEND -->
+
+Authenticated admin routes and Server Components resolve tenant context through
+`src/lib/tenant-context.ts`. The resolver validates the Supabase session, then
+verifies `church_memberships` using the service client. It never grants access
+from auth user metadata.
+
+For users with multiple memberships, the optional `people_church_id` cookie
+selects an active church only after membership verification. Without a valid
+selection, the resolver uses the user's earliest membership. Every service-role
+query must still include the resolved `church_id`.
+
+All mutation handlers must validate referenced IDs before writing. People,
+households, tags, custom fields, lists, workflows, workflow steps, cards, and
+assignees must belong to the resolved church. A request containing any missing
+or cross-tenant reference is rejected as a whole with HTTP `400`.
+
 ---
 
-## The Multi-Tenant Pivot Plan
+## The Multi-Tenant Pivot
 
 1. **Schema Migration:** Introduce the `churches` table. Add `church_id` to all existing tables (`people`, `households`, `api_keys`, etc.).
-2. **Row-Level Security (RLS):** Enable RLS on all tables to enforce isolation `where church_id = current_setting('app.current_tenant_id')`.
+2. **Row-Level Security (RLS):** Enable RLS on all tables and resolve tenant access through `church_memberships` and `auth.uid()`.
 3. **API Auth Update:** Update `src/lib/api-auth.ts` to return the `church_id` associated with the API key, and pass it downstream to all database mutations.
 4. **Middleware Update:** Inject tenant resolution via URL subdomains (e.g. `churchslug.people.harvestgen.org`) or user org selection.
 

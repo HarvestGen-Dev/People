@@ -49,7 +49,7 @@ export default function LandingPage() {
               A smarter way to manage your <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-emerald-400">church community</span>
             </h1>
             <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
-              People is a modern, blazing-fast, and beautiful CRM built to handle your congregation's data, interactions, and events effortlessly.
+              People is a modern, blazing-fast, and beautiful CRM built to handle your congregation&apos;s data, interactions, and events effortlessly.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link href="/signup">
@@ -117,7 +117,7 @@ export default function LandingPage() {
               </div>
               <h2 className="text-3xl font-bold tracking-tight text-foreground mb-4">Coming Soon</h2>
               <p className="text-lg text-muted-foreground mb-8">
-                We're constantly evolving. Here's a sneak peek at what's landing in the next few weeks.
+                We&apos;re constantly evolving. Here&apos;s a sneak peek at what&apos;s landing in the next few weeks.
               </p>
               
               <div className="grid sm:grid-cols-2 gap-4 text-left">

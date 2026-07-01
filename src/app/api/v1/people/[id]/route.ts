@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateApiKey } from '@/lib/api-auth';
 import { createServiceClient } from '@/lib/supabase/server';
+import { adminApiError } from '@/lib/tenant-context';
+import { assertTenantRecords } from '@/lib/tenant-references';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await validateApiKey(request, 'people:read');
@@ -29,12 +31,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Person not found' }, { status: 404 });
     }
 
-    const tags = (person.person_tags || []).map((pt: any) => pt.tag).filter(Boolean);
+    const tags = (person.person_tags || [])
+      .map((personTag: { tag: unknown }) => personTag.tag)
+      .filter(Boolean);
     const custom_fields: Record<string, string> = {};
     
-    (person.person_field_values || []).forEach((pfv: any) => {
-      if (pfv.field?.slug) {
-        custom_fields[pfv.field.slug] = pfv.value;
+    (person.person_field_values || []).forEach((fieldValue: {
+      field?: { slug?: string };
+      value: string;
+    }) => {
+      if (fieldValue.field?.slug) {
+        custom_fields[fieldValue.field.slug] = fieldValue.value;
       }
     });
 
@@ -58,8 +65,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       }
     });
 
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return adminApiError(error);
   }
 }
 
@@ -104,7 +111,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
     }
 
-    const updates: any = {};
+    const updates: Record<string, unknown> = {};
     if (body.first_name !== undefined) updates.first_name = body.first_name;
     if (body.last_name !== undefined) updates.last_name = body.last_name;
     if (body.email !== undefined) updates.email = body.email;
@@ -125,9 +132,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     if (body.tag_ids && Array.isArray(body.tag_ids)) {
-      await supabase.from('person_tags').delete().eq('person_id', id);
+      await assertTenantRecords('tags', body.tag_ids, churchId, 'tags');
+      await supabase
+        .from('person_tags')
+        .delete()
+        .eq('person_id', id)
+        .eq('church_id', churchId);
       if (body.tag_ids.length > 0) {
         const tagInserts = body.tag_ids.map((tagId: string) => ({
+          church_id: churchId,
           person_id: id,
           tag_id: tagId,
         }));
@@ -149,7 +162,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     return NextResponse.json({ data: { id, updated: true } });
 
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return adminApiError(error);
   }
 }

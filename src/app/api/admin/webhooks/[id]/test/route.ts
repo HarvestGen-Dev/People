@@ -1,25 +1,23 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { dispatchWebhook } from '@/lib/webhooks'
 import crypto from 'crypto'
+import {
+  adminApiError,
+  requireTenantContext,
+} from '@/lib/tenant-context'
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const churchSlug = user.user_metadata?.church_slug || 'harvestgen'
-  const { data: church } = await supabase.from('churches').select('id').eq('slug', churchSlug).single()
-  if (!church) return NextResponse.json({ error: 'No church' }, { status: 400 })
-
-  const { id } = await params;
+  try {
+    const { churchId } = await requireTenantContext({ requireManager: true })
+    const supabase = await createClient()
+    const { id } = await params;
 
   // Ensure webhook exists and belongs to church
   const { data: webhook, error } = await supabase
     .from('webhooks')
     .select('*')
     .eq('id', id)
-    .eq('church_id', church.id)
+    .eq('church_id', churchId)
     .single()
 
   if (error || !webhook) return NextResponse.json({ error: 'Webhook not found' }, { status: 404 })
@@ -40,7 +38,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const deliveryRecord = await supabase
     .from('webhook_deliveries')
     .insert({
-      church_id: church.id,
+      church_id: churchId,
       webhook_id: webhook.id,
       event_type: 'webhook.test',
       payload: fullPayload,
@@ -89,5 +87,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ success: false, error: errorMessage, duration }, { status: 500 })
   }
 
-  return NextResponse.json({ success: true, duration })
+    return NextResponse.json({ success: true, duration })
+  } catch (error: unknown) {
+    return adminApiError(error)
+  }
 }

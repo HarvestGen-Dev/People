@@ -1,12 +1,16 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import {
+  adminApiError,
+  requireTenantContext,
+} from '@/lib/tenant-context';
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { churchId, user } = await requireTenantContext({
+      requireManager: true,
+    });
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { id } = await params;
     const body = await request.json();
@@ -19,12 +23,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         reviewed_by: user.email,
         reviewed_at: new Date().toISOString(),
       })
-      .eq('id', id);
+      .eq('id', id)
+      .eq('church_id', churchId);
 
     if (error) throw error;
 
     return NextResponse.json({ data: { success: true } });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return adminApiError(error);
   }
 }

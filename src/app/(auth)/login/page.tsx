@@ -2,16 +2,15 @@
 
 import { useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useRouter } from 'next/navigation';
 
 import { loginWithPasswordAction } from './actions';
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -52,11 +51,15 @@ export default function LoginPage() {
         } else {
           // Redirect to dashboard on successful password login using full page load
           // to ensure cookies are sent to the server properly
-          window.location.href = '/people';
+          window.location.href = '/dashboard';
         }
       }
-    } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred. Please try again.');
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'An unexpected error occurred. Please try again.'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -124,7 +127,7 @@ export default function LoginPage() {
               {isLoading ? 'Signing in...' : loginMethod === 'magic_link' ? 'Send magic link' : 'Sign in'}
             </Button>
 
-            <div className="text-center pt-2">
+            <div className="text-center pt-2 space-y-3">
               <Button
                 type="button"
                 variant="link"
@@ -136,6 +139,12 @@ export default function LoginPage() {
               >
                 {loginMethod === 'magic_link' ? 'Sign in with password instead' : 'Sign in with magic link instead'}
               </Button>
+              <div className="text-sm text-muted-foreground mt-4">
+                Don&apos;t have an account?{' '}
+                <Link href="/signup" className="font-semibold text-primary hover:underline">
+                  Sign up
+                </Link>
+              </div>
             </div>
           </form>
         )}

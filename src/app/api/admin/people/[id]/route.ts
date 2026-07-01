@@ -1,14 +1,15 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import {
+  adminApiError,
+  requireTenantContext,
+} from '@/lib/tenant-context';
+import { assertTenantRecords } from '@/lib/tenant-references';
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { churchId } = await requireTenantContext({ requireManager: true });
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
     
     const { id } = await params;
 
@@ -17,36 +18,63 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const { error } = await supabase
       .from('people')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('church_id', churchId);
 
     if (error) throw error;
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return adminApiError(error);
   }
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { churchId } = await requireTenantContext({ requireManager: true });
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
     
     const { id } = await params;
     const body = await request.json();
     
     const { person, tags, customFields } = body;
 
+    await assertTenantRecords('people', [id], churchId, 'people');
+    await Promise.all([
+      assertTenantRecords(
+        'households',
+        person?.household_id ? [person.household_id] : [],
+        churchId,
+        'households'
+      ),
+      assertTenantRecords(
+        'tags',
+        Array.isArray(tags) ? tags : [],
+        churchId,
+        'tags'
+      ),
+      assertTenantRecords(
+        'field_definitions',
+        Array.isArray(customFields)
+          ? customFields.map(
+              (field: { field_definition_id?: unknown }) =>
+                field.field_definition_id
+            )
+          : [],
+        churchId,
+        'custom fields'
+      ),
+    ]);
+
     // 1. Update people table
     if (person && Object.keys(person).length > 0) {
+      delete person.church_id;
+      delete person.id;
       const { error: personError } = await supabase
         .from('people')
         .update(person)
-        .eq('id', id);
+        .eq('id', id)
+        .eq('church_id', churchId);
         
       if (personError) throw personError;
     }
@@ -54,11 +82,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     // 2. Sync person_tags (Delete all, then insert new)
     if (tags !== undefined) {
       // First delete existing tags
-      await supabase.from('person_tags').delete().eq('person_id', id);
+      await supabase
+        .from('person_tags')
+        .delete()
+        .eq('person_id', id)
+        .eq('church_id', churchId);
       
       // Then insert new tags if any
       if (tags.length > 0) {
         const tagInserts = tags.map((tagId: string) => ({
+          church_id: churchId,
           person_id: id,
           tag_id: tagId
         }));
@@ -69,7 +102,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     // 3. Upsert person_field_values
     if (customFields && customFields.length > 0) {
-      const fieldInserts = customFields.map((field: any) => ({
+      const fieldInserts = customFields.map((field: {
+        field_definition_id: string;
+        value: unknown;
+      }) => ({
+        church_id: churchId,
         person_id: id,
         field_definition_id: field.field_definition_id,
         value: field.value ? String(field.value) : null
@@ -83,7 +120,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     return NextResponse.json({ data: { id } });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return adminApiError(error);
   }
 }

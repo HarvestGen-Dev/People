@@ -1,23 +1,15 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { Topbar } from '@/components/layout/Topbar';
 import { ApiKeysManager } from '@/components/settings/ApiKeysManager';
+import { requireTenantContext } from '@/lib/tenant-context';
 
 export const metadata = {
   title: 'API Keys | Settings',
 };
 
 export default async function ApiKeysSettingsPage() {
+  const { churchId } = await requireTenantContext({ requireManager: true });
   const supabase = createServiceClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const churchSlug = user?.user_metadata?.church_slug || 'harvestgen';
-
-  const { data: church } = await supabase
-    .from('churches')
-    .select('id')
-    .eq('slug', churchSlug)
-    .single();
-
-  const churchId = church?.id;
 
   const { data: apiKeys } = await supabase
     .from('api_keys')

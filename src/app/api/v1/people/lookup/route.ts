@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateApiKey } from '@/lib/api-auth';
 import { createServiceClient } from '@/lib/supabase/server';
-import { lookupOrCreatePerson } from '@/lib/people/lookup-or-create';
+import {
+  lookupOrCreatePerson,
+  PersonIdentityConflictError,
+} from '@/lib/people/lookup-or-create';
 
 export async function POST(request: NextRequest) {
   const auth = await validateApiKey(request, 'people:lookup');
@@ -17,13 +20,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Must provide email or phone for lookup' }, { status: 400 });
     }
 
+    if (
+      source &&
+      source !== 'shepherd' &&
+      source !== 'drip_brew'
+    ) {
+      return NextResponse.json(
+        { error: 'source must be shepherd or drip_brew' },
+        { status: 400 }
+      );
+    }
+
     const { person, found } = await lookupOrCreatePerson({
       church_id: auth.apiKey!.church_id,
       email,
       phone,
       first_name: first_name || 'Unknown',
       last_name: last_name || 'Unknown',
-      source: source || 'api'
     });
 
     const supabase = createServiceClient();
@@ -43,7 +56,8 @@ export async function POST(request: NextRequest) {
     const { data: personTags } = await supabase
       .from('person_tags')
       .select('tag:tags(id, name, color)')
-      .eq('person_id', person.id);
+      .eq('person_id', person.id)
+      .eq('church_id', auth.apiKey!.church_id);
 
     const tags = (personTags || []).map(pt => pt.tag).filter(Boolean);
 
@@ -68,8 +82,21 @@ export async function POST(request: NextRequest) {
       } 
     });
 
-  } catch (err: any) {
-    console.error('Error in POST /people/lookup:', err);
-    return NextResponse.json({ error: err.message || 'Invalid request body' }, { status: 400 });
+  } catch (error: unknown) {
+    console.error('Error in POST /people/lookup:', error);
+    if (error instanceof PersonIdentityConflictError) {
+      return NextResponse.json(
+        { error: error.message, code: 'identity_conflict' },
+        { status: 409 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error ? error.message : 'Invalid request body',
+      },
+      { status: 400 }
+    );
   }
 }

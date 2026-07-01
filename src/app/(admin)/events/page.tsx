@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { format } from 'date-fns';
 import { EventWithStats } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { requireTenantContext } from '@/lib/tenant-context';
 
 export const metadata = {
   title: 'Events | HarvestGen',
@@ -16,18 +17,8 @@ export const metadata = {
 import { CopyButton } from '@/components/events/CopyButton';
 
 export default async function EventsPage() {
+  const { churchId } = await requireTenantContext();
   const supabase = createServiceClient();
-  
-  const { data: { user } } = await supabase.auth.getUser();
-  const churchSlug = user?.user_metadata?.church_slug || 'harvestgen';
-  
-  const { data: church } = await supabase
-    .from('churches')
-    .select('id')
-    .eq('slug', churchSlug)
-    .single();
-
-  const churchId = church?.id;
 
   // Manual query execution instead of raw SQL since Supabase JS doesn't easily let us execute raw string SQL
   // We fetch events and group counts manually if no RPC exists.
@@ -45,7 +36,10 @@ export default async function EventsPage() {
       .select('event_id, status')
       .eq('church_id', churchId);
 
-    const regByEvent = (registrations || []).reduce((acc: any, reg: any) => {
+    const regByEvent = (registrations || []).reduce<Record<
+      string,
+      { total: number; pending: number; approved: number }
+    >>((acc, reg) => {
       if (!acc[reg.event_id]) {
         acc[reg.event_id] = { total: 0, pending: 0, approved: 0 };
       }

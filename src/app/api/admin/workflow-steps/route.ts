@@ -1,17 +1,28 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import {
+  adminApiError,
+  requireTenantContext,
+} from '@/lib/tenant-context';
+import { assertTenantRecords } from '@/lib/tenant-references';
 
 export async function POST(request: Request) {
   try {
+    const { churchId } = await requireTenantContext({ requireManager: true });
     const supabase = createServiceClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await request.json();
+    await assertTenantRecords(
+      'workflows',
+      [body.workflow_id],
+      churchId,
+      'workflows'
+    );
 
     const { data, error } = await supabase
       .from('workflow_steps')
       .insert({
+        church_id: churchId,
         workflow_id: body.workflow_id,
         name: body.name,
         position: body.position || 0
@@ -21,7 +32,7 @@ export async function POST(request: Request) {
 
     if (error) throw error;
     return NextResponse.json({ data });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return adminApiError(error);
   }
 }

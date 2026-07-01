@@ -72,7 +72,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ data: { event_id: event.id } }, { status: 201 });
 
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error ? error.message : 'Unable to create event',
+      },
+      { status: 500 }
+    );
   }
 }

@@ -2,23 +2,15 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { Topbar } from '@/components/layout/Topbar';
 import { KanbanBoard } from '@/components/workflows/KanbanBoard';
 import { notFound } from 'next/navigation';
+import { requireTenantContext } from '@/lib/tenant-context';
 
 export const metadata = {
   title: 'Workflow Board | People',
 };
 
 export default async function WorkflowDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { churchId } = await requireTenantContext();
   const supabase = createServiceClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const churchSlug = user?.user_metadata?.church_slug || 'harvestgen';
-
-  const { data: church } = await supabase
-    .from('churches')
-    .select('id')
-    .eq('slug', churchSlug)
-    .single();
-
-  const churchId = church?.id;
   const { id } = await params;
 
   const { data: workflow } = await supabase

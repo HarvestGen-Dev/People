@@ -1,30 +1,19 @@
 import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import { WebhooksClient } from './WebhooksClient'
+import { requireTenantContext } from '@/lib/tenant-context'
 
 export const metadata = {
   title: 'Webhooks Settings | HarvestGen People'
 }
 
 export default async function WebhooksSettingsPage() {
+  const { churchId } = await requireTenantContext({ requireManager: true })
   const supabase = await createClient()
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const churchSlug = user.user_metadata?.church_slug || 'harvestgen'
-  const { data: church } = await supabase
-    .from('churches')
-    .select('id')
-    .eq('slug', churchSlug)
-    .single()
-
-  if (!church) redirect('/login')
 
   const { data: webhooks } = await supabase
     .from('webhooks')
     .select('*, deliveries:webhook_deliveries(id, delivered_at, failed_at, response_status)')
-    .eq('church_id', church.id)
+    .eq('church_id', churchId)
     .order('created_at', { ascending: false })
 
   return (

@@ -1,23 +1,15 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { Topbar } from '@/components/layout/Topbar';
 import { WorkflowIndexManager } from '@/components/workflows/WorkflowIndexManager';
+import { requireTenantContext } from '@/lib/tenant-context';
 
 export const metadata = {
   title: 'Workflows | People',
 };
 
 export default async function WorkflowsPage() {
+  const { churchId } = await requireTenantContext();
   const supabase = createServiceClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const churchSlug = user?.user_metadata?.church_slug || 'harvestgen';
-
-  const { data: church } = await supabase
-    .from('churches')
-    .select('id')
-    .eq('slug', churchSlug)
-    .single();
-
-  const churchId = church?.id;
 
   // We can just fetch all workflows and their cards here, or compute counts.
   // The query `COUNT(wc.id) FILTER (WHERE wc.completed_at IS NULL)` requires RPC or raw SQL 
@@ -33,8 +25,8 @@ export default async function WorkflowsPage() {
     .order('created_at', { ascending: false });
 
   const workflows = (workflowsData || []).map(w => {
-    const active_cards = w.workflow_cards.filter((c: any) => !c.completed_at).length;
-    const completed_cards = w.workflow_cards.filter((c: any) => !!c.completed_at).length;
+    const active_cards = w.workflow_cards.filter((card) => !card.completed_at).length;
+    const completed_cards = w.workflow_cards.filter((card) => !!card.completed_at).length;
     return {
       ...w,
       steps_count: w.workflow_steps.length,

@@ -1,11 +1,18 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import {
+  adminApiError,
+  requireTenantContext,
+} from '@/lib/tenant-context';
+import {
+  assertStaticList,
+  assertTenantRecords,
+} from '@/lib/tenant-references';
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { churchId } = await requireTenantContext({ requireManager: true });
     const supabase = createServiceClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { id } = await params;
     const body = await request.json();
@@ -14,9 +21,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'person_ids array is required' }, { status: 400 });
     }
 
+    await Promise.all([
+      assertStaticList(id, churchId),
+      assertTenantRecords(
+        'people',
+        body.person_ids,
+        churchId,
+        'people'
+      ),
+    ]);
+
     const inserts = body.person_ids.map((personId: string) => ({
       list_id: id,
-      person_id: personId
+      person_id: personId,
+      church_id: churchId,
     }));
 
     // On conflict do nothing is not natively supported by basic insert without upsert constraints in supabase JS sometimes, 
@@ -27,7 +45,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     if (error) throw error;
     return NextResponse.json({ data: { success: true } });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return adminApiError(error);
   }
 }

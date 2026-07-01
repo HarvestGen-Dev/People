@@ -1,4 +1,4 @@
-import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/server';
 import { PersonTable } from '@/components/people/PersonTable';
 import { PeopleFilters } from '@/components/people/PeopleFilters';
 import { Pagination } from '@/components/ui/pagination';
@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
 import { getPeople, PeopleFilters as QueryFilters } from '@/lib/queries/people';
-import { redirect } from 'next/navigation';
 import { Tag } from '@/lib/types';
+import { requireTenantContext } from '@/lib/tenant-context';
 
 export const metadata = {
   title: 'People | HarvestGen',
@@ -18,21 +18,8 @@ export default async function PeoplePage({
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
+  const { churchId } = await requireTenantContext();
   const supabase = await createClient();
-  const serviceClient = createServiceClient();
-  
-  // Get current user and church_id
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-  
-  const churchSlug = user.user_metadata?.church_slug || 'harvestgen';
-  const { data: church } = await serviceClient
-    .from('churches')
-    .select('id')
-    .eq('slug', churchSlug)
-    .single();
-    
-  if (!church) redirect('/login');
 
   const resolvedSearchParams = await searchParams;
   const page = typeof resolvedSearchParams.page === 'string' ? parseInt(resolvedSearchParams.page, 10) : 1;
@@ -41,7 +28,7 @@ export default async function PeoplePage({
   const tag = typeof resolvedSearchParams.tag === 'string' ? resolvedSearchParams.tag : undefined;
 
   const filters: QueryFilters = {
-    church_id: church.id,
+    church_id: churchId,
     page,
     pageSize: 50,
     search,
@@ -55,7 +42,7 @@ export default async function PeoplePage({
   const { data: tagsData } = await supabase
     .from('tags')
     .select('*')
-    .eq('church_id', church.id)
+    .eq('church_id', churchId)
     .order('name');
     
   const tags = (tagsData as Tag[]) || [];

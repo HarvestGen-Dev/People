@@ -12,6 +12,14 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Legacy local maintenance scripts are not shipped application code.
+    "create-user.js",
+    "fix-rls.js",
+    "test-churches.js",
+    "test-db.js",
+    "test-login.js",
+    "update-user.js",
+    "update-user2.js",
   ]),
 ]);
 

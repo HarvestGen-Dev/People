@@ -48,7 +48,7 @@ export default function GuidePage() {
                 </h2>
               </div>
               <div className="prose prose-slate max-w-none text-muted-foreground">
-                <p className="mb-4 text-lg">The first thing you'll need to do is create an account and sign in to access your dashboard.</p>
+                <p className="mb-4 text-lg">The first thing you&apos;ll need to do is create an account and sign in to access your dashboard.</p>
                 <ul className="list-disc pl-6 space-y-2">
                   <li>Click <strong>Get Started</strong> on the top right to create your administrative account.</li>
                   <li>Once logged in, you will be taken to the main <strong>People</strong> directory.</li>

@@ -8,21 +8,15 @@ import { SmartListBuilder } from '@/components/lists/SmartListBuilder';
 // I'll create the static list right here if it's static, or I'll just provide a simple save for static list.
 
 import { StaticListBuilder } from '@/components/lists/StaticListBuilder';
+import { requireTenantContext } from '@/lib/tenant-context';
 
 export const metadata = {
   title: 'New List | People',
 };
 
 export default async function NewListPage({ searchParams }: { searchParams: Promise<{ type: string, name: string }> }) {
+  const { churchId } = await requireTenantContext({ requireManager: true });
   const supabase = createServiceClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const churchSlug = user?.user_metadata?.church_slug || 'harvestgen';
-
-  const { data: church } = await supabase
-    .from('churches')
-    .select('id')
-    .eq('slug', churchSlug)
-    .single();
 
   const { type, name } = await searchParams;
 
@@ -30,7 +24,7 @@ export default async function NewListPage({ searchParams }: { searchParams: Prom
   const { data: tags } = await supabase
     .from('tags')
     .select('id, name, color')
-    .eq('church_id', church?.id)
+    .eq('church_id', churchId)
     .order('name');
 
   return (

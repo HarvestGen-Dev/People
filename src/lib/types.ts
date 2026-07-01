@@ -148,6 +148,21 @@ export interface List {
   updated_at: string;
 }
 
+export type SmartListRule = {
+  field: string;
+  op: string;
+  value?: unknown;
+};
+
+export type SmartListFilters = {
+  operator: 'AND' | 'OR';
+  rules: SmartListRule[];
+};
+
+export interface ListWithCount extends List {
+  member_count: number | null;
+}
+
 export interface ListPeople {
   list_id: string;
   person_id: string;
@@ -175,7 +190,7 @@ export interface Webhook {
   events: string[];
   secret: string;
   is_active: boolean;
-  deliveries?: any[];
+  deliveries?: WebhookDelivery[];
   created_at: string;
 }
 
@@ -260,4 +275,3 @@ export type PersonSummary = {
   created_at: string
   updated_at: string
 }
-
