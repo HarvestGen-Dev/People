@@ -2,6 +2,8 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { Topbar } from '@/components/layout/Topbar';
 import { KanbanBoard } from '@/components/workflows/KanbanBoard';
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
 import { requireTenantContext } from '@/lib/tenant-context';
 import type {
   Workflow,
@@ -54,8 +56,16 @@ export default async function WorkflowDetailPage({ params }: { params: Promise<{
 
   return (
     <>
-      <Topbar title={workflow.name} />
-      <div className="h-[calc(100vh-64px)] overflow-hidden">
+      <Topbar title={workflow.name}>
+        <Link
+          href="/workflows"
+          className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          All workflows
+        </Link>
+      </Topbar>
+      <div className="overflow-hidden">
         <KanbanBoard
           workflow={workflow as Workflow}
           initialSteps={(steps || []) as WorkflowStep[]}

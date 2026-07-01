@@ -8,7 +8,7 @@ import { Event } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Upload, CheckCircle2, Loader2, ArrowLeft } from 'lucide-react';
+import { Upload, CheckCircle2, Loader2, ArrowLeft, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface RegistrationFormProps {
@@ -58,14 +58,10 @@ export function RegistrationForm({ event, spotsRemaining }: RegistrationFormProp
   };
 
   const uploadProof = async (file: File): Promise<string> => {
-    // Generate a temporary unique ID for the file before we have a registration ID
-    // In production, you might create the registration first, then upload, then update.
-    // For simplicity: upload to a generic path, send URL in payload.
     const formData = new FormData();
     formData.append('file', file);
     formData.append('eventId', event.id);
     
-    // We will upload directly to public upload endpoint
     const res = await fetch(`/api/public/events/${event.id}/upload-proof`, {
       method: 'POST',
       body: formData,
@@ -128,17 +124,17 @@ export function RegistrationForm({ event, spotsRemaining }: RegistrationFormProp
 
   if (step === 3) {
     return (
-      <div className="text-center py-6 animate-in zoom-in-95 duration-500">
-        <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+      <div className="py-8 text-center animate-in zoom-in-95 duration-500">
+        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-100">
           <CheckCircle2 className="h-8 w-8 text-emerald-600" />
         </div>
-        <h3 className="text-xl font-bold text-slate-900 mb-2">Registration submitted!</h3>
-        <p className="text-slate-600 mb-6">
+        <h3 className="mb-2 text-xl font-bold text-slate-950">Registration submitted</h3>
+        <p className="mb-6 text-sm leading-6 text-slate-600">
           {isFree 
             ? `We've received your registration for ${event.name}. You will receive a confirmation email shortly.`
             : `We've received your registration for ${event.name}. Our team will verify your payment shortly — you'll get a confirmation email once approved.`}
         </p>
-        <div className="bg-slate-50 p-3 rounded-lg border border-border text-sm font-mono text-slate-500">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 font-mono text-sm text-slate-500">
           Ref: {referenceNumber}
         </div>
       </div>
@@ -147,11 +143,29 @@ export function RegistrationForm({ event, spotsRemaining }: RegistrationFormProp
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <form onSubmit={handleSubmit(step === 1 ? onStep1Next : (data) => submitRegistration(data))} className="space-y-4">
+      {!isFree && (
+        <div className="mb-6 flex items-center gap-2">
+          {[
+            ['1', 'Details'],
+            ['2', 'Payment'],
+          ].map(([number, label], index) => (
+            <div key={number} className="flex flex-1 items-center gap-2">
+              <div className={`grid h-7 w-7 place-items-center rounded-full text-[10px] font-bold ${step >= Number(number) ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                {number}
+              </div>
+              <span className={`text-xs font-semibold ${step >= Number(number) ? 'text-slate-700' : 'text-slate-400'}`}>
+                {label}
+              </span>
+              {index === 0 && <div className="ml-auto h-px flex-1 bg-slate-200" />}
+            </div>
+          ))}
+        </div>
+      )}
+      <form onSubmit={handleSubmit(step === 1 ? onStep1Next : (data) => submitRegistration(data))} className="space-y-4 [&_[data-slot=input]]:h-11 [&_[data-slot=input]]:rounded-xl">
         
         {step === 1 && (
           <>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="text-sm font-medium mb-1 block">First Name</label>
                 <Input {...register('first_name')} className="rounded-xl" />
@@ -176,7 +190,6 @@ export function RegistrationForm({ event, spotsRemaining }: RegistrationFormProp
               {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone.message}</p>}
             </div>
 
-            {/* Always allow selecting guests, but max out at spotsRemaining if applicable */}
             <div>
               <label className="text-sm font-medium mb-1 block">Number of Guests</label>
               <Input 
@@ -190,13 +203,13 @@ export function RegistrationForm({ event, spotsRemaining }: RegistrationFormProp
             </div>
 
             {!isFree && (
-              <div className="py-2 flex justify-between items-center font-medium border-t border-border mt-4">
-                <span>Total Amount:</span>
-                <span className="text-lg">RM {amountDue.toFixed(2)}</span>
+              <div className="mt-5 flex items-center justify-between rounded-xl bg-slate-50 p-4 font-medium">
+                <span className="text-sm text-slate-500">Total amount</span>
+                <span className="text-xl font-bold text-slate-950">RM {amountDue.toFixed(2)}</span>
               </div>
             )}
 
-            <Button type="submit" className="w-full rounded-xl mt-4 h-11 text-base font-semibold" disabled={isSubmitting}>
+            <Button type="submit" className="mt-4 h-11 w-full rounded-xl bg-emerald-700 text-base font-bold hover:bg-emerald-800" disabled={isSubmitting}>
               {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
               {isFree ? 'Register' : 'Continue to Payment'}
             </Button>
@@ -213,14 +226,14 @@ export function RegistrationForm({ event, spotsRemaining }: RegistrationFormProp
               <ArrowLeft className="h-4 w-4 mr-1" /> Back
             </button>
 
-            <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl text-center">
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-center">
               <p className="text-sm text-amber-800 font-medium mb-1">Please pay</p>
               <p className="text-2xl font-bold text-amber-900">RM {amountDue.toFixed(2)}</p>
             </div>
 
             {event.payment_qr_url ? (
               <div className="text-center">
-                <img src={event.payment_qr_url} alt="Payment QR" className="max-w-[200px] mx-auto rounded-lg shadow-sm border border-slate-200" />
+                <img src={event.payment_qr_url} alt="Payment QR" className="mx-auto max-w-[220px] rounded-2xl border border-slate-200 shadow-sm" />
               </div>
             ) : event.payment_link ? (
               <Button type="button" variant="outline" className="w-full rounded-xl h-11" onClick={() => window.open(event.payment_link!, '_blank')}>
@@ -229,14 +242,14 @@ export function RegistrationForm({ event, spotsRemaining }: RegistrationFormProp
             ) : null}
 
             {event.payment_instructions && (
-              <div className="text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
                 {event.payment_instructions}
               </div>
             )}
 
             <div className="border-t border-border pt-4">
               <label className="text-sm font-medium mb-2 block">Upload Payment Proof</label>
-              <div className="relative group w-full aspect-video border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors overflow-hidden">
+              <div className="group relative aspect-video w-full overflow-hidden rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 transition-colors hover:bg-slate-100">
                 {proofPreviewUrl ? (
                   <>
                     <img src={proofPreviewUrl} alt="Proof" className="w-full h-full object-contain" />
@@ -266,9 +279,9 @@ export function RegistrationForm({ event, spotsRemaining }: RegistrationFormProp
               </label>
             </div>
 
-            <Button 
+            <Button
               type="submit" 
-              className="w-full rounded-xl h-11 text-base font-semibold" 
+              className="h-11 w-full rounded-xl bg-emerald-700 text-base font-bold hover:bg-emerald-800"
               disabled={!proofFile || !watchPaid || isSubmitting}
             >
               {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
@@ -281,6 +294,3 @@ export function RegistrationForm({ event, spotsRemaining }: RegistrationFormProp
     </div>
   );
 }
-
-// Ensure you import ExternalLink if using payment link
-import { ExternalLink } from 'lucide-react';

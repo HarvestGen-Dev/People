@@ -15,7 +15,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Upload, Loader2, Image as ImageIcon, QrCode, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { marked } from 'marked';
-import { cn } from '@/lib/utils';
 
 interface EventFormProps {
   event?: Event;
@@ -43,15 +42,13 @@ function slugify(text: string) {
     .toLowerCase()
     .trim()
     .replace(/\s+/g, '-')       // Replace spaces with -
-    .replace(/[^\w\-]+/g, '')   // Remove all non-word chars
-    .replace(/\-\-+/g, '-');    // Replace multiple - with single -
+    .replace(/[^\w-]+/g, '')   // Remove all non-word chars
+    .replace(/--+/g, '-');    // Replace multiple - with single -
 }
 
 export function EventForm({ event }: EventFormProps) {
   const router = useRouter();
   const isEdit = !!event;
-
-  const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://people.harvestgen.org';
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [coverUrl, setCoverUrl] = useState(event?.cover_image_url || null);
@@ -183,24 +180,24 @@ export function EventForm({ event }: EventFormProps) {
   };
 
   return (
-    <div className="space-y-6">
-      <Card className="rounded-2xl border-border shadow-sm">
-        <CardHeader>
-          <CardTitle>Basic Information</CardTitle>
+    <div className="space-y-5 [&_[data-slot=input]]:h-11 [&_[data-slot=input]]:rounded-xl">
+      <Card className="rounded-3xl border-slate-200/80 bg-white shadow-none">
+        <CardHeader className="border-b border-slate-100">
+          <CardTitle className="text-lg font-bold text-slate-950">Event details</CardTitle>
           <CardDescription>Core details about the event.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-6 pt-6">
           <div className="grid gap-4">
             <div>
               <label className="text-sm font-medium mb-1 block">Event Name <span className="text-red-500">*</span></label>
-              <Input {...register('name')} className="rounded-xl text-lg font-medium h-12" placeholder="e.g. Youth Camp 2026" />
+              <Input {...register('name')} className="h-12 rounded-xl bg-slate-50 text-lg font-semibold shadow-none" placeholder="e.g. Youth Camp 2026" />
               {errors.name && <p className="text-xs text-destructive mt-1">{errors.name.message as string}</p>}
             </div>
 
             <div>
               <label className="text-sm font-medium mb-1 block">Public URL Slug <span className="text-red-500">*</span></label>
               <div className="flex items-center">
-                <span className="bg-muted px-3 border border-r-0 border-input rounded-l-xl h-10 flex items-center text-sm text-muted-foreground">
+                <span className="flex h-11 items-center rounded-l-xl border border-r-0 border-slate-200 bg-slate-50 px-3 text-sm text-slate-400">
                   people.harvestgen.org/e/
                 </span>
                 <Input {...register('slug')} className="rounded-l-none rounded-r-xl" placeholder="youth-camp-2026" />
@@ -210,8 +207,8 @@ export function EventForm({ event }: EventFormProps) {
 
             <div>
               <label className="text-sm font-medium mb-1 block">Description</label>
-              <Tabs defaultValue="write" className="w-full border border-input rounded-xl overflow-hidden">
-                <div className="bg-muted px-3 py-2 border-b border-input flex items-center justify-between">
+              <Tabs defaultValue="write" className="w-full overflow-hidden rounded-2xl border border-slate-200">
+                <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-3 py-2">
                   <TabsList className="h-8 bg-transparent p-0">
                     <TabsTrigger value="write" className="data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md px-3 text-xs">Write</TabsTrigger>
                     <TabsTrigger value="preview" className="data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md px-3 text-xs">Preview</TabsTrigger>
@@ -256,13 +253,13 @@ export function EventForm({ event }: EventFormProps) {
         </CardContent>
       </Card>
 
-      <Card className="rounded-2xl border-border shadow-sm">
-        <CardHeader>
-          <CardTitle>Cover Image</CardTitle>
+      <Card className="rounded-3xl border-slate-200/80 bg-white shadow-none">
+        <CardHeader className="border-b border-slate-100">
+          <CardTitle className="text-lg font-bold text-slate-950">Cover image</CardTitle>
           <CardDescription>Recommended: 1200×630px (16:9)</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="relative group w-full aspect-[16/9] max-w-2xl border-2 border-dashed border-border rounded-xl bg-muted overflow-hidden transition-all hover:bg-muted/80">
+        <CardContent className="pt-6">
+          <div className="group relative aspect-[16/7.5] w-full max-w-3xl overflow-hidden rounded-2xl border-2 border-dashed border-emerald-200 bg-emerald-50 transition-all hover:bg-emerald-100/70">
             {coverUrl ? (
               <>
                 <img src={coverUrl} alt="Cover Preview" className="w-full h-full object-cover" />
@@ -283,12 +280,13 @@ export function EventForm({ event }: EventFormProps) {
         </CardContent>
       </Card>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card className="rounded-2xl border-border shadow-sm h-fit">
-          <CardHeader>
-            <CardTitle>Capacity & Pricing</CardTitle>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Card className="h-fit rounded-3xl border-slate-200/80 bg-white shadow-none">
+          <CardHeader className="border-b border-slate-100">
+            <CardTitle className="text-lg font-bold text-slate-950">Capacity & pricing</CardTitle>
+            <CardDescription>Control attendance limits and whether payment is required.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 pt-6">
             <div>
               <label className="text-sm font-medium mb-1 block">Capacity</label>
               <Input type="number" {...register('capacity', { valueAsNumber: true })} className="rounded-xl" placeholder="Leave blank for unlimited" />
@@ -303,7 +301,7 @@ export function EventForm({ event }: EventFormProps) {
         </Card>
 
         {watchPrice > 0 && (
-          <Card className="rounded-2xl border-amber-200 bg-amber-50/30 shadow-sm h-fit animate-in fade-in slide-in-from-top-4 duration-300">
+          <Card className="h-fit rounded-3xl border-amber-200 bg-amber-50/40 shadow-none animate-in fade-in slide-in-from-top-4 duration-300">
             <CardHeader className="pb-3 border-b border-amber-100 mb-4">
               <CardTitle className="text-amber-800 flex items-center gap-2"><QrCode className="h-5 w-5" /> Payment Details</CardTitle>
             </CardHeader>
@@ -356,11 +354,12 @@ export function EventForm({ event }: EventFormProps) {
         )}
       </div>
 
-      <Card className="rounded-2xl border-border shadow-sm">
-        <CardHeader>
-          <CardTitle>Publish Status</CardTitle>
+      <Card className="rounded-3xl border-slate-200/80 bg-white shadow-none">
+        <CardHeader className="border-b border-slate-100">
+          <CardTitle className="text-lg font-bold text-slate-950">Publish status</CardTitle>
+          <CardDescription>Choose whether registration is private, open, or closed.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <Controller
             control={control}
             name="status"
@@ -393,8 +392,8 @@ export function EventForm({ event }: EventFormProps) {
         </CardContent>
       </Card>
 
-      <div className="flex justify-end gap-3 pt-4 border-t border-border mt-8">
-        <Button variant="outline" type="button" onClick={() => router.back()} disabled={isSubmitting} className="rounded-xl">
+      <div className="sticky bottom-3 z-20 mt-8 flex flex-col-reverse justify-end gap-3 rounded-2xl border border-slate-200 bg-white/92 p-3 shadow-[0_20px_55px_-30px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:flex-row">
+        <Button variant="outline" type="button" onClick={() => router.back()} disabled={isSubmitting} className="h-10 rounded-xl px-5">
           Cancel
         </Button>
         <Button 
@@ -402,7 +401,7 @@ export function EventForm({ event }: EventFormProps) {
           type="button" 
           onClick={handleSubmit((data) => onSubmit(data, false))} 
           disabled={isSubmitting} 
-          className="rounded-xl shadow-sm"
+          className="h-10 rounded-xl px-5 shadow-sm"
         >
           {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           {isEdit ? 'Save Changes' : 'Save Draft'}
@@ -413,7 +412,7 @@ export function EventForm({ event }: EventFormProps) {
             type="button" 
             onClick={handleSubmit((data) => onSubmit(data, true))} 
             disabled={isSubmitting} 
-            className="rounded-xl shadow-sm bg-emerald-600 hover:bg-emerald-700 text-white px-8"
+            className="h-10 rounded-xl bg-emerald-700 px-8 font-bold text-white shadow-sm hover:bg-emerald-800"
           >
             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Save & Publish

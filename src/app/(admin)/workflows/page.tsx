@@ -1,5 +1,4 @@
 import { createServiceClient } from '@/lib/supabase/server';
-import { Topbar } from '@/components/layout/Topbar';
 import { WorkflowIndexManager } from '@/components/workflows/WorkflowIndexManager';
 import { requireTenantContext } from '@/lib/tenant-context';
 
@@ -11,9 +10,6 @@ export default async function WorkflowsPage() {
   const { churchId } = await requireTenantContext();
   const supabase = createServiceClient();
 
-  // We can just fetch all workflows and their cards here, or compute counts.
-  // The query `COUNT(wc.id) FILTER (WHERE wc.completed_at IS NULL)` requires RPC or raw SQL 
-  // if not supported by PostgREST easily. We can fetch workflows and cards and reduce in JS.
   const { data: workflowsData } = await supabase
     .from('workflows')
     .select(`
@@ -40,11 +36,8 @@ export default async function WorkflowsPage() {
   });
 
   return (
-    <>
-      <Topbar title="Workflows" />
-      <div className="p-8 max-w-6xl animate-in fade-in-50 duration-300">
-        <WorkflowIndexManager initialWorkflows={workflows} />
-      </div>
-    </>
+    <div className="mx-auto max-w-[1440px] p-5 animate-in fade-in-50 duration-300 sm:p-8 lg:p-10">
+      <WorkflowIndexManager initialWorkflows={workflows} />
+    </div>
   );
 }

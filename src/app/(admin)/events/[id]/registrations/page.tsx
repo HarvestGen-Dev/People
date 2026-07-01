@@ -44,10 +44,9 @@ export default async function EventRegistrationsPage({ params }: { params: Promi
         </Link>
       </Topbar>
 
-      <div className="p-8 max-w-7xl mx-auto animate-in fade-in-50 duration-300">
+      <div className="mx-auto max-w-[1440px] p-5 animate-in fade-in-50 duration-300 sm:p-8 lg:p-10">
         <RegistrationsTable 
           registrations={registrations || []} 
-          eventId={event.id}
           isFreeEvent={event.price === 0}
         />
       </div>

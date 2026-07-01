@@ -1,205 +1,479 @@
 'use client';
 
+// <!-- AGENT: FRONTEND -->
 import { useState } from 'react';
-import { EventRegistration } from '@/lib/types';
+import { useRouter } from 'next/navigation';
+import {
+  Check,
+  CheckCircle2,
+  Clock3,
+  Loader2,
+  UserCheck,
+  Users,
+  X,
+} from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import { toast } from 'sonner';
+import type { EventRegistration } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { formatDistanceToNow } from 'date-fns';
-import { Check, X, Loader2, Image as ImageIcon } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
 
-export function RegistrationsTable({ registrations, eventId, isFreeEvent }: { registrations: EventRegistration[], eventId: string, isFreeEvent: boolean }) {
-  const [filter, setFilter] = useState<'all' | 'pending_review' | 'approved' | 'rejected'>('pending_review');
+type RegistrationFilter =
+  | 'all'
+  | 'pending_review'
+  | 'approved'
+  | 'rejected';
+
+export function RegistrationsTable({
+  registrations,
+  isFreeEvent,
+}: {
+  registrations: EventRegistration[];
+  isFreeEvent: boolean;
+}) {
+  const router = useRouter();
+  const [filter, setFilter] =
+    useState<RegistrationFilter>('pending_review');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
   const [rejectDialogId, setRejectDialogId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
-  const filteredRegs = registrations.filter(r => filter === 'all' || r.status === filter);
+  const filteredRegistrations = registrations.filter(
+    (registration) => filter === 'all' || registration.status === filter
+  );
+  const statusCounts = {
+    all: registrations.length,
+    pending_review: registrations.filter(
+      (registration) => registration.status === 'pending_review'
+    ).length,
+    approved: registrations.filter(
+      (registration) => registration.status === 'approved'
+    ).length,
+    rejected: registrations.filter(
+      (registration) => registration.status === 'rejected'
+    ).length,
+  };
+
+  const updateLoading = (ids: string[], loading: boolean) => {
+    setLoadingIds((current) => {
+      const next = new Set(current);
+      ids.forEach((id) => {
+        if (loading) next.add(id);
+        else next.delete(id);
+      });
+      return next;
+    });
+  };
 
   const handleApprove = async (id: string) => {
-    setLoadingIds(prev => new Set(prev).add(id));
+    updateLoading([id], true);
     try {
-      const res = await fetch(`/api/admin/registrations/${id}/approve`, { method: 'POST' });
-      if (!res.ok) throw new Error('Failed to approve');
+      const response = await fetch(
+        `/api/admin/registrations/${id}/approve`,
+        { method: 'POST' }
+      );
+      if (!response.ok) throw new Error('Failed to approve');
       toast.success('Approved — confirmation email sent');
-      window.location.reload(); // Quick refresh for now
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to approve');
-      setLoadingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
+      router.refresh();
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to approve'
+      );
+    } finally {
+      updateLoading([id], false);
     }
   };
 
   const handleReject = async () => {
     if (!rejectDialogId) return;
-    setLoadingIds(prev => new Set(prev).add(rejectDialogId));
+    const id = rejectDialogId;
+    updateLoading([id], true);
     try {
-      const res = await fetch(`/api/admin/registrations/${rejectDialogId}/reject`, { 
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason: rejectReason })
-      });
-      if (!res.ok) throw new Error('Failed to reject');
+      const response = await fetch(
+        `/api/admin/registrations/${id}/reject`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reason: rejectReason }),
+        }
+      );
+      if (!response.ok) throw new Error('Failed to reject');
       toast.success('Registration rejected');
       setRejectDialogId(null);
       setRejectReason('');
-      window.location.reload();
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to reject');
-      setLoadingIds(prev => { const n = new Set(prev); n.delete(rejectDialogId); return n; });
+      router.refresh();
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to reject'
+      );
+    } finally {
+      updateLoading([id], false);
     }
   };
 
   const handleBulkApprove = async () => {
     if (selectedIds.size === 0) return;
     const ids = Array.from(selectedIds);
-    setLoadingIds(prev => { const n = new Set(prev); ids.forEach(id => n.add(id)); return n; });
+    updateLoading(ids, true);
     try {
-      const res = await fetch(`/api/admin/registrations/bulk-approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids })
-      });
-      if (!res.ok) throw new Error('Bulk approve failed');
+      const response = await fetch(
+        '/api/admin/registrations/bulk-approve',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids }),
+        }
+      );
+      if (!response.ok) throw new Error('Bulk approve failed');
       toast.success(`Approved ${ids.length} registrations`);
       setSelectedIds(new Set());
-      window.location.reload();
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Bulk approval failed');
-      setLoadingIds(prev => { const n = new Set(prev); ids.forEach(id => n.delete(id)); return n; });
+      router.refresh();
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error ? error.message : 'Bulk approval failed'
+      );
+    } finally {
+      updateLoading(ids, false);
     }
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === filteredRegs.length) {
+    if (selectedIds.size === filteredRegistrations.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(filteredRegs.map(r => r.id)));
+      setSelectedIds(
+        new Set(filteredRegistrations.map((registration) => registration.id))
+      );
     }
   };
 
   const toggleSelect = (id: string) => {
-    const newSet = new Set(selectedIds);
-    if (newSet.has(id)) newSet.delete(id);
-    else newSet.add(id);
-    setSelectedIds(newSet);
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const renderActions = (registration: EventRegistration) => {
+    if (registration.status !== 'pending_review') {
+      return (
+        <Badge
+          variant="outline"
+          className={
+            registration.status === 'approved'
+              ? 'border-emerald-200 bg-emerald-100 text-emerald-700'
+              : 'border-red-200 bg-red-100 text-red-700'
+          }
+        >
+          {registration.status === 'approved' ? 'Approved' : 'Rejected'}
+        </Badge>
+      );
+    }
+
+    return (
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 rounded-lg border-emerald-200 font-bold text-emerald-700 hover:bg-emerald-50"
+          onClick={() => handleApprove(registration.id)}
+          disabled={loadingIds.has(registration.id)}
+        >
+          {loadingIds.has(registration.id) ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            'Approve'
+          )}
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-8 rounded-lg text-destructive hover:bg-destructive/10"
+          onClick={() => setRejectDialogId(registration.id)}
+          disabled={loadingIds.has(registration.id)}
+        >
+          Reject
+        </Button>
+      </div>
+    );
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex bg-muted/50 p-1 rounded-xl">
-          {(['pending_review', 'approved', 'rejected'] as const).map(tab => (
-            <button
-              key={tab}
-              onClick={() => { setFilter(tab); setSelectedIds(new Set()); }}
-              className={`px-4 py-1.5 text-sm font-medium rounded-lg capitalize transition-colors ${filter === tab ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
+    <div className="space-y-6">
+      <header>
+        <div className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">
+          Attendees
+        </div>
+        <h1 className="mt-2 text-3xl font-bold tracking-[-0.03em] text-slate-950">
+          Registration review
+        </h1>
+        <p className="mt-2 text-sm text-slate-500">
+          Verify submissions, approve payments, and keep the attendee list
+          accurate.
+        </p>
+      </header>
+
+      <section className="grid gap-3 sm:grid-cols-3">
+        {[
+          ['Total', statusCounts.all, Users, 'bg-slate-100 text-slate-700'],
+          [
+            'Awaiting review',
+            statusCounts.pending_review,
+            Clock3,
+            'bg-amber-100 text-amber-700',
+          ],
+          [
+            'Approved',
+            statusCounts.approved,
+            UserCheck,
+            'bg-emerald-100 text-emerald-700',
+          ],
+        ].map(([label, value, StatIcon, color]) => {
+          const Icon = StatIcon as typeof Users;
+          return (
+            <div
+              key={String(label)}
+              className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4"
             >
-              {tab.replace('_', ' ')}
+              <div className={`grid h-10 w-10 place-items-center rounded-xl ${String(color)}`}>
+                <Icon className="h-[18px] w-[18px]" />
+              </div>
+              <div>
+                <div className="text-xl font-bold text-slate-950">
+                  {String(value)}
+                </div>
+                <div className="text-xs text-slate-500">{String(label)}</div>
+              </div>
+            </div>
+          );
+        })}
+      </section>
+
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+        <div className="flex gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1">
+          {(
+            [
+              ['pending_review', 'Pending'],
+              ['approved', 'Approved'],
+              ['rejected', 'Rejected'],
+              ['all', 'All'],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              type="button"
+              key={value}
+              onClick={() => {
+                setFilter(value);
+                setSelectedIds(new Set());
+              }}
+              className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition-colors ${
+                filter === value
+                  ? 'bg-emerald-50 text-emerald-800'
+                  : 'text-slate-500 hover:bg-slate-50'
+              }`}
+            >
+              {label}
+              <span className="rounded-full bg-white px-1.5 py-0.5 text-[9px] text-slate-400 ring-1 ring-slate-200">
+                {statusCounts[value]}
+              </span>
             </button>
           ))}
         </div>
-        
+
         {filter === 'pending_review' && selectedIds.size > 0 && (
-          <Button onClick={handleBulkApprove} className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
+          <Button
+            onClick={handleBulkApprove}
+            className="rounded-xl bg-emerald-700 font-bold text-white hover:bg-emerald-800"
+          >
+            <CheckCircle2 className="mr-2 h-4 w-4" />
             Approve selected ({selectedIds.size})
           </Button>
         )}
       </div>
 
-      <div className="bg-white border border-border rounded-2xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-slate-50/50 border-b border-border text-slate-500 font-medium">
-              <tr>
+      <div className="grid gap-3 md:hidden">
+        {filteredRegistrations.length === 0 ? (
+          <div className="rounded-3xl border border-dashed border-slate-300 bg-white/70 px-5 py-14 text-center text-sm font-medium text-slate-500">
+            No registrations found for this status.
+          </div>
+        ) : (
+          filteredRegistrations.map((registration) => (
+            <article
+              key={registration.id}
+              className="rounded-2xl border border-slate-200 bg-white p-4"
+            >
+              <div className="flex items-start gap-3">
                 {filter === 'pending_review' && (
-                  <th className="px-4 py-3 w-10">
-                    <Checkbox checked={selectedIds.size === filteredRegs.length && filteredRegs.length > 0} onCheckedChange={toggleSelectAll} />
+                  <Checkbox
+                    checked={selectedIds.has(registration.id)}
+                    onCheckedChange={() => toggleSelect(registration.id)}
+                    aria-label={`Select ${registration.first_name} ${registration.last_name}`}
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="font-bold text-slate-900">
+                    {registration.first_name} {registration.last_name}
+                  </div>
+                  <div className="truncate text-xs text-slate-500">
+                    {registration.email}
+                  </div>
+                </div>
+                <div className="text-sm font-bold text-slate-900">
+                  RM {registration.amount_due}
+                </div>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-xl bg-slate-50 p-3 text-slate-500">
+                  <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                    Guests
+                  </span>
+                  <span className="mt-1 block font-bold text-slate-700">
+                    {registration.guests}
+                  </span>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-3 text-slate-500">
+                  <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                    Submitted
+                  </span>
+                  <span className="mt-1 block font-bold text-slate-700">
+                    {formatDistanceToNow(new Date(registration.created_at), {
+                      addSuffix: true,
+                    })}
+                  </span>
+                </div>
+              </div>
+              <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
+                {registration.payment_proof_url ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setLightboxUrl(registration.payment_proof_url)
+                    }
+                    className="text-xs font-bold text-emerald-700"
+                  >
+                    View payment proof
+                  </button>
+                ) : (
+                  <span className="text-xs text-slate-400">
+                    {isFreeEvent ? 'Free event' : 'No proof'}
+                  </span>
+                )}
+                {renderActions(registration)}
+              </div>
+            </article>
+          ))
+        )}
+      </div>
+
+      <div className="hidden overflow-hidden rounded-3xl border border-slate-200/80 bg-white md:block">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1000px] text-left text-sm">
+            <thead className="border-b border-slate-200 bg-slate-50/70">
+              <tr className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                {filter === 'pending_review' && (
+                  <th className="w-12 px-4 py-4">
+                    <Checkbox
+                      checked={
+                        selectedIds.size === filteredRegistrations.length &&
+                        filteredRegistrations.length > 0
+                      }
+                      onCheckedChange={toggleSelectAll}
+                      aria-label="Select all registrations"
+                    />
                   </th>
                 )}
-                <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Guests</th>
-                <th className="px-4 py-3">Amount</th>
-                <th className="px-4 py-3">Payment proof</th>
-                <th className="px-4 py-3">Paid checkbox</th>
-                <th className="px-4 py-3">Submitted</th>
-                <th className="px-4 py-3">Actions</th>
+                <th className="px-4 py-4">Registrant</th>
+                <th className="px-4 py-4">Guests</th>
+                <th className="px-4 py-4">Amount</th>
+                <th className="px-4 py-4">Payment</th>
+                <th className="px-4 py-4">Submitted</th>
+                <th className="px-4 py-4">Review</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
-              {filteredRegs.length === 0 ? (
+            <tbody className="divide-y divide-slate-100">
+              {filteredRegistrations.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
+                  <td
+                    colSpan={7}
+                    className="px-4 py-14 text-center text-slate-500"
+                  >
                     No registrations found for this status.
                   </td>
                 </tr>
               ) : (
-                filteredRegs.map(reg => (
-                  <tr key={reg.id} className="hover:bg-slate-50/50 transition-colors">
+                filteredRegistrations.map((registration) => (
+                  <tr
+                    key={registration.id}
+                    className="transition-colors hover:bg-emerald-50/30"
+                  >
                     {filter === 'pending_review' && (
-                      <td className="px-4 py-3">
-                        <Checkbox checked={selectedIds.has(reg.id)} onCheckedChange={() => toggleSelect(reg.id)} />
+                      <td className="px-4 py-4">
+                        <Checkbox
+                          checked={selectedIds.has(registration.id)}
+                          onCheckedChange={() =>
+                            toggleSelect(registration.id)
+                          }
+                          aria-label={`Select ${registration.first_name} ${registration.last_name}`}
+                        />
                       </td>
                     )}
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-slate-900">{reg.first_name} {reg.last_name}</div>
-                      <div className="text-slate-500 text-xs">{reg.email}</div>
+                    <td className="px-4 py-4">
+                      <div className="font-bold text-slate-900">
+                        {registration.first_name} {registration.last_name}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {registration.email}
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{reg.guests}</td>
-                    <td className="px-4 py-3 text-slate-900 font-medium">RM {reg.amount_due}</td>
-                    <td className="px-4 py-3">
-                      {reg.payment_proof_url ? (
-                        <div 
-                          className="w-12 h-8 bg-slate-100 rounded border border-border cursor-pointer overflow-hidden flex items-center justify-center hover:opacity-80"
-                          onClick={() => setLightboxUrl(reg.payment_proof_url)}
+                    <td className="px-4 py-4 font-semibold text-slate-600">
+                      {registration.guests}
+                    </td>
+                    <td className="px-4 py-4 font-bold text-slate-900">
+                      RM {registration.amount_due}
+                    </td>
+                    <td className="px-4 py-4">
+                      {registration.payment_proof_url ? (
+                        <button
+                          type="button"
+                          className="h-10 w-14 overflow-hidden rounded-lg border border-slate-200 bg-slate-100 hover:opacity-80"
+                          onClick={() =>
+                            setLightboxUrl(registration.payment_proof_url)
+                          }
                         >
-                          <img src={reg.payment_proof_url} className="w-full h-full object-cover" alt="Proof" />
-                        </div>
+                          <img
+                            src={registration.payment_proof_url}
+                            className="h-full w-full object-cover"
+                            alt="Payment proof"
+                          />
+                        </button>
                       ) : (
-                        <span className="text-xs text-slate-400 italic">{isFreeEvent ? 'No proof (Free)' : 'None'}</span>
+                        <span className="text-xs text-slate-400">
+                          {isFreeEvent ? 'Free event' : 'None'}
+                        </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-slate-600">
-                      {reg.paid_checkbox ? <Check className="h-4 w-4 text-emerald-500" /> : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-slate-500 text-xs">
-                      {formatDistanceToNow(new Date(reg.created_at), { addSuffix: true })}
-                    </td>
-                    <td className="px-4 py-3">
-                      {filter === 'pending_review' ? (
-                        <div className="flex items-center gap-2">
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="h-8 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                            onClick={() => handleApprove(reg.id)}
-                            disabled={loadingIds.has(reg.id)}
-                          >
-                            {loadingIds.has(reg.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Approve'}
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            className="h-8 text-destructive hover:bg-destructive/10"
-                            onClick={() => setRejectDialogId(reg.id)}
-                            disabled={loadingIds.has(reg.id)}
-                          >
-                            Reject
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="text-xs text-slate-500">
-                          {reg.status === 'approved' ? (
-                            <span className="text-emerald-600 font-medium bg-emerald-50 px-2 py-1 rounded-md">Approved</span>
-                          ) : (
-                            <span className="text-destructive font-medium bg-destructive/10 px-2 py-1 rounded-md">Rejected</span>
-                          )}
-                          <div className="mt-1">by {reg.reviewed_by || 'System'}</div>
-                        </div>
+                    <td className="px-4 py-4 text-xs text-slate-500">
+                      {formatDistanceToNow(
+                        new Date(registration.created_at),
+                        { addSuffix: true }
                       )}
+                    </td>
+                    <td className="px-4 py-4">
+                      {renderActions(registration)}
                     </td>
                   </tr>
                 ))
@@ -209,46 +483,75 @@ export function RegistrationsTable({ registrations, eventId, isFreeEvent }: { re
         </div>
       </div>
 
-      {/* Lightbox */}
       {lightboxUrl && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setLightboxUrl(null)}>
-          <div className="relative max-w-4xl max-h-screen">
-            <button className="absolute -top-12 right-0 text-white/70 hover:text-white" onClick={() => setLightboxUrl(null)}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-sm"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <div className="relative max-h-screen max-w-4xl">
+            <button
+              type="button"
+              aria-label="Close payment proof"
+              className="absolute -top-12 right-0 text-white/70 hover:text-white"
+              onClick={() => setLightboxUrl(null)}
+            >
               <X className="h-8 w-8" />
             </button>
-            <img src={lightboxUrl} className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl" onClick={e => e.stopPropagation()} alt="Full payment proof" />
+            <img
+              src={lightboxUrl}
+              className="max-h-[85vh] max-w-full rounded-2xl object-contain shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+              alt="Full payment proof"
+            />
           </div>
         </div>
       )}
 
-      {/* Reject Dialog */}
-      <Dialog open={!!rejectDialogId} onOpenChange={(open) => !open && setRejectDialogId(null)}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
+      <Dialog
+        open={!!rejectDialogId}
+        onOpenChange={(open) => !open && setRejectDialogId(null)}
+      >
+        <DialogContent className="rounded-3xl sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Reject Registration</DialogTitle>
+            <DialogTitle>Reject registration</DialogTitle>
             <DialogDescription>
-              This will reject the registration. The registrant will not be notified automatically.
+              The registration will be marked as rejected. Add a reason for the
+              internal record if needed.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <label className="text-sm font-medium mb-2 block">Reason (optional)</label>
-            <Textarea 
-              value={rejectReason} 
-              onChange={e => setRejectReason(e.target.value)}
-              placeholder="e.g. Payment amount incorrect..."
-              className="rounded-xl min-h-[100px]"
+          <div className="py-3">
+            <label className="mb-2 block text-sm font-semibold text-slate-700">
+              Reason
+            </label>
+            <Textarea
+              value={rejectReason}
+              onChange={(event) => setRejectReason(event.target.value)}
+              placeholder="e.g. Payment amount could not be verified"
+              className="min-h-28 rounded-xl"
             />
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setRejectDialogId(null)} className="rounded-xl">Cancel</Button>
-            <Button variant="destructive" onClick={handleReject} disabled={loadingIds.has(rejectDialogId || '')} className="rounded-xl">
-              {loadingIds.has(rejectDialogId || '') && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Reject Registration
+            <Button
+              variant="ghost"
+              onClick={() => setRejectDialogId(null)}
+              className="rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleReject}
+              disabled={loadingIds.has(rejectDialogId || '')}
+              className="rounded-xl"
+            >
+              {loadingIds.has(rejectDialogId || '') && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Reject registration
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }

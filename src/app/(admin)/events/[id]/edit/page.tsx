@@ -3,8 +3,8 @@ import { Topbar } from '@/components/layout/Topbar';
 import { EventForm } from '@/components/events/EventForm';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { ArrowLeft, ExternalLink, MoreHorizontal, Copy, Trash2 } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { ArrowLeft, ExternalLink, MoreHorizontal } from 'lucide-react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Event } from '@/lib/types';
@@ -88,7 +88,7 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
         </div>
       </Topbar>
 
-      <div className="p-8 max-w-5xl mx-auto animate-in fade-in-50 duration-300">
+      <div className="mx-auto max-w-6xl p-5 animate-in fade-in-50 duration-300 sm:p-8 lg:p-10">
         <EventForm event={event as Event} />
       </div>
     </>

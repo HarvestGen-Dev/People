@@ -1,53 +1,61 @@
-import { formatDistanceToNow, format } from 'date-fns';
-import { User, Calendar } from 'lucide-react';
+// <!-- AGENT: FRONTEND -->
+import { format } from 'date-fns';
+import { Calendar, MessageSquareText, UserRound } from 'lucide-react';
 import type { WorkflowBoardCard } from '@/lib/types';
 
-// <!-- AGENT: FRONTEND -->
-export function WorkflowCardComponent({ card, onClick }: { card: WorkflowBoardCard, onClick: () => void }) {
-  const p = card.people;
-  
+export function WorkflowCardComponent({
+  card,
+  onClick,
+}: {
+  card: WorkflowBoardCard;
+  onClick: () => void;
+}) {
+  const person = card.people;
+
   return (
-    <div 
+    <button
+      type="button"
       onClick={onClick}
-      className="bg-white border border-border rounded-xl p-3 shadow-sm hover:shadow-md transition-all cursor-pointer mb-3 group"
+      className="group mb-3 w-full rounded-2xl border border-slate-200/80 bg-white p-4 text-left shadow-[0_8px_24px_-22px_rgba(15,23,42,0.55)] transition-all hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md"
     >
-      <div className="flex items-center gap-2 mb-2">
-        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0 border border-slate-200 overflow-hidden">
-          {p.photo_url ? (
-            <img src={p.photo_url} alt={p.first_name} className="w-full h-full object-cover" />
-          ) : (
-            <span className="text-xs font-medium text-slate-500">{p.first_name[0]}{p.last_name[0]}</span>
-          )}
+      <div className="flex items-center gap-3">
+        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-100 text-[10px] font-bold text-emerald-700">
+          {person.first_name[0]}
+          {person.last_name[0]}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="font-semibold text-slate-900 text-sm truncate">{p.first_name} {p.last_name}</div>
-          <div className="text-xs text-slate-500 truncate capitalize flex items-center gap-1">
-            {p.status} · {formatDistanceToNow(new Date(p.created_at), { addSuffix: true })}
+          <div className="truncate text-sm font-bold text-slate-900 transition-colors group-hover:text-emerald-700">
+            {person.first_name} {person.last_name}
+          </div>
+          <div className="mt-0.5 text-[10px] font-semibold capitalize text-slate-400">
+            {person.status} · Added {format(new Date(card.created_at), 'd MMM')}
           </div>
         </div>
       </div>
 
-      <div className="space-y-1.5 mt-3">
-        {card.assigned_to && (
-          <div className="flex items-center gap-1.5 text-xs text-slate-600">
-            <User className="h-3 w-3 text-slate-400" />
-            <span className="truncate">Assigned</span>
-          </div>
-        )}
-        
-        {card.due_date && (
-          <div className="flex items-center gap-1.5 text-xs text-slate-600">
-            <Calendar className="h-3 w-3 text-slate-400" />
-            <span>Due {format(new Date(card.due_date), 'MMM d')}</span>
-          </div>
-        )}
-      </div>
-
-      {card.notes && (
-        <div className="mt-3 text-xs text-slate-600 bg-slate-50 p-2 rounded-lg border border-border flex items-start gap-1.5 line-clamp-2 italic">
-          &quot;{card.notes}&quot;
+      {(card.assigned_to || card.due_date) && (
+        <div className="mt-4 grid gap-2">
+          {card.assigned_to && (
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
+              <UserRound className="h-3.5 w-3.5 text-slate-400" />
+              Assigned
+            </div>
+          )}
+          {card.due_date && (
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
+              <Calendar className="h-3.5 w-3.5 text-amber-500" />
+              Due {format(new Date(card.due_date), 'd MMM')}
+            </div>
+          )}
         </div>
       )}
-    </div>
+
+      {card.notes && (
+        <div className="mt-4 flex items-start gap-2 rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-500">
+          <MessageSquareText className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+          <span className="line-clamp-2">{card.notes}</span>
+        </div>
+      )}
+    </button>
   );
 }

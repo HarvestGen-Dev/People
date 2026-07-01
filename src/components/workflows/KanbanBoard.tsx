@@ -1,16 +1,44 @@
 'use client';
 
+// <!-- AGENT: FRONTEND -->
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  CheckCircle2,
+  CircleDot,
+  Layers3,
+  MoreHorizontal,
+  Plus,
+  Search,
+  Trash2,
+  UserRound,
+  X,
+} from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, MoreHorizontal, CheckCircle2, Search } from 'lucide-react';
-import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
-import { WorkflowCardComponent } from './WorkflowCard';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { WorkflowCardComponent } from './WorkflowCard';
 import type {
   ListPerson,
   Workflow,
@@ -19,10 +47,6 @@ import type {
   WorkflowCard,
   WorkflowStep,
 } from '@/lib/types';
-
-// <!-- AGENT: FRONTEND -->
-// DECISION: Skipped @dnd-kit implementation as permitted by instructions to save complexity. 
-// Cards can be moved between columns via the "Move to step" dropdown in the card drawer.
 
 type WorkflowCardUpdate = Partial<
   Pick<WorkflowCard, 'current_step_id' | 'assigned_to' | 'due_date' | 'notes'>
@@ -35,35 +59,73 @@ interface KanbanBoardProps {
   users: WorkflowAdminUser[];
 }
 
+interface CardDraft {
+  current_step_id: string;
+  assigned_to: string;
+  due_date: string;
+  notes: string;
+}
+
+const emptyDraft: CardDraft = {
+  current_step_id: '',
+  assigned_to: 'unassigned',
+  due_date: '',
+  notes: '',
+};
+
 const errorMessage = (error: unknown) =>
   error instanceof Error ? error.message : 'An unexpected error occurred';
 
-export function KanbanBoard({ workflow, initialSteps, initialCards, users }: KanbanBoardProps) {
+export function KanbanBoard({
+  workflow,
+  initialSteps: steps,
+  initialCards: cards,
+  users,
+}: KanbanBoardProps) {
   const router = useRouter();
-  const [steps, setSteps] = useState(initialSteps);
-  const [cards, setCards] = useState(initialCards);
-
   const [activeCard, setActiveCard] = useState<WorkflowBoardCard | null>(null);
-  
-  // Step Add
+  const [cardDraft, setCardDraft] = useState<CardDraft>(emptyDraft);
+  const [isSavingCard, setIsSavingCard] = useState(false);
+
   const [isAddStepOpen, setIsAddStepOpen] = useState(false);
   const [newStepName, setNewStepName] = useState('');
   const [insertAfterId, setInsertAfterId] = useState<string | null>(null);
 
-  // Card Add
   const [isAddCardOpen, setIsAddCardOpen] = useState(false);
   const [targetStepId, setTargetStepId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<ListPerson[]>([]);
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
-  const [cardFormData, setCardFormData] = useState({ assigned_to: '', due_date: '', notes: '' });
+  const [cardFormData, setCardFormData] = useState({
+    assigned_to: 'unassigned',
+    due_date: '',
+    notes: '',
+  });
 
-  const performSearch = async (q: string) => {
-    if (!q) { setSearchResults([]); return; }
+  const activeCount = cards.filter((card) => !card.completed_at).length;
+  const completedCount = cards.filter((card) => card.completed_at).length;
+
+  const openCard = (card: WorkflowBoardCard) => {
+    setActiveCard(card);
+    setCardDraft({
+      current_step_id: card.current_step_id || '',
+      assigned_to: card.assigned_to || 'unassigned',
+      due_date: card.due_date ? card.due_date.split('T')[0] : '',
+      notes: card.notes || '',
+    });
+  };
+
+  const performSearch = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
     try {
-      const res = await fetch(`/api/admin/people/search?q=${encodeURIComponent(q)}`);
-      if (res.ok) {
-        const { data } = await res.json();
+      const response = await fetch(
+        `/api/admin/people/search?q=${encodeURIComponent(query)}`
+      );
+      if (response.ok) {
+        const { data } = await response.json();
         setSearchResults(data);
       }
     } catch {
@@ -74,37 +136,52 @@ export function KanbanBoard({ workflow, initialSteps, initialCards, users }: Kan
   const handleAddStep = async () => {
     if (!newStepName.trim()) return;
     try {
-      const currentIndex = steps.findIndex(s => s.id === insertAfterId);
-      const pos1 = currentIndex >= 0 ? steps[currentIndex].position : 0;
-      const pos2 = currentIndex + 1 < steps.length ? steps[currentIndex + 1].position : pos1 + 1000;
-      const position = insertAfterId ? pos1 + (pos2 - pos1) / 2 : 1000; // naive mid-point
+      const currentIndex = steps.findIndex((step) => step.id === insertAfterId);
+      const previousPosition =
+        currentIndex >= 0 ? steps[currentIndex].position : 0;
+      const nextPosition =
+        currentIndex + 1 < steps.length
+          ? steps[currentIndex + 1].position
+          : previousPosition + 1000;
+      const position = insertAfterId
+        ? previousPosition + (nextPosition - previousPosition) / 2
+        : 1000;
 
-      const res = await fetch('/api/admin/workflow-steps', {
+      const response = await fetch('/api/admin/workflow-steps', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workflow_id: workflow.id, name: newStepName, position })
+        body: JSON.stringify({
+          workflow_id: workflow.id,
+          name: newStepName,
+          position,
+        }),
       });
-      if (!res.ok) throw new Error('Failed to create step');
+      if (!response.ok) throw new Error('Failed to create step');
       toast.success('Step added');
       setIsAddStepOpen(false);
       setNewStepName('');
       router.refresh();
-      // Optionally we can push the step locally for immediate feedback but router.refresh() handles it.
-      // But we need to wait for refresh or just reload page. Let's do reload for now since refresh might take a sec.
-      window.location.reload();
     } catch (error: unknown) {
       toast.error(errorMessage(error));
     }
   };
 
   const handleDeleteStep = async (stepId: string) => {
-    const stepCards = cards.filter(c => c.current_step_id === stepId && !c.completed_at);
-    if (stepCards.length > 0) return toast.error('Cannot delete a step with active cards');
-    if (!confirm('Delete this step?')) return;
+    const stepCards = cards.filter(
+      (card) => card.current_step_id === stepId && !card.completed_at
+    );
+    if (stepCards.length > 0) {
+      toast.error('Move or complete active cards before deleting this step');
+      return;
+    }
+    if (!confirm('Delete this workflow step?')) return;
     try {
-      await fetch(`/api/admin/workflow-steps/${stepId}`, { method: 'DELETE' });
+      const response = await fetch(`/api/admin/workflow-steps/${stepId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) throw new Error('Failed to delete step');
       toast.success('Step deleted');
-      window.location.reload();
+      router.refresh();
     } catch (error: unknown) {
       toast.error(errorMessage(error));
     }
@@ -113,249 +190,580 @@ export function KanbanBoard({ workflow, initialSteps, initialCards, users }: Kan
   const handleAddCard = async () => {
     if (!selectedPersonId || !targetStepId) return;
     try {
-      const res = await fetch('/api/admin/workflow-cards', {
+      const response = await fetch('/api/admin/workflow-cards', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workflow_id: workflow.id,
           current_step_id: targetStepId,
           person_id: selectedPersonId,
-          ...cardFormData
-        })
+          assigned_to:
+            cardFormData.assigned_to === 'unassigned'
+              ? null
+              : cardFormData.assigned_to,
+          due_date: cardFormData.due_date || null,
+          notes: cardFormData.notes || null,
+        }),
       });
-      if (!res.ok) throw new Error('Failed to add card');
-      toast.success('Card added');
+      if (!response.ok) throw new Error('Failed to add card');
+      toast.success('Person added to workflow');
       setIsAddCardOpen(false);
       setSearchQuery('');
       setSearchResults([]);
       setSelectedPersonId(null);
-      setCardFormData({ assigned_to: '', due_date: '', notes: '' });
-      window.location.reload();
+      setCardFormData({
+        assigned_to: 'unassigned',
+        due_date: '',
+        notes: '',
+      });
+      router.refresh();
     } catch (error: unknown) {
       toast.error(errorMessage(error));
     }
   };
 
-  const handleUpdateCard = async (updates: WorkflowCardUpdate) => {
+  const handleUpdateCard = async () => {
     if (!activeCard) return;
+    setIsSavingCard(true);
+    const updates: WorkflowCardUpdate = {
+      current_step_id: cardDraft.current_step_id || null,
+      assigned_to:
+        cardDraft.assigned_to === 'unassigned'
+          ? null
+          : cardDraft.assigned_to,
+      due_date: cardDraft.due_date || null,
+      notes: cardDraft.notes || null,
+    };
     try {
-      const res = await fetch(`/api/admin/workflow-cards/${activeCard.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates)
-      });
-      if (!res.ok) throw new Error('Failed to update card');
+      const response = await fetch(
+        `/api/admin/workflow-cards/${activeCard.id}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        }
+      );
+      if (!response.ok) throw new Error('Failed to update card');
       toast.success('Card updated');
       setActiveCard({ ...activeCard, ...updates });
-      window.location.reload();
+      router.refresh();
     } catch (error: unknown) {
       toast.error(errorMessage(error));
+    } finally {
+      setIsSavingCard(false);
     }
   };
 
   const handleCompleteCard = async () => {
     if (!activeCard) return;
     try {
-      const res = await fetch(`/api/admin/workflow-cards/${activeCard.id}/complete`, { method: 'POST' });
-      if (!res.ok) throw new Error('Failed to complete card');
-      toast.success('Marked as done');
+      const response = await fetch(
+        `/api/admin/workflow-cards/${activeCard.id}/complete`,
+        { method: 'POST' }
+      );
+      if (!response.ok) throw new Error('Failed to complete card');
+      toast.success('Marked as complete');
       setActiveCard(null);
-      window.location.reload();
+      router.refresh();
     } catch (error: unknown) {
       toast.error(errorMessage(error));
     }
   };
 
   const handleRemoveCard = async () => {
-    if (!activeCard || !confirm('Remove this card?')) return;
+    if (!activeCard || !confirm('Remove this person from the workflow?')) return;
     try {
-      await fetch(`/api/admin/workflow-cards/${activeCard.id}`, { method: 'DELETE' });
-      toast.success('Card removed');
+      const response = await fetch(
+        `/api/admin/workflow-cards/${activeCard.id}`,
+        { method: 'DELETE' }
+      );
+      if (!response.ok) throw new Error('Failed to remove card');
+      toast.success('Removed from workflow');
       setActiveCard(null);
-      window.location.reload();
+      router.refresh();
     } catch (error: unknown) {
       toast.error(errorMessage(error));
     }
   };
 
-  const renderColumn = (step: Pick<WorkflowStep, 'id' | 'name'>, isDone = false) => {
+  const renderColumn = (
+    step: Pick<WorkflowStep, 'id' | 'name'>,
+    isDone = false
+  ) => {
     const columnCards = isDone
-      ? cards.filter(c => c.completed_at)
-      : cards.filter(c => c.current_step_id === step.id && !c.completed_at);
-      
+      ? cards.filter((card) => card.completed_at)
+      : cards.filter(
+          (card) => card.current_step_id === step.id && !card.completed_at
+        );
+
     return (
-      <div key={step.id || 'done'} className="w-[320px] shrink-0 flex flex-col max-h-full">
-        <div className="flex items-center justify-between mb-3 px-1">
-          <div className="flex items-center gap-2">
-            <h3 className="font-semibold text-slate-900">{step.name}</h3>
-            <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full text-xs font-medium">
+      <section
+        key={step.id || 'done'}
+        className="flex max-h-full w-[86vw] max-w-[340px] shrink-0 flex-col rounded-3xl border border-slate-200/80 bg-slate-100/70 p-3 sm:w-[320px]"
+      >
+        <header className="mb-3 flex items-center justify-between px-1 py-1">
+          <div className="flex items-center gap-2.5">
+            <span
+              className={`h-2.5 w-2.5 rounded-full ${
+                isDone ? 'bg-emerald-500' : 'bg-amber-400'
+              }`}
+            />
+            <h2 className="font-bold text-slate-900">{step.name}</h2>
+            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-500 ring-1 ring-slate-200">
               {columnCards.length}
             </span>
           </div>
           {!isDone && (
             <DropdownMenu>
-              <DropdownMenuTrigger className="h-8 w-8 rounded-lg hover:bg-slate-200 flex items-center justify-center outline-none">
-                <MoreHorizontal className="h-4 w-4 text-slate-500" />
+              <DropdownMenuTrigger
+                aria-label={`Actions for ${step.name}`}
+                className="grid h-8 w-8 place-items-center rounded-xl text-slate-400 hover:bg-white hover:text-slate-800"
+              >
+                <MoreHorizontal className="h-4 w-4" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40 rounded-xl">
-                <DropdownMenuItem onClick={() => { setInsertAfterId(step.id); setIsAddStepOpen(true); }}>Add step after</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleDeleteStep(step.id)} className="text-destructive focus:text-destructive">Delete step</DropdownMenuItem>
+              <DropdownMenuContent align="end" className="w-44 rounded-xl">
+                <DropdownMenuItem
+                  onClick={() => {
+                    setInsertAfterId(step.id);
+                    setIsAddStepOpen(true);
+                  }}
+                >
+                  Add step after
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleDeleteStep(step.id)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  Delete step
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-        </div>
+        </header>
 
-        <div className="flex-1 overflow-y-auto pr-2 pb-4 scrollbar-thin">
-          {columnCards.map(c => (
-            <WorkflowCardComponent key={c.id} card={c} onClick={() => setActiveCard(c)} />
-          ))}
-
-          {!isDone && (
-            <Button 
-              variant="ghost" 
-              className="w-full justify-start text-slate-500 hover:text-slate-900 hover:bg-slate-200/50 rounded-xl mt-1 h-10"
-              onClick={() => { setTargetStepId(step.id); setIsAddCardOpen(true); }}
-            >
-              <Plus className="h-4 w-4 mr-2" /> Add card
-            </Button>
+        <div className="min-h-20 flex-1 overflow-y-auto pr-1">
+          {columnCards.length === 0 && (
+            <div className="mb-3 rounded-2xl border border-dashed border-slate-300 bg-white/50 px-4 py-8 text-center text-xs font-medium text-slate-400">
+              {isDone ? 'No completed cards' : 'No one at this step'}
+            </div>
           )}
+          {columnCards.map((card) => (
+            <WorkflowCardComponent
+              key={card.id}
+              card={card}
+              onClick={() => openCard(card)}
+            />
+          ))}
         </div>
-      </div>
+
+        {!isDone && (
+          <Button
+            variant="ghost"
+            className="mt-1 h-10 w-full justify-start rounded-xl text-slate-500 hover:bg-white hover:text-emerald-700"
+            onClick={() => {
+              setTargetStepId(step.id);
+              setIsAddCardOpen(true);
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add person
+          </Button>
+        )}
+      </section>
     );
   };
 
   return (
-    <div className="h-full flex flex-col animate-in fade-in-50">
-      <div className="flex-1 overflow-x-auto p-8 scrollbar-thin">
-        <div className="flex gap-6 h-full pb-4">
-          {steps.map(step => renderColumn(step))}
-          {renderColumn({ id: 'done', name: 'Done' }, true)}
+    <div className="flex min-h-[calc(100vh-128px)] flex-col bg-[#f5f7f3]">
+      <div className="flex flex-col justify-between gap-4 border-b border-slate-200/80 bg-white px-5 py-4 sm:flex-row sm:items-center sm:px-8">
+        <div className="flex items-center gap-5">
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+            <Layers3 className="h-4 w-4 text-emerald-700" />
+            {steps.length} steps
+          </div>
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+            <CircleDot className="h-4 w-4 text-amber-500" />
+            {activeCount} active
+          </div>
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            {completedCount} done
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setInsertAfterId(steps.at(-1)?.id || null);
+            setIsAddStepOpen(true);
+          }}
+          className="h-9 rounded-xl border-slate-200 bg-white font-semibold"
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          Add step
+        </Button>
+      </div>
 
-          {steps.length === 0 && (
-            <div className="w-[320px] shrink-0 border-2 border-dashed border-border rounded-2xl flex flex-col items-center justify-center text-center p-6 h-64 mt-8">
-              <p className="text-sm text-slate-500 mb-4">No steps yet</p>
-              <Button onClick={() => { setInsertAfterId(null); setIsAddStepOpen(true); }} variant="outline" className="rounded-xl">Add first step</Button>
-            </div>
-          )}
+      <div className="flex-1 overflow-x-auto p-4 sm:p-6 lg:p-8">
+        <div className="flex min-h-[520px] gap-4 pb-4">
+          {steps.map((step) => renderColumn(step))}
+          {renderColumn({ id: 'done', name: 'Completed' }, true)}
         </div>
       </div>
 
-      {/* Slide-over drawer for active card */}
       {activeCard && (
         <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm" onClick={() => setActiveCard(null)} />
-          <div className="w-[400px] bg-white h-full shadow-2xl relative flex flex-col animate-in slide-in-from-right-8 duration-300">
-            <div className="p-6 border-b border-border bg-slate-50/50 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-slate-900">Card details</h2>
-              <Button variant="ghost" size="sm" onClick={() => setActiveCard(null)}>Close</Button>
-            </div>
+          <button
+            type="button"
+            aria-label="Close card details"
+            className="absolute inset-0 bg-slate-950/35 backdrop-blur-sm"
+            onClick={() => setActiveCard(null)}
+          />
+          <aside className="relative flex h-full w-full flex-col bg-white shadow-2xl animate-in slide-in-from-right-8 duration-300 sm:max-w-[460px]">
+            <header className="flex items-center justify-between border-b border-slate-200 px-5 py-4 sm:px-6">
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-700">
+                  Workflow card
+                </div>
+                <h2 className="mt-1 text-xl font-bold text-slate-950">
+                  Card details
+                </h2>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setActiveCard(null)}
+                className="rounded-xl"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </header>
 
-            <div className="p-6 flex-1 overflow-y-auto space-y-6">
-              <div className="flex items-center gap-4 bg-slate-50 border border-border p-4 rounded-xl">
-                <div className="w-12 h-12 rounded-full bg-slate-200 overflow-hidden shrink-0">
-                  {activeCard.people.photo_url && (
+            <div className="flex-1 space-y-6 overflow-y-auto p-5 sm:p-6">
+              <div className="flex items-center gap-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-2xl bg-emerald-200 text-sm font-bold text-emerald-800">
+                  {activeCard.people.photo_url ? (
                     <img
                       src={activeCard.people.photo_url}
                       alt={`${activeCard.people.first_name} ${activeCard.people.last_name}`}
-                      className="w-full h-full object-cover"
+                      className="h-full w-full object-cover"
                     />
+                  ) : (
+                    <>
+                      {activeCard.people.first_name[0]}
+                      {activeCard.people.last_name[0]}
+                    </>
                   )}
                 </div>
-                <div>
-                  <div className="font-bold text-slate-900">{activeCard.people.first_name} {activeCard.people.last_name}</div>
-                  <Button variant="link" className="h-auto p-0 text-primary text-sm" onClick={() => router.push(`/people/${activeCard.people.id}`)}>View profile</Button>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-bold text-slate-950">
+                    {activeCard.people.first_name}{' '}
+                    {activeCard.people.last_name}
+                  </div>
+                  <button
+                    type="button"
+                    className="mt-1 text-xs font-bold text-emerald-700 hover:text-emerald-800"
+                    onClick={() =>
+                      router.push(`/people/${activeCard.people.id}`)
+                    }
+                  >
+                    View person profile
+                  </button>
                 </div>
               </div>
 
               {!activeCard.completed_at && (
                 <div>
-                  <label className="text-sm font-medium mb-1.5 block">Current step</label>
-                  <Select value={activeCard.current_step_id ?? ''} onValueChange={v => handleUpdateCard({ current_step_id: v })}>
-                    <SelectTrigger className="rounded-xl bg-white"><SelectValue /></SelectTrigger>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">
+                    Current step
+                  </label>
+                  <Select
+                    value={cardDraft.current_step_id}
+                    onValueChange={(value) =>
+                      setCardDraft({
+                        ...cardDraft,
+                        current_step_id: value || '',
+                      })
+                    }
+                  >
+                    <SelectTrigger className="h-11 rounded-xl bg-white">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
-                      {steps.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                      {steps.map((step) => (
+                        <SelectItem key={step.id} value={step.id}>
+                          {step.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
               )}
 
               <div>
-                <label className="text-sm font-medium mb-1.5 block">Assigned to</label>
-                <Select value={activeCard.assigned_to || 'unassigned'} onValueChange={v => handleUpdateCard({ assigned_to: v === 'unassigned' ? null : v })}>
-                  <SelectTrigger className="rounded-xl bg-white"><SelectValue placeholder="Unassigned" /></SelectTrigger>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  Assigned to
+                </label>
+                <Select
+                  value={cardDraft.assigned_to}
+                  onValueChange={(value) =>
+                    setCardDraft({
+                      ...cardDraft,
+                      assigned_to: value || 'unassigned',
+                    })
+                  }
+                >
+                  <SelectTrigger className="h-11 rounded-xl bg-white">
+                    <SelectValue placeholder="Unassigned" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="unassigned">Unassigned</SelectItem>
-                    {users.map(u => <SelectItem key={u.user_id} value={u.user_id}>User {u.user_id.slice(0, 5)}</SelectItem>)}
+                    {users.map((user) => (
+                      <SelectItem key={user.user_id} value={user.user_id}>
+                        Admin {user.user_id.slice(0, 6)}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <label className="text-sm font-medium mb-1.5 block">Due date</label>
-                <Input type="date" value={activeCard.due_date ? activeCard.due_date.split('T')[0] : ''} onChange={e => handleUpdateCard({ due_date: e.target.value || null })} className="rounded-xl" />
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  Due date
+                </label>
+                <Input
+                  type="date"
+                  value={cardDraft.due_date}
+                  onChange={(event) =>
+                    setCardDraft({
+                      ...cardDraft,
+                      due_date: event.target.value,
+                    })
+                  }
+                  className="h-11 rounded-xl"
+                />
               </div>
 
               <div>
-                <label className="text-sm font-medium mb-1.5 block">Notes</label>
-                <Textarea value={activeCard.notes || ''} onChange={e => handleUpdateCard({ notes: e.target.value })} placeholder="Add follow-up notes..." className="rounded-xl min-h-[100px]" />
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  Follow-up notes
+                </label>
+                <Textarea
+                  value={cardDraft.notes}
+                  onChange={(event) =>
+                    setCardDraft({ ...cardDraft, notes: event.target.value })
+                  }
+                  placeholder="Add context, outcomes, or the next action..."
+                  className="min-h-32 rounded-xl"
+                />
               </div>
             </div>
 
-            <div className="p-6 border-t border-border bg-slate-50 space-y-3">
+            <footer className="space-y-3 border-t border-slate-200 bg-slate-50 p-5 sm:p-6">
+              <Button
+                onClick={handleUpdateCard}
+                disabled={isSavingCard}
+                className="h-11 w-full rounded-xl bg-emerald-700 font-bold hover:bg-emerald-800"
+              >
+                {isSavingCard ? 'Saving...' : 'Save changes'}
+              </Button>
               {!activeCard.completed_at ? (
-                <Button onClick={handleCompleteCard} className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 shadow-sm gap-2">
-                  <CheckCircle2 className="h-5 w-5" /> Mark as done
+                <Button
+                  onClick={handleCompleteCard}
+                  variant="outline"
+                  className="h-11 w-full rounded-xl border-emerald-200 bg-white font-bold text-emerald-700 hover:bg-emerald-50"
+                >
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  Mark as complete
                 </Button>
               ) : (
-                <div className="text-center text-sm font-medium text-emerald-600 mb-2">
-                  <CheckCircle2 className="h-5 w-5 inline mr-1" /> Completed
+                <div className="flex items-center justify-center gap-2 rounded-xl bg-emerald-100 py-3 text-sm font-bold text-emerald-700">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Completed
                 </div>
               )}
-              <Button onClick={handleRemoveCard} variant="ghost" className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 rounded-xl">Remove from workflow</Button>
-            </div>
-          </div>
+              <Button
+                onClick={handleRemoveCard}
+                variant="ghost"
+                className="w-full rounded-xl text-destructive hover:bg-destructive/10 hover:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Remove from workflow
+              </Button>
+            </footer>
+          </aside>
         </div>
       )}
 
-      {/* Dialogs */}
       <Dialog open={isAddStepOpen} onOpenChange={setIsAddStepOpen}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
-          <DialogHeader><DialogTitle>Add step</DialogTitle></DialogHeader>
-          <div className="py-4"><Input value={newStepName} onChange={e => setNewStepName(e.target.value)} placeholder="Step name" className="rounded-xl" autoFocus /></div>
+        <DialogContent className="rounded-3xl sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">Add workflow step</DialogTitle>
+          </DialogHeader>
+          <div className="py-3">
+            <label className="mb-2 block text-sm font-semibold text-slate-700">
+              Step name
+            </label>
+            <Input
+              value={newStepName}
+              onChange={(event) => setNewStepName(event.target.value)}
+              placeholder="e.g. Welcome message sent"
+              className="h-11 rounded-xl"
+              autoFocus
+            />
+          </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsAddStepOpen(false)}>Cancel</Button>
-            <Button onClick={handleAddStep} disabled={!newStepName.trim()}>Add step</Button>
+            <Button
+              variant="ghost"
+              onClick={() => setIsAddStepOpen(false)}
+              className="rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddStep}
+              disabled={!newStepName.trim()}
+              className="rounded-xl bg-emerald-700 font-bold hover:bg-emerald-800"
+            >
+              Add step
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={isAddCardOpen} onOpenChange={setIsAddCardOpen}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
-          <DialogHeader><DialogTitle>Add card</DialogTitle></DialogHeader>
-          <div className="py-2 space-y-4">
+        <DialogContent className="rounded-3xl sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">
+              Add person to workflow
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
             <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-              <Input placeholder="Search person..." value={searchQuery} onChange={e => { setSearchQuery(e.target.value); performSearch(e.target.value); }} className="pl-9 rounded-xl" />
+              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                placeholder="Search by name or email"
+                value={searchQuery}
+                onChange={(event) => {
+                  setSearchQuery(event.target.value);
+                  setSelectedPersonId(null);
+                  performSearch(event.target.value);
+                }}
+                className="h-11 rounded-xl pl-10"
+              />
             </div>
+
             {searchResults.length > 0 && !selectedPersonId && (
-              <div className="border border-border rounded-xl max-h-40 overflow-y-auto">
-                {searchResults.map(p => (
-                  <div key={p.id} className="p-2 hover:bg-slate-50 cursor-pointer text-sm border-b last:border-0" onClick={() => { setSelectedPersonId(p.id); setSearchQuery(`${p.first_name} ${p.last_name}`); setSearchResults([]); }}>
-                    {p.first_name} {p.last_name} <span className="text-slate-400 ml-2">{p.email}</span>
-                  </div>
+              <div className="max-h-52 overflow-y-auto rounded-2xl border border-slate-200">
+                {searchResults.map((person) => (
+                  <button
+                    type="button"
+                    key={person.id}
+                    className="flex w-full items-center gap-3 border-b border-slate-100 p-3 text-left last:border-0 hover:bg-emerald-50"
+                    onClick={() => {
+                      setSelectedPersonId(person.id);
+                      setSearchQuery(
+                        `${person.first_name} ${person.last_name}`
+                      );
+                      setSearchResults([]);
+                    }}
+                  >
+                    <div className="grid h-9 w-9 place-items-center rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-700">
+                      {person.first_name[0]}
+                      {person.last_name[0]}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-bold text-slate-900">
+                        {person.first_name} {person.last_name}
+                      </div>
+                      <div className="truncate text-xs text-slate-500">
+                        {person.email || 'No email address'}
+                      </div>
+                    </div>
+                  </button>
                 ))}
               </div>
             )}
+
             {selectedPersonId && (
-              <>
-                <Textarea placeholder="Notes (optional)" value={cardFormData.notes} onChange={e => setCardFormData({ ...cardFormData, notes: e.target.value })} className="rounded-xl" />
-                <Input type="date" value={cardFormData.due_date} onChange={e => setCardFormData({ ...cardFormData, due_date: e.target.value })} className="rounded-xl" />
-              </>
+              <div className="space-y-4 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-bold text-emerald-800">
+                    <UserRound className="h-4 w-4" />
+                    {searchQuery}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedPersonId(null);
+                      setSearchQuery('');
+                    }}
+                    className="text-xs font-semibold text-slate-500 hover:text-slate-800"
+                  >
+                    Change
+                  </button>
+                </div>
+                <Select
+                  value={cardFormData.assigned_to}
+                  onValueChange={(value) =>
+                    setCardFormData({
+                      ...cardFormData,
+                      assigned_to: value || 'unassigned',
+                    })
+                  }
+                >
+                  <SelectTrigger className="h-11 rounded-xl bg-white">
+                    <SelectValue placeholder="Assign owner" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {users.map((user) => (
+                      <SelectItem key={user.user_id} value={user.user_id}>
+                        Admin {user.user_id.slice(0, 6)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  type="date"
+                  value={cardFormData.due_date}
+                  onChange={(event) =>
+                    setCardFormData({
+                      ...cardFormData,
+                      due_date: event.target.value,
+                    })
+                  }
+                  className="h-11 rounded-xl bg-white"
+                />
+                <Textarea
+                  placeholder="Initial notes or next action"
+                  value={cardFormData.notes}
+                  onChange={(event) =>
+                    setCardFormData({
+                      ...cardFormData,
+                      notes: event.target.value,
+                    })
+                  }
+                  className="min-h-24 rounded-xl bg-white"
+                />
+              </div>
             )}
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsAddCardOpen(false)}>Cancel</Button>
-            <Button onClick={handleAddCard} disabled={!selectedPersonId}>Add card</Button>
+            <Button
+              variant="ghost"
+              onClick={() => setIsAddCardOpen(false)}
+              className="rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddCard}
+              disabled={!selectedPersonId}
+              className="rounded-xl bg-emerald-700 font-bold hover:bg-emerald-800"
+            >
+              Add to workflow
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

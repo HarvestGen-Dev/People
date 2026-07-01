@@ -6,6 +6,7 @@ import {
   adminApiError,
   requireTenantContext,
 } from '@/lib/tenant-context';
+import { getChurchTeam } from '@/lib/team';
 
 type CreateInvitationBody = {
   church_id?: string;
@@ -13,6 +14,16 @@ type CreateInvitationBody = {
   role?: 'admin' | 'member';
   expires_in_days?: number;
 };
+
+export async function GET() {
+  try {
+    const tenant = await requireTenantContext({ requireManager: true });
+    const data = await getChurchTeam(tenant.churchId);
+    return NextResponse.json({ data });
+  } catch (error: unknown) {
+    return adminApiError(error);
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -55,6 +66,25 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'Only church owners can invite administrators' },
         { status: 403 }
+      );
+    }
+
+    const { data: existingInvitation, error: existingInvitationError } =
+      await serviceClient
+        .from('church_invitations')
+        .select('id')
+        .eq('church_id', tenant.churchId)
+        .eq('email', email)
+        .is('accepted_at', null)
+        .gt('expires_at', new Date().toISOString())
+        .limit(1)
+        .maybeSingle();
+
+    if (existingInvitationError) throw existingInvitationError;
+    if (existingInvitation) {
+      return NextResponse.json(
+        { error: 'A valid pending invitation already exists for this email' },
+        { status: 409 }
       );
     }
 

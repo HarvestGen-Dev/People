@@ -1,0 +1,29 @@
+// <!-- AGENT: FRONTEND -->
+import { Topbar } from '@/components/layout/Topbar';
+import { TeamManager } from '@/components/settings/TeamManager';
+import { requireTenantContext } from '@/lib/tenant-context';
+import { getChurchTeam } from '@/lib/team';
+
+export const metadata = {
+  title: 'Team & Invitations | People',
+};
+
+export default async function TeamSettingsPage() {
+  const tenant = await requireTenantContext({ requireManager: true });
+  const team = await getChurchTeam(tenant.churchId);
+
+  return (
+    <>
+      <Topbar title="Team & invitations" />
+      <div className="mx-auto max-w-6xl p-5 animate-in fade-in-50 duration-300 sm:p-8 lg:p-10">
+        <TeamManager
+          churchName={tenant.churchName}
+          currentRole={tenant.role}
+          initialMembers={team.members}
+          initialInvitations={team.invitations}
+          now={new Date().toISOString()}
+        />
+      </div>
+    </>
+  );
+}

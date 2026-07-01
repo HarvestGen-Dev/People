@@ -1,164 +1,266 @@
+// <!-- AGENT: FRONTEND -->
+import Link from 'next/link';
+import {
+  ArrowRight,
+  CalendarDays,
+  MapPin,
+  Plus,
+  TicketCheck,
+  Users,
+} from 'lucide-react';
+import { format } from 'date-fns';
 import { createServiceClient } from '@/lib/supabase/server';
-import { Topbar } from '@/components/layout/Topbar';
+import { CopyButton } from '@/components/events/CopyButton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Calendar, MapPin, Copy, ExternalLink, Image as ImageIcon } from 'lucide-react';
-import Link from 'next/link';
-import { format } from 'date-fns';
-import { EventWithStats } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import type { EventWithStats } from '@/lib/types';
 import { requireTenantContext } from '@/lib/tenant-context';
 
 export const metadata = {
   title: 'Events | HarvestGen',
 };
 
-// Next.js client side copy wrapper component
-import { CopyButton } from '@/components/events/CopyButton';
+const statusStyles: Record<string, string> = {
+  published: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  closed: 'bg-slate-200 text-slate-700 border-slate-300',
+  draft: 'bg-amber-100 text-amber-700 border-amber-200',
+};
 
 export default async function EventsPage() {
   const { churchId } = await requireTenantContext();
   const supabase = createServiceClient();
 
-  // Manual query execution instead of raw SQL since Supabase JS doesn't easily let us execute raw string SQL
-  // We fetch events and group counts manually if no RPC exists.
-  const { data: eventsData, error } = await supabase
+  const { data: eventsData } = await supabase
     .from('events')
     .select('*')
     .eq('church_id', churchId)
     .order('start_at', { ascending: false });
 
   let events: EventWithStats[] = [];
-
-  if (eventsData && eventsData.length > 0) {
+  if (eventsData?.length) {
     const { data: registrations } = await supabase
       .from('event_registrations')
       .select('event_id, status')
       .eq('church_id', churchId);
 
-    const regByEvent = (registrations || []).reduce<Record<
-      string,
-      { total: number; pending: number; approved: number }
-    >>((acc, reg) => {
-      if (!acc[reg.event_id]) {
-        acc[reg.event_id] = { total: 0, pending: 0, approved: 0 };
+    const registrationsByEvent = (registrations || []).reduce<
+      Record<string, { total: number; pending: number; approved: number }>
+    >((result, registration) => {
+      if (!result[registration.event_id]) {
+        result[registration.event_id] = {
+          total: 0,
+          pending: 0,
+          approved: 0,
+        };
       }
-      acc[reg.event_id].total++;
-      if (reg.status === 'pending_review') acc[reg.event_id].pending++;
-      if (reg.status === 'approved') acc[reg.event_id].approved++;
-      return acc;
+      result[registration.event_id].total += 1;
+      if (registration.status === 'pending_review') {
+        result[registration.event_id].pending += 1;
+      }
+      if (registration.status === 'approved') {
+        result[registration.event_id].approved += 1;
+      }
+      return result;
     }, {});
 
-    events = eventsData.map(e => ({
-      ...e,
-      registration_count: regByEvent[e.id]?.total || 0,
-      pending_count: regByEvent[e.id]?.pending || 0,
-      approved_count: regByEvent[e.id]?.approved || 0,
-      spots_remaining: e.capacity ? e.capacity - (regByEvent[e.id]?.approved || 0) : null
+    events = eventsData.map((event) => ({
+      ...event,
+      registration_count: registrationsByEvent[event.id]?.total || 0,
+      pending_count: registrationsByEvent[event.id]?.pending || 0,
+      approved_count: registrationsByEvent[event.id]?.approved || 0,
+      spots_remaining: event.capacity
+        ? event.capacity - (registrationsByEvent[event.id]?.approved || 0)
+        : null,
     }));
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'published': return 'bg-emerald-500/90 text-white border-transparent';
-      case 'closed': return 'bg-slate-700/90 text-white border-transparent';
-      default: return 'bg-gray-500/90 text-white border-transparent';
-    }
-  };
-
-  const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://people.harvestgen.org';
+  const publishedCount = events.filter(
+    (event) => event.status === 'published'
+  ).length;
+  const totalRegistrations = events.reduce(
+    (sum, event) => sum + event.registration_count,
+    0
+  );
+  const pendingCount = events.reduce(
+    (sum, event) => sum + event.pending_count,
+    0
+  );
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL || 'https://people.harvestgen.org';
 
   return (
-    <>
-      <Topbar title="Events">
+    <div className="mx-auto max-w-[1440px] space-y-8 p-5 animate-in fade-in-50 duration-300 sm:p-8 lg:p-10">
+      <header className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+        <div>
+          <div className="text-xs font-bold uppercase tracking-[0.17em] text-emerald-700">
+            Gatherings
+          </div>
+          <h1 className="mt-2 text-3xl font-bold tracking-[-0.035em] text-slate-950 sm:text-4xl">
+            Events
+          </h1>
+          <p className="mt-2 max-w-2xl text-slate-500">
+            Publish registration pages, review payments, and welcome every
+            attendee with a clear process.
+          </p>
+        </div>
         <Link href="/events/new">
-          <Button className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2 rounded-xl h-9 px-4 shadow-sm transition-all hover:shadow-md">
-            <Plus className="h-4 w-4" />
+          <Button className="h-11 rounded-xl bg-emerald-700 px-5 font-bold hover:bg-emerald-800">
+            <Plus className="mr-2 h-4 w-4" />
             New event
           </Button>
         </Link>
-      </Topbar>
+      </header>
 
-      <div className="p-8 max-w-7xl mx-auto animate-in fade-in-50 duration-300">
-        {events.length === 0 ? (
-          <div className="text-center py-20 border border-dashed border-border rounded-2xl bg-muted/30">
-            <Calendar className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-foreground mb-1">No events yet</h3>
-            <p className="text-muted-foreground mb-6 max-w-md mx-auto">Create your first event to start accepting registrations for camps, conferences, and courses.</p>
-            <Link href="/events/new">
-              <Button className="rounded-xl">Create Event</Button>
-            </Link>
+      <section className="grid gap-4 sm:grid-cols-3">
+        {[
+          ['Published', publishedCount, CalendarDays, 'bg-emerald-100 text-emerald-700'],
+          ['Registrations', totalRegistrations, Users, 'bg-sky-100 text-sky-700'],
+          ['Awaiting review', pendingCount, TicketCheck, 'bg-amber-100 text-amber-700'],
+        ].map(([label, value, StatIcon, color]) => {
+          const Icon = StatIcon as typeof CalendarDays;
+          return (
+            <div
+              key={String(label)}
+              className="flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-4"
+            >
+              <div className={`grid h-11 w-11 place-items-center rounded-xl ${String(color)}`}>
+                <Icon className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-slate-950">
+                  {String(value)}
+                </div>
+                <div className="text-xs font-medium text-slate-500">
+                  {String(label)}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </section>
+
+      {events.length === 0 ? (
+        <div className="rounded-3xl border border-dashed border-slate-300 bg-white/70 px-6 py-20 text-center">
+          <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-emerald-100 text-emerald-700">
+            <CalendarDays className="h-6 w-6" />
           </div>
-        ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {events.map(event => {
-              const publicLink = `${APP_URL}/e/${event.slug}`;
-              return (
-                <div key={event.id} className="group flex flex-col bg-card rounded-2xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-all">
-                  <Link href={`/events/${event.id}/edit`} className="block relative aspect-[16/9] w-full bg-muted overflow-hidden">
-                    {event.cover_image_url ? (
-                      <img src={event.cover_image_url} alt={event.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-teal-500/20 to-primary/40 flex items-center justify-center">
-                        <span className="text-5xl font-bold text-primary/30 uppercase">{event.name.charAt(0)}</span>
-                      </div>
-                    )}
-                    <Badge className={cn("absolute top-3 left-3 shadow-sm capitalize backdrop-blur-sm", getStatusColor(event.status))}>
-                      {event.status}
-                    </Badge>
-                  </Link>
-                  
-                  <div className="p-5 flex flex-col flex-1">
-                    <div className="flex-1">
-                      <Link href={`/events/${event.id}/edit`} className="block hover:underline">
-                        <h3 className="text-xl font-bold text-foreground line-clamp-1 mb-2">{event.name}</h3>
-                      </Link>
-                      
-                      <div className="space-y-1.5 text-sm text-muted-foreground mb-4">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 shrink-0" />
-                          <span className="truncate">
-                            {format(new Date(event.start_at), 'MMM d, yyyy')}
-                            {event.end_at ? ` – ${format(new Date(event.end_at), 'MMM d, yyyy')}` : ''}
-                          </span>
-                        </div>
-                        {event.location && (
-                          <div className="flex items-center gap-2">
-                            <MapPin className="h-4 w-4 shrink-0" />
-                            <span className="truncate">{event.location}</span>
-                          </div>
-                        )}
-                      </div>
+          <h2 className="mt-5 text-xl font-bold text-slate-950">
+            Create your first event
+          </h2>
+          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
+            Launch a registration page for a camp, course, conference, or
+            ministry gathering.
+          </p>
+          <Link href="/events/new">
+            <Button className="mt-6 rounded-xl bg-emerald-700 font-bold hover:bg-emerald-800">
+              Create event
+            </Button>
+          </Link>
+        </div>
+      ) : (
+        <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {events.map((event) => {
+            const publicLink = `${appUrl}/e/${event.slug}`;
+            return (
+              <article
+                key={event.id}
+                className="group overflow-hidden rounded-3xl border border-slate-200/80 bg-white transition-all hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-[0_24px_55px_-40px_rgba(6,78,59,0.5)]"
+              >
+                <Link
+                  href={`/events/${event.id}/edit`}
+                  className="relative block aspect-[16/8.5] overflow-hidden bg-emerald-950"
+                >
+                  {event.cover_image_url ? (
+                    <img
+                      src={event.cover_image_url}
+                      alt={event.name}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="landing-grid grid h-full w-full place-items-center bg-gradient-to-br from-emerald-950 to-emerald-800">
+                      <span className="text-6xl font-black uppercase text-emerald-300/35">
+                        {event.name.charAt(0)}
+                      </span>
                     </div>
-                    
-                    <div className="flex items-center justify-between pt-4 border-t border-border mt-auto">
-                      <div className="flex items-center gap-2 text-sm font-medium">
-                        <span className="text-foreground">{event.registration_count} registered</span>
-                        {event.pending_count > 0 && (
-                          <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full text-xs animate-pulse">
-                            {event.pending_count} pending
-                          </span>
-                        )}
-                      </div>
-                      
-                      <div className="flex items-center gap-1">
-                        {event.status === 'published' && (
-                          <CopyButton textToCopy={publicLink} />
-                        )}
-                        <Link href={`/events/${event.id}/registrations`}>
-                          <Button variant="ghost" size="sm" className="h-8 rounded-lg text-primary hover:text-primary hover:bg-primary/10">
-                            Registrations
-                          </Button>
-                        </Link>
-                      </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/55 to-transparent" />
+                  <Badge
+                    variant="outline"
+                    className={`absolute left-4 top-4 capitalize shadow-sm ${statusStyles[event.status]}`}
+                  >
+                    {event.status}
+                  </Badge>
+                  {event.pending_count > 0 && (
+                    <div className="absolute bottom-4 right-4 rounded-full bg-amber-400 px-2.5 py-1 text-[10px] font-bold text-amber-950 shadow-sm">
+                      {event.pending_count} to review
+                    </div>
+                  )}
+                </Link>
+
+                <div className="p-5">
+                  <Link href={`/events/${event.id}/edit`}>
+                    <h2 className="truncate text-xl font-bold tracking-tight text-slate-950 group-hover:text-emerald-700">
+                      {event.name}
+                    </h2>
+                  </Link>
+                  <div className="mt-4 space-y-2 text-sm text-slate-500">
+                    <div className="flex items-center gap-2">
+                      <CalendarDays className="h-4 w-4 text-emerald-600" />
+                      {format(new Date(event.start_at), 'EEE, d MMM yyyy · h:mm a')}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-emerald-600" />
+                      <span className="truncate">
+                        {event.location || 'Location to be confirmed'}
+                      </span>
                     </div>
                   </div>
+
+                  <div className="mt-5 grid grid-cols-3 gap-2">
+                    {[
+                      ['Registered', event.registration_count],
+                      ['Approved', event.approved_count],
+                      [
+                        'Spots',
+                        event.spots_remaining === null
+                          ? '∞'
+                          : Math.max(0, event.spots_remaining),
+                      ],
+                    ].map(([label, value]) => (
+                      <div key={String(label)} className="rounded-xl bg-slate-50 p-3">
+                        <div className="font-bold text-slate-900">
+                          {String(value)}
+                        </div>
+                        <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                          {String(label)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
+                    <div className="flex items-center gap-1">
+                      {event.status === 'published' && (
+                        <CopyButton textToCopy={publicLink} />
+                      )}
+                      <Link href={`/events/${event.id}/registrations`}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="rounded-xl font-bold text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+                        >
+                          Manage registrations
+                        </Button>
+                      </Link>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-slate-300" />
+                  </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </>
+              </article>
+            );
+          })}
+        </section>
+      )}
+    </div>
   );
 }

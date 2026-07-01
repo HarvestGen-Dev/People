@@ -19,7 +19,7 @@ export default function NewEventPage() {
         </Link>
       </Topbar>
 
-      <div className="p-8 max-w-5xl mx-auto animate-in fade-in-50 duration-300">
+      <div className="mx-auto max-w-6xl p-5 animate-in fade-in-50 duration-300 sm:p-8 lg:p-10">
         <EventForm />
       </div>
     </>

@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 
 const settingsNav = [
   { name: 'General', href: '/settings' },
+  { name: 'Team & invitations', href: '/settings/team' },
   { name: 'Custom fields', href: '/settings/fields' },
   { name: 'Tags', href: '/settings/tags' },
   { name: 'API keys', href: '/settings/api-keys' },

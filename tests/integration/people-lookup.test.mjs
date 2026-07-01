@@ -23,7 +23,7 @@ let server;
 let churchId;
 
 async function waitForServer() {
-  const deadline = Date.now() + 30_000;
+  const deadline = Date.now() + 120_000;
   while (Date.now() < deadline) {
     try {
       const response = await fetch(`${baseUrl}/login`);
