@@ -66,8 +66,8 @@ export function TagsManager({ initialTags, churchId }: { initialTags: TagData[],
         toast.success('Tag created');
       }
       setIsDialogOpen(false);
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to save tag');
     } finally {
       setIsSubmitting(false);
     }
@@ -89,8 +89,8 @@ export function TagsManager({ initialTags, churchId }: { initialTags: TagData[],
       
       setTags(tags.filter(t => t.id !== id));
       toast.success('Tag deleted');
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete tag');
     }
   };
 

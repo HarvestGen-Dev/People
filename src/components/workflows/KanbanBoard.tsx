@@ -4,23 +4,46 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, MoreHorizontal, CheckCircle2, Search, Loader2 } from 'lucide-react';
+import { Plus, MoreHorizontal, CheckCircle2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { WorkflowCardComponent } from './WorkflowCard';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type {
+  ListPerson,
+  Workflow,
+  WorkflowAdminUser,
+  WorkflowBoardCard,
+  WorkflowCard,
+  WorkflowStep,
+} from '@/lib/types';
 
+// <!-- AGENT: FRONTEND -->
 // DECISION: Skipped @dnd-kit implementation as permitted by instructions to save complexity. 
 // Cards can be moved between columns via the "Move to step" dropdown in the card drawer.
 
-export function KanbanBoard({ workflow, initialSteps, initialCards, users }: { workflow: any, initialSteps: any[], initialCards: any[], users: any[] }) {
+type WorkflowCardUpdate = Partial<
+  Pick<WorkflowCard, 'current_step_id' | 'assigned_to' | 'due_date' | 'notes'>
+>;
+
+interface KanbanBoardProps {
+  workflow: Workflow;
+  initialSteps: WorkflowStep[];
+  initialCards: WorkflowBoardCard[];
+  users: WorkflowAdminUser[];
+}
+
+const errorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : 'An unexpected error occurred';
+
+export function KanbanBoard({ workflow, initialSteps, initialCards, users }: KanbanBoardProps) {
   const router = useRouter();
   const [steps, setSteps] = useState(initialSteps);
   const [cards, setCards] = useState(initialCards);
 
-  const [activeCard, setActiveCard] = useState<any | null>(null);
+  const [activeCard, setActiveCard] = useState<WorkflowBoardCard | null>(null);
   
   // Step Add
   const [isAddStepOpen, setIsAddStepOpen] = useState(false);
@@ -31,7 +54,7 @@ export function KanbanBoard({ workflow, initialSteps, initialCards, users }: { w
   const [isAddCardOpen, setIsAddCardOpen] = useState(false);
   const [targetStepId, setTargetStepId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<ListPerson[]>([]);
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [cardFormData, setCardFormData] = useState({ assigned_to: '', due_date: '', notes: '' });
 
@@ -43,7 +66,9 @@ export function KanbanBoard({ workflow, initialSteps, initialCards, users }: { w
         const { data } = await res.json();
         setSearchResults(data);
       }
-    } catch (e) {}
+    } catch {
+      setSearchResults([]);
+    }
   };
 
   const handleAddStep = async () => {
@@ -67,8 +92,8 @@ export function KanbanBoard({ workflow, initialSteps, initialCards, users }: { w
       // Optionally we can push the step locally for immediate feedback but router.refresh() handles it.
       // But we need to wait for refresh or just reload page. Let's do reload for now since refresh might take a sec.
       window.location.reload();
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(errorMessage(error));
     }
   };
 
@@ -80,7 +105,9 @@ export function KanbanBoard({ workflow, initialSteps, initialCards, users }: { w
       await fetch(`/api/admin/workflow-steps/${stepId}`, { method: 'DELETE' });
       toast.success('Step deleted');
       window.location.reload();
-    } catch (e) {}
+    } catch (error: unknown) {
+      toast.error(errorMessage(error));
+    }
   };
 
   const handleAddCard = async () => {
@@ -104,12 +131,12 @@ export function KanbanBoard({ workflow, initialSteps, initialCards, users }: { w
       setSelectedPersonId(null);
       setCardFormData({ assigned_to: '', due_date: '', notes: '' });
       window.location.reload();
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(errorMessage(error));
     }
   };
 
-  const handleUpdateCard = async (updates: any) => {
+  const handleUpdateCard = async (updates: WorkflowCardUpdate) => {
     if (!activeCard) return;
     try {
       const res = await fetch(`/api/admin/workflow-cards/${activeCard.id}`, {
@@ -121,8 +148,8 @@ export function KanbanBoard({ workflow, initialSteps, initialCards, users }: { w
       toast.success('Card updated');
       setActiveCard({ ...activeCard, ...updates });
       window.location.reload();
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(errorMessage(error));
     }
   };
 
@@ -134,8 +161,8 @@ export function KanbanBoard({ workflow, initialSteps, initialCards, users }: { w
       toast.success('Marked as done');
       setActiveCard(null);
       window.location.reload();
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(errorMessage(error));
     }
   };
 
@@ -146,11 +173,13 @@ export function KanbanBoard({ workflow, initialSteps, initialCards, users }: { w
       toast.success('Card removed');
       setActiveCard(null);
       window.location.reload();
-    } catch (e) {}
+    } catch (error: unknown) {
+      toast.error(errorMessage(error));
+    }
   };
 
-  const renderColumn = (step: any, isDone = false) => {
-    let columnCards = isDone 
+  const renderColumn = (step: Pick<WorkflowStep, 'id' | 'name'>, isDone = false) => {
+    const columnCards = isDone
       ? cards.filter(c => c.completed_at)
       : cards.filter(c => c.current_step_id === step.id && !c.completed_at);
       
@@ -224,7 +253,13 @@ export function KanbanBoard({ workflow, initialSteps, initialCards, users }: { w
             <div className="p-6 flex-1 overflow-y-auto space-y-6">
               <div className="flex items-center gap-4 bg-slate-50 border border-border p-4 rounded-xl">
                 <div className="w-12 h-12 rounded-full bg-slate-200 overflow-hidden shrink-0">
-                  {activeCard.people.photo_url && <img src={activeCard.people.photo_url} className="w-full h-full object-cover" />}
+                  {activeCard.people.photo_url && (
+                    <img
+                      src={activeCard.people.photo_url}
+                      alt={`${activeCard.people.first_name} ${activeCard.people.last_name}`}
+                      className="w-full h-full object-cover"
+                    />
+                  )}
                 </div>
                 <div>
                   <div className="font-bold text-slate-900">{activeCard.people.first_name} {activeCard.people.last_name}</div>
@@ -235,7 +270,7 @@ export function KanbanBoard({ workflow, initialSteps, initialCards, users }: { w
               {!activeCard.completed_at && (
                 <div>
                   <label className="text-sm font-medium mb-1.5 block">Current step</label>
-                  <Select value={activeCard.current_step_id} onValueChange={v => handleUpdateCard({ current_step_id: v })}>
+                  <Select value={activeCard.current_step_id ?? ''} onValueChange={v => handleUpdateCard({ current_step_id: v })}>
                     <SelectTrigger className="rounded-xl bg-white"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {steps.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}

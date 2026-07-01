@@ -53,7 +53,7 @@ export async function approveRegistration(
   });
 
   // 4. Send confirmation email (fire and forget, but await the send result for logging)
-  const emailResult = await sendEventConfirmationEmail(registration, person);
+  const emailResult = await sendEventConfirmationEmail(registration);
   if (emailResult.success) {
     await supabase
       .from('event_registrations')

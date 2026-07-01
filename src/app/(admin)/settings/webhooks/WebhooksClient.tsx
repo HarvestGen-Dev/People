@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Webhook } from '@/lib/types'
+import { Webhook, WebhookDelivery } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Plus, Check, X, Trash2, Edit2, Play, ChevronRight, Activity } from 'lucide-react'
@@ -32,7 +32,8 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: Webhook[]
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [testResult, setTestResult] = useState<{ success: boolean; duration: number; error?: string } | null>(null)
   
-  const toast = ({ title, variant }: any) => window.alert(title)
+  const toast = ({ title }: { title: string; variant?: 'destructive' }) =>
+    window.alert(title)
   const router = useRouter()
 
   const handleCreate = async () => {
@@ -106,15 +107,19 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: Webhook[]
       if (!res.ok) throw new Error(data.error || 'Test failed')
       
       setTestResult({ success: true, duration: data.duration })
-    } catch (err: any) {
-      setTestResult({ success: false, duration: 0, error: err.message })
+    } catch (err: unknown) {
+      setTestResult({
+        success: false,
+        duration: 0,
+        error: err instanceof Error ? err.message : 'Test failed',
+      })
     } finally {
       setIsSubmitting(false)
     }
   }
 
   const [isDeliveriesOpen, setIsDeliveriesOpen] = useState(false)
-  const [deliveries, setDeliveries] = useState<any[]>([])
+  const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([])
   const [isLoadingDeliveries, setIsLoadingDeliveries] = useState(false)
 
   const handleViewDeliveries = async (webhook: Webhook) => {
@@ -204,7 +209,7 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: Webhook[]
                         return new Date(bDate).getTime() - new Date(aDate).getTime()
                       })[0]
                       
-                      const date = last.delivered_at || last.failed_at
+                      const date = last.delivered_at || last.failed_at || last.created_at
                       const success = !!last.delivered_at
                       return (
                         <div className="flex items-center gap-2">

@@ -25,8 +25,12 @@ export default async function WorkflowsPage() {
     .order('created_at', { ascending: false });
 
   const workflows = (workflowsData || []).map(w => {
-    const active_cards = w.workflow_cards.filter((card) => !card.completed_at).length;
-    const completed_cards = w.workflow_cards.filter((card) => !!card.completed_at).length;
+    const active_cards = w.workflow_cards.filter(
+      (card: { completed_at: string | null }) => !card.completed_at
+    ).length;
+    const completed_cards = w.workflow_cards.filter(
+      (card: { completed_at: string | null }) => !!card.completed_at
+    ).length;
     return {
       ...w,
       steps_count: w.workflow_steps.length,
@@ -39,7 +43,7 @@ export default async function WorkflowsPage() {
     <>
       <Topbar title="Workflows" />
       <div className="p-8 max-w-6xl animate-in fade-in-50 duration-300">
-        <WorkflowIndexManager initialWorkflows={workflows} churchId={churchId} />
+        <WorkflowIndexManager initialWorkflows={workflows} />
       </div>
     </>
   );

@@ -1,5 +1,10 @@
 import { createServiceClient } from '@/lib/supabase/server';
-import type { PersonWithRelations, Note, PersonEvent, WorkflowCard } from '@/lib/types';
+import type {
+  PersonWithRelations,
+  Note,
+  PersonEvent,
+  WorkflowCardWithRelations,
+} from '@/lib/types';
 
 export async function getPersonById(
   id: string,
@@ -57,7 +62,7 @@ export async function getPersonEvents(
 export async function getPersonWorkflowCards(
   personId: string,
   churchId: string
-): Promise<WorkflowCard[]> {
+): Promise<WorkflowCardWithRelations[]> {
   const supabase = createServiceClient();
   const { data } = await supabase
     .from('workflow_cards')
@@ -66,5 +71,5 @@ export async function getPersonWorkflowCards(
     .eq('church_id', churchId)
     .order('created_at', { ascending: false });
 
-  return (data as WorkflowCard[]) || [];
+  return (data as unknown as WorkflowCardWithRelations[]) || [];
 }

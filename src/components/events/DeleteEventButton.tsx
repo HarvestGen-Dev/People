@@ -26,8 +26,8 @@ export function DeleteEventButton({ eventId, hasRegistrations }: { eventId: stri
       
       toast.success('Event deleted');
       router.push('/events');
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete event');
       setIsDeleting(false);
     }
   };

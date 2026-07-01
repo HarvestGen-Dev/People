@@ -66,16 +66,17 @@ export default function LoginPage() {
   };
 
   return (
-    <Card className="w-full max-w-md border-border bg-card shadow-xl rounded-2xl">
-      <CardHeader className="space-y-2 text-center">
-        <CardTitle className="text-3xl font-bold tracking-tight text-foreground">Sign in to People</CardTitle>
+    <Card className="w-full max-w-md border-slate-200/80 bg-white shadow-[0_24px_70px_-38px_rgba(15,23,42,0.45)] rounded-3xl">
+      <CardHeader className="space-y-2 px-7 pt-8 text-left sm:px-9">
+        <div className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">Welcome back</div>
+        <CardTitle className="text-3xl font-bold tracking-[-0.035em] text-slate-950">Sign in to People</CardTitle>
         <CardDescription className="text-muted-foreground text-base">
           {loginMethod === 'magic_link' 
             ? "Enter your church email and we'll send you a magic link."
             : "Enter your church email and password to sign in."}
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-7 pb-8 sm:px-9">
         {success ? (
           <div className="text-center py-6 space-y-4">
             <div className="text-emerald-600 bg-emerald-100 rounded-full h-12 w-12 flex items-center justify-center mx-auto mb-4">

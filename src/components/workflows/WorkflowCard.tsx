@@ -1,7 +1,9 @@
 import { formatDistanceToNow, format } from 'date-fns';
-import { User, Calendar, MessageSquare } from 'lucide-react';
+import { User, Calendar } from 'lucide-react';
+import type { WorkflowBoardCard } from '@/lib/types';
 
-export function WorkflowCardComponent({ card, onClick }: { card: any, onClick: () => void }) {
+// <!-- AGENT: FRONTEND -->
+export function WorkflowCardComponent({ card, onClick }: { card: WorkflowBoardCard, onClick: () => void }) {
   const p = card.people;
   
   return (
@@ -34,8 +36,8 @@ export function WorkflowCardComponent({ card, onClick }: { card: any, onClick: (
         )}
         
         {card.due_date && (
-          <div className={`flex items-center gap-1.5 text-xs ${new Date(card.due_date) < new Date() ? 'text-destructive font-medium' : 'text-slate-600'}`}>
-            <Calendar className={`h-3 w-3 ${new Date(card.due_date) < new Date() ? 'text-destructive' : 'text-slate-400'}`} />
+          <div className="flex items-center gap-1.5 text-xs text-slate-600">
+            <Calendar className="h-3 w-3 text-slate-400" />
             <span>Due {format(new Date(card.due_date), 'MMM d')}</span>
           </div>
         )}
@@ -43,7 +45,7 @@ export function WorkflowCardComponent({ card, onClick }: { card: any, onClick: (
 
       {card.notes && (
         <div className="mt-3 text-xs text-slate-600 bg-slate-50 p-2 rounded-lg border border-border flex items-start gap-1.5 line-clamp-2 italic">
-          "{card.notes}"
+          &quot;{card.notes}&quot;
         </div>
       )}
     </div>

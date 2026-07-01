@@ -8,8 +8,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Plus, Shuffle, ArrowRight, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import type { WorkflowSummary } from '@/lib/types';
 
-export function WorkflowIndexManager({ initialWorkflows, churchId }: { initialWorkflows: any[], churchId: string }) {
+// <!-- AGENT: FRONTEND -->
+export function WorkflowIndexManager({ initialWorkflows }: { initialWorkflows: WorkflowSummary[] }) {
   const router = useRouter();
   const [workflows, setWorkflows] = useState(initialWorkflows);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -32,8 +34,8 @@ export function WorkflowIndexManager({ initialWorkflows, churchId }: { initialWo
       
       toast.success('Workflow created');
       router.push(`/workflows/${data.id}`);
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to create workflow');
     } finally {
       setIsSaving(false);
     }

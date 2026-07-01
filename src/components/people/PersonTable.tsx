@@ -1,22 +1,73 @@
 'use client';
 
-import { PersonWithRelations } from '@/lib/types';
+// <!-- AGENT: FRONTEND -->
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import {
+  ArrowUpRight,
+  Mail,
+  MoreHorizontal,
+  MapPin,
+  UserPlus,
+} from 'lucide-react';
+import type { PersonWithRelations } from '@/lib/types';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuSeparator, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, UserPlus } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 
 interface PersonTableProps {
   people: PersonWithRelations[];
+}
+
+const statusStyles: Record<string, string> = {
+  active: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  visitor: 'bg-sky-100 text-sky-700 border-sky-200',
+  child: 'bg-violet-100 text-violet-700 border-violet-200',
+  inactive: 'bg-slate-100 text-slate-600 border-slate-200',
+};
+
+function PersonTags({ person }: { person: PersonWithRelations }) {
+  const visibleTags = person.person_tags?.filter((item) => item.tag).slice(0, 2);
+  const remaining = Math.max(0, (person.person_tags?.length || 0) - 2);
+
+  if (!visibleTags?.length) {
+    return <span className="text-xs text-slate-400">No tags</span>;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {visibleTags.map((personTag) =>
+        personTag.tag ? (
+          <Badge
+            key={personTag.tag.id}
+            style={{
+              backgroundColor: `${personTag.tag.color}12`,
+              color: personTag.tag.color,
+              borderColor: `${personTag.tag.color}35`,
+            }}
+            className="h-6 border px-2 text-[10px] font-bold shadow-none"
+            variant="outline"
+          >
+            {personTag.tag.name}
+          </Badge>
+        ) : null
+      )}
+      {remaining > 0 && (
+        <Badge
+          variant="secondary"
+          className="h-6 px-2 text-[10px] font-bold text-slate-500 shadow-none"
+        >
+          +{remaining}
+        </Badge>
+      )}
+    </div>
+  );
 }
 
 export function PersonTable({ people }: PersonTableProps) {
@@ -24,128 +75,175 @@ export function PersonTable({ people }: PersonTableProps) {
 
   if (people.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 text-center border-2 border-dashed border-border rounded-2xl bg-card/50">
-        <div className="h-16 w-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-4">
-          <UserPlus className="h-8 w-8" />
+      <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-white/70 px-6 py-20 text-center">
+        <div className="grid h-14 w-14 place-items-center rounded-2xl bg-emerald-100 text-emerald-700">
+          <UserPlus className="h-6 w-6" />
         </div>
-        <h3 className="text-xl font-semibold text-foreground">No people found</h3>
-        <p className="text-muted-foreground mt-2 mb-6 max-w-sm">
-          Get started by adding your first church member or adjust your search filters.
+        <h3 className="mt-5 text-xl font-bold text-slate-950">No people found</h3>
+        <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">
+          Adjust the current filters or add a new member or visitor to the
+          directory.
         </p>
-        <Link href="/people/new">
-          <Button className="rounded-xl h-11 px-6 shadow-sm">Add your first member</Button>
+        <Link href="/people/new" className="mt-6">
+          <Button className="h-10 rounded-xl bg-emerald-700 px-5 font-bold hover:bg-emerald-800">
+            Add person
+          </Button>
         </Link>
       </div>
     );
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100/80 border-transparent';
-      case 'visitor': return 'bg-blue-100 text-blue-700 hover:bg-blue-100/80 border-transparent';
-      case 'child': return 'bg-purple-100 text-purple-700 hover:bg-purple-100/80 border-transparent';
-      case 'inactive': return 'bg-slate-100 text-slate-700 hover:bg-slate-100/80 border-transparent';
-      default: return 'bg-slate-100 text-slate-700 border-transparent';
-    }
-  };
-
   return (
-    <div className="bg-card border border-border shadow-sm rounded-2xl overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-muted/50 text-muted-foreground font-medium border-b border-border">
-            <tr>
-              <th className="px-6 py-4 rounded-tl-2xl">Name</th>
-              <th className="px-6 py-4">Status</th>
-              <th className="px-6 py-4">Tags</th>
-              <th className="px-6 py-4">Campus</th>
-              <th className="px-6 py-4">Member since</th>
-              <th className="px-6 py-4 text-right rounded-tr-2xl">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {people.map((person) => (
-              <tr 
-                key={person.id} 
-                className="hover:bg-muted/30 transition-colors group cursor-pointer"
-                onClick={(e) => {
-                  // Don't navigate if clicking the dropdown button
-                  if ((e.target as HTMLElement).closest('button')) return;
-                  router.push(`/people/${person.id}`);
-                }}
+    <>
+      <div className="grid gap-3 md:hidden">
+        {people.map((person) => (
+          <article
+            key={person.id}
+            className="rounded-2xl border border-slate-200/80 bg-white p-4"
+          >
+            <div className="flex items-start gap-3">
+              <Avatar className="h-11 w-11 border border-emerald-200">
+                <AvatarFallback className="bg-emerald-100 text-xs font-bold text-emerald-700">
+                  {person.first_name[0]}
+                  {person.last_name[0]}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1">
+                <Link
+                  href={`/people/${person.id}`}
+                  className="font-bold text-slate-950 hover:text-emerald-700"
+                >
+                  {person.first_name} {person.last_name}
+                </Link>
+                <div className="mt-1 flex items-center gap-1.5 truncate text-xs text-slate-500">
+                  <Mail className="h-3 w-3 shrink-0" />
+                  {person.email || 'No email address'}
+                </div>
+              </div>
+              <Badge
+                variant="outline"
+                className={`capitalize shadow-none ${statusStyles[person.status]}`}
               >
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10 bg-primary/10 text-primary border border-primary/20">
-                      <AvatarFallback className="font-semibold bg-primary/10 text-primary">
-                        {person.first_name[0]}{person.last_name[0]}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <div className="font-semibold text-foreground text-base group-hover:text-primary transition-colors">
-                        {person.first_name} {person.last_name}
-                      </div>
-                      <div className="text-muted-foreground text-xs mt-0.5">{person.email || 'No email'}</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <Badge className={`capitalize shadow-none font-medium ${getStatusColor(person.status)}`}>
-                    {person.status}
-                  </Badge>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex flex-wrap gap-1">
-                    {person.person_tags?.slice(0, 3).map((pt: any) => (
-                      <Badge 
-                        key={pt.tag.id} 
-                        style={{ backgroundColor: pt.tag.color + '20', color: pt.tag.color, borderColor: pt.tag.color + '40' }}
-                        className="shadow-none border text-xs py-0 h-5"
-                        variant="outline"
-                      >
-                        {pt.tag.name}
-                      </Badge>
-                    ))}
-                    {person.person_tags && person.person_tags.length > 3 && (
-                      <Badge variant="secondary" className="shadow-none text-xs py-0 h-5 text-muted-foreground">
-                        +{person.person_tags.length - 3} more
-                      </Badge>
-                    )}
-                    {(!person.person_tags || person.person_tags.length === 0) && (
-                      <span className="text-muted-foreground text-xs">—</span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-foreground/80">
-                  {person.campus || '—'}
-                </td>
-                <td className="px-6 py-4 text-foreground/80">
-                  {person.created_at ? new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' }).format(new Date(person.created_at)) : '—'}
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger className="inline-flex h-8 w-8 p-0 items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-[160px] rounded-xl shadow-lg border-border">
-                      <DropdownMenuItem onClick={() => router.push(`/people/${person.id}`)} className="cursor-pointer">
-                        View profile
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => router.push(`/people/${person.id}/edit`)} className="cursor-pointer">
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-destructive focus:bg-destructive/10 cursor-pointer">
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                {person.status}
+              </Badge>
+            </div>
+            <div className="mt-4 flex items-end justify-between gap-3 border-t border-slate-100 pt-3">
+              <div className="min-w-0 space-y-2">
+                <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                  <MapPin className="h-3 w-3" />
+                  {person.campus || 'No campus'}
+                </div>
+                <PersonTags person={person} />
+              </div>
+              <Link
+                href={`/people/${person.id}`}
+                aria-label={`View ${person.first_name} ${person.last_name}`}
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-50 text-slate-500 hover:bg-emerald-50 hover:text-emerald-700"
+              >
+                <ArrowUpRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </article>
+        ))}
       </div>
-    </div>
+
+      <div className="hidden overflow-hidden rounded-3xl border border-slate-200/80 bg-white md:block">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[880px] text-left text-sm">
+            <thead className="border-b border-slate-200 bg-slate-50/70">
+              <tr className="text-[10px] font-bold uppercase tracking-[0.13em] text-slate-400">
+                <th className="px-6 py-4">Person</th>
+                <th className="px-5 py-4">Status</th>
+                <th className="px-5 py-4">Tags</th>
+                <th className="px-5 py-4">Campus</th>
+                <th className="px-5 py-4">Added</th>
+                <th className="w-16 px-5 py-4">
+                  <span className="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {people.map((person) => (
+                <tr
+                  key={person.id}
+                  className="group transition-colors hover:bg-emerald-50/35"
+                >
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10 border border-emerald-200">
+                        <AvatarFallback className="bg-emerald-100 text-xs font-bold text-emerald-700">
+                          {person.first_name[0]}
+                          {person.last_name[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <Link
+                          href={`/people/${person.id}`}
+                          className="block truncate font-bold text-slate-900 transition-colors group-hover:text-emerald-700"
+                        >
+                          {person.first_name} {person.last_name}
+                        </Link>
+                        <div className="mt-0.5 max-w-[260px] truncate text-xs text-slate-500">
+                          {person.email || person.phone || 'No contact details'}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-5 py-4">
+                    <Badge
+                      variant="outline"
+                      className={`capitalize shadow-none ${statusStyles[person.status]}`}
+                    >
+                      {person.status}
+                    </Badge>
+                  </td>
+                  <td className="px-5 py-4">
+                    <PersonTags person={person} />
+                  </td>
+                  <td className="px-5 py-4 text-sm font-medium text-slate-600">
+                    {person.campus || '—'}
+                  </td>
+                  <td className="px-5 py-4 text-sm text-slate-500">
+                    {person.created_at
+                      ? new Intl.DateTimeFormat('en', {
+                          month: 'short',
+                          year: 'numeric',
+                        }).format(new Date(person.created_at))
+                      : '—'}
+                  </td>
+                  <td className="px-5 py-4 text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        aria-label={`Actions for ${person.first_name} ${person.last_name}`}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-800"
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="end"
+                        className="w-[170px] rounded-xl"
+                      >
+                        <DropdownMenuItem
+                          onClick={() => router.push(`/people/${person.id}`)}
+                        >
+                          View profile
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            router.push(`/people/${person.id}/edit`)
+                          }
+                        >
+                          Edit details
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
   );
 }

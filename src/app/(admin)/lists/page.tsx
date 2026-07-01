@@ -1,5 +1,4 @@
 import { createServiceClient } from '@/lib/supabase/server';
-import { Topbar } from '@/components/layout/Topbar';
 import { ListIndexManager } from '@/components/lists/ListIndexManager';
 import { requireTenantContext } from '@/lib/tenant-context';
 
@@ -28,11 +27,8 @@ export default async function ListsPage() {
   }));
 
   return (
-    <>
-      <Topbar title="Lists" />
-      <div className="p-8 max-w-6xl animate-in fade-in-50 duration-300">
-        <ListIndexManager initialLists={formattedLists} churchId={churchId} />
-      </div>
-    </>
+    <div className="mx-auto max-w-[1440px] p-5 animate-in fade-in-50 duration-300 sm:p-8 lg:p-10">
+      <ListIndexManager initialLists={formattedLists} />
+    </div>
   );
 }

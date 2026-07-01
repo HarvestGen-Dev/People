@@ -4,15 +4,23 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Download, Plus, Search, Trash2, Loader2 } from 'lucide-react';
+import { Download, Plus, Search, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import type { List, ListPerson } from '@/lib/types';
+import { ListPeopleTable } from './ListPeopleTable';
 
-export function StaticListDetail({ list, people }: { list: any, people: any[] }) {
+export function StaticListDetail({
+  list,
+  people,
+}: {
+  list: List;
+  people: ListPerson[];
+}) {
   const router = useRouter();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<ListPerson[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -27,32 +35,11 @@ export function StaticListDetail({ list, people }: { list: any, people: any[] })
       if (!res.ok) throw new Error('Failed to remove person');
       toast.success('Removed from list');
       router.refresh();
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to remove person');
     }
   };
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
-    setIsSearching(true);
-    try {
-      const res = await fetch(`/api/v1/people?search=${encodeURIComponent(searchQuery)}&per_page=20`, {
-        // Use an internal API route for searching if API key auth is tricky, 
-        // or just fetch from an admin route. 
-        // Wait! `/api/v1/people` requires API key. I shouldn't call it from the browser without the key.
-        // I will just use a server action or a new admin endpoint for search, but let's assume we have an admin endpoint or use Supabase client directly since it's a client component with RLS? 
-        // The prompt says "Add people button opens a people search Dialog". I'll call an admin search endpoint.
-      });
-      // Actually, since I don't have an admin search endpoint yet, I will create one or just use Supabase.
-    } catch (e) {
-      // ignore
-    }
-  };
-
-  // The easiest way is to just call Supabase directly from the client component!
-  // Wait, I don't have createBrowserClient imported.
-  // Let me just create a quick search endpoint at `/api/admin/people/search` or call it.
-  
   const performSearch = async (query: string) => {
     if (!query.trim()) {
       setSearchResults([]);
@@ -65,8 +52,8 @@ export function StaticListDetail({ list, people }: { list: any, people: any[] })
         const { data } = await res.json();
         setSearchResults(data);
       }
-    } catch (err) {
-      console.error(err);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Search failed');
     } finally {
       setIsSearching(false);
     }
@@ -88,8 +75,8 @@ export function StaticListDetail({ list, people }: { list: any, people: any[] })
       setSearchResults([]);
       setSelectedIds(new Set());
       router.refresh();
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to add people');
     } finally {
       setIsAdding(false);
     }
@@ -104,62 +91,32 @@ export function StaticListDetail({ list, people }: { list: any, people: any[] })
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">{list.name}</h2>
-          <p className="text-slate-500 text-sm">{people.length} people</p>
+          <div className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">Static list</div>
+          <h2 className="mt-2 text-3xl font-bold tracking-[-0.03em] text-slate-950">{list.name}</h2>
+          <p className="mt-2 text-sm text-slate-500">{people.length} manually selected people</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <Button variant="outline" onClick={() => setIsSearchOpen(true)} className="rounded-xl bg-white shadow-sm gap-2">
             <Plus className="h-4 w-4" /> Add people
           </Button>
-          <Button onClick={handleExport} className="rounded-xl shadow-sm gap-2">
+          <Button onClick={handleExport} className="rounded-xl bg-emerald-700 font-bold shadow-sm hover:bg-emerald-800 gap-2">
             <Download className="h-4 w-4" /> Export CSV
           </Button>
         </div>
       </div>
 
-      <div className="bg-white border border-border rounded-2xl overflow-hidden shadow-sm">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-slate-50 border-b border-border text-slate-500 font-medium">
-            <tr>
-              <th className="px-6 py-3">Name</th>
-              <th className="px-6 py-3">Status</th>
-              <th className="px-6 py-3">Email</th>
-              <th className="px-6 py-3">Phone</th>
-              <th className="px-6 py-3 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {people.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
-                  This list is empty. Add people to get started.
-                </td>
-              </tr>
-            ) : (
-              people.map(p => (
-                <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
-                  <td className="px-6 py-3 font-medium text-slate-900">{p.first_name} {p.last_name}</td>
-                  <td className="px-6 py-3 text-slate-600 capitalize">{p.status}</td>
-                  <td className="px-6 py-3 text-slate-500">{p.email || '-'}</td>
-                  <td className="px-6 py-3 text-slate-500">{p.phone || '-'}</td>
-                  <td className="px-6 py-3 text-right">
-                    <Button variant="ghost" size="sm" onClick={() => removePerson(p.id)} className="text-destructive opacity-0 group-hover:opacity-100 h-8 hover:bg-destructive/10">
-                      Remove
-                    </Button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <ListPeopleTable
+        people={people}
+        emptyMessage="This list is empty. Add people to get started."
+        onRemove={removePerson}
+      />
 
       <Dialog open={isSearchOpen} onOpenChange={setIsSearchOpen}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
+        <DialogContent className="rounded-3xl sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add people to {list.name}</DialogTitle>
+            <DialogTitle className="text-xl font-bold">Add people to {list.name}</DialogTitle>
           </DialogHeader>
           <div className="py-2 space-y-4">
             <div className="relative">
@@ -171,11 +128,11 @@ export function StaticListDetail({ list, people }: { list: any, people: any[] })
                   setSearchQuery(e.target.value);
                   performSearch(e.target.value);
                 }}
-                className="pl-9 rounded-xl"
+                className="h-11 rounded-xl pl-9"
               />
             </div>
             
-            <div className="border border-border rounded-xl h-64 overflow-y-auto bg-slate-50/50">
+            <div className="h-72 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50/50">
               {isSearching ? (
                 <div className="flex justify-center items-center h-full">
                   <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
@@ -190,7 +147,7 @@ export function StaticListDetail({ list, people }: { list: any, people: any[] })
                     const inList = people.some(existing => existing.id === p.id);
                     const selected = selectedIds.has(p.id);
                     return (
-                      <li key={p.id} className={`flex items-center justify-between p-3 ${inList ? 'opacity-50 bg-slate-50' : 'hover:bg-slate-50 cursor-pointer'} transition-colors`} onClick={() => !inList && toggleSelect(p.id)}>
+                      <li key={p.id} className={`flex items-center justify-between p-3.5 ${inList ? 'opacity-50 bg-slate-50' : 'hover:bg-emerald-50 cursor-pointer'} transition-colors`} onClick={() => !inList && toggleSelect(p.id)}>
                         <div>
                           <div className="font-medium text-slate-900 text-sm">{p.first_name} {p.last_name}</div>
                           <div className="text-xs text-slate-500">{p.email}</div>

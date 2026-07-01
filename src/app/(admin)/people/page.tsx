@@ -48,12 +48,15 @@ export default async function PeoplePage({
   const tags = (tagsData as Tag[]) || [];
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6 animate-in fade-in-50 duration-300">
+    <div className="mx-auto max-w-[1440px] space-y-6 p-5 animate-in fade-in-50 duration-300 sm:p-8 lg:p-10">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">People</h1>
-          <p className="text-base text-muted-foreground mt-1.5">
-            Manage your church members, visitors, and their data.
+          <div className="text-xs font-bold uppercase tracking-[0.17em] text-emerald-700">
+            Directory
+          </div>
+          <h1 className="mt-2 text-3xl font-bold tracking-[-0.035em] text-slate-950 sm:text-4xl">People</h1>
+          <p className="mt-2 text-base text-slate-500">
+            Find members and visitors, understand their story, and coordinate care.
           </p>
         </div>
         <Link href="/people/new">

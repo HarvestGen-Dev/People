@@ -1,183 +1,343 @@
 'use client';
 
+// <!-- AGENT: FRONTEND -->
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  ArrowRight,
+  Folder,
+  MoreHorizontal,
+  Plus,
+  Sparkles,
+  Users,
+} from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Users, Sparkles, Folder, MoreVertical, Search, FileText } from 'lucide-react';
-import { formatDistanceToNow, format } from 'date-fns';
-import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import type { ListWithCount, SmartListFilters } from '@/lib/types';
 
-export function ListIndexManager({ initialLists, churchId }: { initialLists: any[], churchId: string }) {
+type ListRow = ListWithCount & { filters: SmartListFilters | null };
+
+export function ListIndexManager({
+  initialLists,
+}: {
+  initialLists: ListRow[];
+}) {
   const router = useRouter();
   const [lists, setLists] = useState(initialLists);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({ name: '', type: 'smart' });
+  const [formData, setFormData] = useState({
+    name: '',
+    type: 'smart' as 'smart' | 'static',
+  });
 
-  const smartLists = lists.filter(l => l.type === 'smart');
-  const staticLists = lists.filter(l => l.type === 'static');
+  const smartLists = lists.filter((list) => list.type === 'smart');
+  const staticLists = lists.filter((list) => list.type === 'static');
 
   const openCreate = () => {
     setFormData({ name: '', type: 'smart' });
     setIsDialogOpen(true);
   };
 
-  const handleCreate = async () => {
+  const handleCreate = () => {
     if (!formData.name.trim()) return;
-
-    // For smart lists, we go directly to the builder without saving first, 
-    // or we save a blank one and go to it? The prompt says:
-    // "For Smart lists → go to `/lists/new?type=smart`" 
-    // Actually, maybe we just redirect with the name in URL, or create it first.
-    // Prompt: "dialog just captures name and type ... For Smart lists → go to /lists/new?type=smart"
-    router.push(`/lists/new?type=${formData.type}&name=${encodeURIComponent(formData.name)}`);
+    router.push(
+      `/lists/new?type=${formData.type}&name=${encodeURIComponent(formData.name)}`
+    );
     setIsDialogOpen(false);
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this list?')) return;
     try {
-      const res = await fetch(`/api/admin/lists/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete list');
-      setLists(lists.filter(l => l.id !== id));
+      const response = await fetch(`/api/admin/lists/${id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) throw new Error('Failed to delete list');
+      setLists((current) => current.filter((list) => list.id !== id));
       toast.success('List deleted');
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to delete list'
+      );
     }
   };
 
-  const renderTable = (data: any[], type: 'smart' | 'static') => (
-    <div className="bg-white border border-border rounded-2xl overflow-hidden shadow-sm mb-8">
-      <div className="px-6 py-4 border-b border-border bg-slate-50/50 flex items-center gap-2">
-        {type === 'smart' ? <Sparkles className="h-5 w-5 text-amber-500" /> : <Folder className="h-5 w-5 text-teal-600" />}
-        <h3 className="font-semibold text-slate-900">{type === 'smart' ? 'Smart lists' : 'Static lists'}</h3>
-      </div>
-      <table className="w-full text-sm text-left">
-        <thead className="bg-slate-50 border-b border-border text-slate-500 font-medium">
-          <tr>
-            <th className="px-6 py-3">Name</th>
-            {type === 'smart' && <th className="px-6 py-3">Rules summary</th>}
-            <th className="px-6 py-3">Members</th>
-            <th className="px-6 py-3">Created</th>
-            <th className="px-6 py-3 text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
-          {data.length === 0 ? (
-            <tr>
-              <td colSpan={type === 'smart' ? 5 : 4} className="px-6 py-8 text-center text-slate-500">
-                No {type} lists yet. Create one to segment your people.
-              </td>
-            </tr>
-          ) : (
-            data.map(l => (
-              <tr key={l.id} className="hover:bg-slate-50/50 transition-colors group">
-                <td className="px-6 py-3 font-medium text-slate-900">
-                  <button onClick={() => router.push(`/lists/${l.id}`)} className="hover:underline">{l.name}</button>
-                </td>
-                {type === 'smart' && (
-                  <td className="px-6 py-3 text-slate-500 text-xs">
-                    {l.filters?.rules ? `${l.filters.rules.length} rule(s) (${l.filters.operator})` : 'No rules'}
-                  </td>
-                )}
-                <td className="px-6 py-3 text-slate-600">
-                  {type === 'static' ? (
-                    <span className="bg-slate-100 px-2 py-0.5 rounded-md font-medium text-xs border border-slate-200">
-                      {l.member_count}
+  const renderListGroup = (
+    data: ListRow[],
+    type: 'smart' | 'static'
+  ) => {
+    const isSmart = type === 'smart';
+    const Icon = isSmart ? Sparkles : Folder;
+
+    return (
+      <section>
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div
+              className={`grid h-10 w-10 place-items-center rounded-xl ${
+                isSmart
+                  ? 'bg-amber-100 text-amber-700'
+                  : 'bg-sky-100 text-sky-700'
+              }`}
+            >
+              <Icon className="h-[18px] w-[18px]" />
+            </div>
+            <div>
+              <h2 className="font-bold text-slate-950">
+                {isSmart ? 'Smart lists' : 'Static lists'}
+              </h2>
+              <p className="text-xs text-slate-500">
+                {isSmart
+                  ? 'Live audiences that update automatically'
+                  : 'Hand-picked groups for a specific purpose'}
+              </p>
+            </div>
+          </div>
+          <span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-slate-500 ring-1 ring-slate-200">
+            {data.length}
+          </span>
+        </div>
+
+        {data.length === 0 ? (
+          <button
+            type="button"
+            onClick={openCreate}
+            className="flex w-full flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-white/60 px-6 py-12 text-center transition-colors hover:border-emerald-300 hover:bg-white"
+          >
+            <Icon className="h-7 w-7 text-slate-300" />
+            <span className="mt-3 text-sm font-bold text-slate-700">
+              No {type} lists yet
+            </span>
+            <span className="mt-1 text-xs text-slate-400">
+              Create one to organize your people.
+            </span>
+          </button>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {data.map((list) => {
+              const ruleCount = list.filters?.rules?.length || 0;
+              return (
+                <article
+                  key={list.id}
+                  className="group rounded-3xl border border-slate-200/80 bg-white p-5 transition-all hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-[0_20px_45px_-35px_rgba(6,78,59,0.45)]"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div
+                      className={`grid h-11 w-11 place-items-center rounded-2xl ${
+                        isSmart
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-sky-100 text-sky-700'
+                      }`}
+                    >
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        aria-label={`Actions for ${list.name}`}
+                        className="grid h-9 w-9 place-items-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-800"
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-36 rounded-xl">
+                        <DropdownMenuItem
+                          onClick={() => router.push(`/lists/${list.id}`)}
+                        >
+                          Open list
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => handleDelete(list.id)}
+                        >
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/lists/${list.id}`)}
+                    className="mt-5 block w-full text-left"
+                  >
+                    <h3 className="truncate text-lg font-bold text-slate-950 group-hover:text-emerald-700">
+                      {list.name}
+                    </h3>
+                    <p className="mt-2 min-h-10 text-sm leading-5 text-slate-500">
+                      {isSmart
+                        ? `${ruleCount} ${ruleCount === 1 ? 'rule' : 'rules'} · Match ${list.filters?.operator || 'ALL'}`
+                        : `${list.member_count || 0} ${(list.member_count || 0) === 1 ? 'person' : 'people'} selected`}
+                    </p>
+                  </button>
+
+                  <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
+                    <span className="text-[11px] font-medium text-slate-400">
+                      Created{' '}
+                      {formatDistanceToNow(new Date(list.created_at), {
+                        addSuffix: true,
+                      })}
                     </span>
-                  ) : (
-                    <span className="text-xs text-slate-400 italic">Dynamic (click to view)</span>
-                  )}
-                </td>
-                <td className="px-6 py-3 text-slate-500 text-xs">
-                  {formatDistanceToNow(new Date(l.created_at), { addSuffix: true })}
-                </td>
-                <td className="px-6 py-3 text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-md hover:bg-slate-100 outline-none">
-                      <MoreVertical className="h-4 w-4 text-slate-500" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-36 rounded-xl">
-                      <DropdownMenuItem onClick={() => router.push(`/lists/${l.id}`)}>View</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => router.push(`/lists/${l.id}`)}>Edit</DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDelete(l.id)}>Delete</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
+                    <ArrowRight className="h-4 w-4 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-emerald-600" />
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+    );
+  };
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
+    <div className="space-y-10">
+      <header className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Segments</h2>
-          <p className="text-slate-500 text-sm mt-1">Organize your people into dynamic or static lists.</p>
+          <div className="text-xs font-bold uppercase tracking-[0.17em] text-emerald-700">
+            Audiences
+          </div>
+          <h1 className="mt-2 text-3xl font-bold tracking-[-0.035em] text-slate-950 sm:text-4xl">
+            Lists
+          </h1>
+          <p className="mt-2 max-w-2xl text-slate-500">
+            Build live segments from your data or curate a fixed group of
+            people for a ministry need.
+          </p>
         </div>
-        <Button onClick={openCreate} className="rounded-xl shadow-sm bg-primary hover:bg-primary/90 gap-2">
-          <Plus className="h-4 w-4" /> New list
+        <Button
+          onClick={openCreate}
+          className="h-11 rounded-xl bg-emerald-700 px-5 font-bold hover:bg-emerald-800"
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          New list
         </Button>
+      </header>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        {[
+          ['Total lists', lists.length, Users],
+          ['Smart', smartLists.length, Sparkles],
+          ['Static', staticLists.length, Folder],
+        ].map(([label, value, StatIcon]) => {
+          const Icon = StatIcon as typeof Users;
+          return (
+            <div
+              key={String(label)}
+              className="flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-4"
+            >
+              <div className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-emerald-700">
+                <Icon className="h-[18px] w-[18px]" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-slate-950">
+                  {String(value)}
+                </div>
+                <div className="text-xs font-medium text-slate-500">
+                  {String(label)}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      {renderTable(smartLists, 'smart')}
-      {renderTable(staticLists, 'static')}
+      {renderListGroup(smartLists, 'smart')}
+      {renderListGroup(staticLists, 'static')}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
+        <DialogContent className="rounded-3xl sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>New List</DialogTitle>
+            <DialogTitle className="text-2xl font-bold tracking-tight">
+              Create a list
+            </DialogTitle>
           </DialogHeader>
-          <div className="py-4 space-y-4">
+          <div className="space-y-5 py-3">
             <div>
-              <label className="text-sm font-medium mb-1 block">List name</label>
-              <Input value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. Active Volunteers" className="rounded-xl" autoFocus />
+              <label className="mb-2 block text-sm font-semibold text-slate-700">
+                List name
+              </label>
+              <Input
+                value={formData.name}
+                onChange={(event) =>
+                  setFormData({ ...formData, name: event.target.value })
+                }
+                placeholder="e.g. Active Volunteers"
+                className="h-11 rounded-xl"
+                autoFocus
+              />
             </div>
-            
-            <div className="space-y-3">
-              <label className="text-sm font-medium mb-1 block">List type</label>
-              
-              <label className={`flex p-3 border rounded-xl cursor-pointer transition-colors ${formData.type === 'smart' ? 'border-primary bg-primary/5' : 'border-border hover:bg-slate-50'}`}>
-                <input type="radio" name="type" checked={formData.type === 'smart'} onChange={() => setFormData({ ...formData, type: 'smart' })} className="sr-only" />
-                <div className="flex gap-3">
-                  <div className={`mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${formData.type === 'smart' ? 'border-primary bg-primary' : 'border-slate-300'}`}>
-                    {formData.type === 'smart' && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+            <div className="grid gap-3 sm:grid-cols-2">
+              {[
+                {
+                  type: 'smart' as const,
+                  icon: Sparkles,
+                  title: 'Smart list',
+                  description: 'Updates automatically from matching rules.',
+                },
+                {
+                  type: 'static' as const,
+                  icon: Folder,
+                  title: 'Static list',
+                  description: 'A group you select and manage manually.',
+                },
+              ].map((option) => (
+                <label
+                  key={option.type}
+                  className={`cursor-pointer rounded-2xl border p-4 transition-colors ${
+                    formData.type === option.type
+                      ? 'border-emerald-300 bg-emerald-50'
+                      : 'border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="type"
+                    checked={formData.type === option.type}
+                    onChange={() =>
+                      setFormData({ ...formData, type: option.type })
+                    }
+                    className="sr-only"
+                  />
+                  <option.icon className="h-5 w-5 text-emerald-700" />
+                  <div className="mt-4 text-sm font-bold text-slate-900">
+                    {option.title}
                   </div>
-                  <div>
-                    <div className="font-medium text-sm text-slate-900 flex items-center gap-1">
-                      <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Smart list
-                    </div>
-                    <div className="text-xs text-slate-500 mt-0.5 leading-relaxed">Automatically updates based on rules you define (e.g. everyone who is active and has the "Volunteer" tag).</div>
+                  <div className="mt-1 text-xs leading-5 text-slate-500">
+                    {option.description}
                   </div>
-                </div>
-              </label>
-
-              <label className={`flex p-3 border rounded-xl cursor-pointer transition-colors ${formData.type === 'static' ? 'border-primary bg-primary/5' : 'border-border hover:bg-slate-50'}`}>
-                <input type="radio" name="type" checked={formData.type === 'static'} onChange={() => setFormData({ ...formData, type: 'static' })} className="sr-only" />
-                <div className="flex gap-3">
-                  <div className={`mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${formData.type === 'static' ? 'border-primary bg-primary' : 'border-slate-300'}`}>
-                    {formData.type === 'static' && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
-                  </div>
-                  <div>
-                    <div className="font-medium text-sm text-slate-900 flex items-center gap-1">
-                      <Folder className="h-3.5 w-3.5 text-teal-600" /> Static list
-                    </div>
-                    <div className="text-xs text-slate-500 mt-0.5 leading-relaxed">A manual list where you hand-pick who belongs (e.g. attendees of a specific small group meeting).</div>
-                  </div>
-                </div>
-              </label>
-
+                </label>
+              ))}
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="rounded-xl">Cancel</Button>
-            <Button onClick={handleCreate} disabled={!formData.name.trim()} className="rounded-xl shadow-sm">Continue</Button>
+            <Button
+              variant="ghost"
+              onClick={() => setIsDialogOpen(false)}
+              className="rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreate}
+              disabled={!formData.name.trim()}
+              className="rounded-xl bg-emerald-700 font-bold hover:bg-emerald-800"
+            >
+              Continue
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

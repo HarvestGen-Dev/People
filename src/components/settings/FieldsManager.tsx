@@ -195,8 +195,8 @@ export function FieldsManager({ initialFields, churchId }: { initialFields: Fiel
         toast.success('Field created');
       }
       setIsDialogOpen(false);
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to save custom field');
     } finally {
       setIsSubmitting(false);
     }
@@ -209,8 +209,8 @@ export function FieldsManager({ initialFields, churchId }: { initialFields: Fiel
       if (!res.ok) throw new Error('Failed to delete field');
       setFields(fields.filter(f => f.id !== id));
       toast.success('Field deleted');
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete custom field');
     }
   };
 

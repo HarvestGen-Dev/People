@@ -5,6 +5,7 @@ import { SmartListDetail } from '@/components/lists/SmartListDetail';
 import { StaticListDetail } from '@/components/lists/StaticListDetail';
 import { notFound } from 'next/navigation';
 import { requireTenantContext } from '@/lib/tenant-context';
+import type { ListPerson, SmartListFilters } from '@/lib/types';
 
 export const metadata = {
   title: 'List | People',
@@ -26,7 +27,7 @@ export default async function ListDetailPage({ params }: { params: Promise<{ id:
     notFound();
   }
 
-  let people: any[] = [];
+  let people: ListPerson[] = [];
   
   if (list.type === 'smart') {
     const evalResult = await evaluateSmartList(list.filters, churchId);
@@ -38,8 +39,12 @@ export default async function ListDetailPage({ params }: { params: Promise<{ id:
     return (
       <>
         <Topbar title={list.name} />
-        <div className="p-8 max-w-6xl animate-in fade-in-50 duration-300">
-          <SmartListDetail list={list} people={people} tags={tags || []} />
+        <div className="mx-auto max-w-[1440px] p-5 animate-in fade-in-50 duration-300 sm:p-8 lg:p-10">
+          <SmartListDetail
+            list={{ ...list, filters: list.filters as SmartListFilters | null }}
+            people={people}
+            tags={tags || []}
+          />
         </div>
       </>
     );
@@ -56,12 +61,18 @@ export default async function ListDetailPage({ params }: { params: Promise<{ id:
       `)
       .eq('list_id', id);
 
-    people = (listMembers || []).map(lm => lm.people).filter(Boolean);
+    people = (listMembers || []).flatMap((listMember) =>
+      Array.isArray(listMember.people)
+        ? listMember.people
+        : listMember.people
+          ? [listMember.people]
+          : []
+    ) as ListPerson[];
 
     return (
       <>
         <Topbar title={list.name} />
-        <div className="p-8 max-w-6xl animate-in fade-in-50 duration-300">
+        <div className="mx-auto max-w-[1440px] p-5 animate-in fade-in-50 duration-300 sm:p-8 lg:p-10">
           <StaticListDetail list={list} people={people} />
         </div>
       </>

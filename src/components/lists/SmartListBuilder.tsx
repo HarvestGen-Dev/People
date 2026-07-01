@@ -7,14 +7,37 @@ import { Input } from '@/components/ui/input';
 import { Plus, X, Play, Save, Loader2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import type {
+  ListPerson,
+  ListTag,
+  SmartListFilters,
+  SmartListRule,
+} from '@/lib/types';
 
-export function SmartListBuilder({ listId, initialName, initialFilters, tags }: { listId?: string, initialName?: string, initialFilters?: any, tags: any[] }) {
+interface SmartListBuilderProps {
+  listId?: string;
+  initialName?: string;
+  initialFilters?: SmartListFilters | null;
+  tags: ListTag[];
+}
+
+export function SmartListBuilder({
+  listId,
+  initialName,
+  initialFilters,
+  tags,
+}: SmartListBuilderProps) {
   const router = useRouter();
   const [name, setName] = useState(initialName || '');
   const [operator, setOperator] = useState<'AND' | 'OR'>(initialFilters?.operator || 'AND');
-  const [rules, setRules] = useState<any[]>(initialFilters?.rules || [{ field: 'status', op: 'is', value: 'active' }]);
+  const [rules, setRules] = useState<SmartListRule[]>(
+    initialFilters?.rules || [{ field: 'status', op: 'is', value: 'active' }]
+  );
   
-  const [previewData, setPreviewData] = useState<{people: any[], total: number} | null>(null);
+  const [previewData, setPreviewData] = useState<{
+    people: ListPerson[];
+    total: number;
+  } | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -27,7 +50,11 @@ export function SmartListBuilder({ listId, initialName, initialFilters, tags }: 
     setRules(rules.filter((_, i) => i !== index));
   };
 
-  const updateRule = (index: number, key: string, value: any) => {
+  const updateRule = (
+    index: number,
+    key: keyof SmartListRule,
+    value: string
+  ) => {
     const newRules = [...rules];
     newRules[index] = { ...newRules[index], [key]: value };
     
@@ -55,8 +82,8 @@ export function SmartListBuilder({ listId, initialName, initialFilters, tags }: 
       if (!res.ok) throw new Error('Failed to run preview');
       const { data } = await res.json();
       setPreviewData(data);
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Preview failed');
     } finally {
       setIsPreviewing(false);
     }
@@ -92,31 +119,34 @@ export function SmartListBuilder({ listId, initialName, initialFilters, tags }: 
       } else {
         router.refresh();
       }
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to save list');
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in-50 duration-300">
-      <div className="bg-white border border-border p-6 rounded-2xl shadow-sm">
-        <div className="mb-6 flex gap-4 items-end">
+    <div className="space-y-6 animate-in fade-in-50 duration-300">
+      <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-none sm:p-6">
+        <div className="mb-6 flex flex-col gap-4 border-b border-slate-100 pb-6 sm:flex-row sm:items-end">
           <div className="flex-1">
-            <label className="text-sm font-medium mb-1 block">List Name</label>
-            <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Active Volunteers" className="rounded-xl max-w-md font-semibold" />
+            <div className="mb-2 text-xs font-bold uppercase tracking-[0.15em] text-emerald-700">
+              Smart audience
+            </div>
+            <label className="mb-2 block text-sm font-semibold text-slate-700">List name</label>
+            <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Active Volunteers" className="h-11 max-w-lg rounded-xl bg-slate-50 font-semibold shadow-none" />
           </div>
-          <Button onClick={handleSave} disabled={isSaving} className="rounded-xl shadow-sm bg-primary hover:bg-primary/90">
+          <Button onClick={handleSave} disabled={isSaving} className="h-11 rounded-xl bg-emerald-700 px-5 font-bold shadow-sm hover:bg-emerald-800">
             {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />} Save list
           </Button>
         </div>
 
-        <div className="bg-slate-50/50 border border-border rounded-2xl p-5">
-          <div className="flex items-center gap-2 mb-4 text-sm font-medium text-slate-700">
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+          <div className="mb-5 flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-700">
             People match
-            <Select value={operator} onValueChange={(v: any) => setOperator(v)}>
-              <SelectTrigger className="w-24 h-8 rounded-lg bg-white"><SelectValue /></SelectTrigger>
+            <Select value={operator} onValueChange={(value) => setOperator(value === 'OR' ? 'OR' : 'AND')}>
+              <SelectTrigger className="h-9 w-24 rounded-xl bg-white font-bold text-emerald-700"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="AND">ALL</SelectItem>
                 <SelectItem value="OR">ANY</SelectItem>
@@ -127,9 +157,12 @@ export function SmartListBuilder({ listId, initialName, initialFilters, tags }: 
 
           <div className="space-y-3">
             {rules.map((rule, index) => (
-              <div key={index} className="flex items-center gap-3 bg-white border border-border p-2 rounded-xl shadow-sm">
-                <Select value={rule.field} onValueChange={v => updateRule(index, 'field', v)}>
-                  <SelectTrigger className="w-40 border-none shadow-none focus:ring-0"><SelectValue /></SelectTrigger>
+              <div key={index} className="relative grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-[minmax(130px,0.9fr)_minmax(125px,0.8fr)_minmax(160px,1.3fr)_36px] sm:items-center">
+                <span className="absolute -left-2.5 top-1/2 hidden h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full bg-emerald-700 text-[9px] font-bold text-white sm:flex">
+                  {index + 1}
+                </span>
+                <Select value={rule.field} onValueChange={v => updateRule(index, 'field', v ?? '')}>
+                  <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-white shadow-none"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="status">Status</SelectItem>
                     <SelectItem value="tag">Tag</SelectItem>
@@ -141,8 +174,8 @@ export function SmartListBuilder({ listId, initialName, initialFilters, tags }: 
                 </Select>
 
                 {rule.field !== 'has_no_email' && (
-                  <Select value={rule.op} onValueChange={v => updateRule(index, 'op', v)}>
-                    <SelectTrigger className="w-36 border-none shadow-none focus:ring-0 bg-slate-50"><SelectValue /></SelectTrigger>
+                  <Select value={rule.op} onValueChange={v => updateRule(index, 'op', v ?? '')}>
+                    <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-slate-50 shadow-none"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {rule.field === 'status' || rule.field === 'gender' ? (
                         <><SelectItem value="is">is</SelectItem><SelectItem value="is_not">is not</SelectItem></>
@@ -159,8 +192,8 @@ export function SmartListBuilder({ listId, initialName, initialFilters, tags }: 
 
                 <div className="flex-1">
                   {rule.field === 'status' ? (
-                    <Select value={rule.value} onValueChange={v => updateRule(index, 'value', v)}>
-                      <SelectTrigger className="border-none shadow-none focus:ring-0"><SelectValue /></SelectTrigger>
+                    <Select value={rule.value ?? ''} onValueChange={v => updateRule(index, 'value', v ?? '')}>
+                      <SelectTrigger className="h-10 rounded-xl border-slate-200 shadow-none"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="active">Active</SelectItem>
                         <SelectItem value="visitor">Visitor</SelectItem>
@@ -169,32 +202,32 @@ export function SmartListBuilder({ listId, initialName, initialFilters, tags }: 
                       </SelectContent>
                     </Select>
                   ) : rule.field === 'gender' ? (
-                    <Select value={rule.value} onValueChange={v => updateRule(index, 'value', v)}>
-                      <SelectTrigger className="border-none shadow-none focus:ring-0"><SelectValue /></SelectTrigger>
+                    <Select value={rule.value ?? ''} onValueChange={v => updateRule(index, 'value', v ?? '')}>
+                      <SelectTrigger className="h-10 rounded-xl border-slate-200 shadow-none"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Male">Male</SelectItem>
                         <SelectItem value="Female">Female</SelectItem>
                       </SelectContent>
                     </Select>
                   ) : rule.field === 'tag' ? (
-                    <Select value={rule.value} onValueChange={v => updateRule(index, 'value', v)}>
-                      <SelectTrigger className="border-none shadow-none focus:ring-0"><SelectValue placeholder="Select tag..." /></SelectTrigger>
+                    <Select value={rule.value ?? ''} onValueChange={v => updateRule(index, 'value', v ?? '')}>
+                      <SelectTrigger className="h-10 rounded-xl border-slate-200 shadow-none"><SelectValue placeholder="Select tag..." /></SelectTrigger>
                       <SelectContent>
                         {tags.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   ) : rule.field === 'has_no_email' ? (
-                    <span className="text-slate-400 text-sm italic px-3">True</span>
+                    <span className="flex h-10 items-center rounded-xl bg-emerald-50 px-3 text-sm font-semibold text-emerald-700">Yes</span>
                   ) : rule.field === 'created_at' && rule.op === 'within_last_days' ? (
-                    <Input type="number" value={rule.value} onChange={e => updateRule(index, 'value', e.target.value)} className="border-none shadow-none focus-visible:ring-0 px-3" />
+                    <Input type="number" value={rule.value ?? ''} onChange={e => updateRule(index, 'value', e.target.value)} className="h-10 rounded-xl border-slate-200 px-3 shadow-none" />
                   ) : rule.field === 'created_at' ? (
-                    <Input type="date" value={rule.value} onChange={e => updateRule(index, 'value', e.target.value)} className="border-none shadow-none focus-visible:ring-0 px-3" />
+                    <Input type="date" value={rule.value ?? ''} onChange={e => updateRule(index, 'value', e.target.value)} className="h-10 rounded-xl border-slate-200 px-3 shadow-none" />
                   ) : (
-                    <Input value={rule.value} onChange={e => updateRule(index, 'value', e.target.value)} placeholder="Type a value..." className="border-none shadow-none focus-visible:ring-0 px-3" />
+                    <Input value={rule.value ?? ''} onChange={e => updateRule(index, 'value', e.target.value)} placeholder="Type a value..." className="h-10 rounded-xl border-slate-200 px-3 shadow-none" />
                   )}
                 </div>
 
-                <Button variant="ghost" size="icon" onClick={() => removeRule(index)} className="text-slate-400 hover:text-destructive h-8 w-8 mr-1 rounded-lg">
+                <Button aria-label={`Remove rule ${index + 1}`} variant="ghost" size="icon" onClick={() => removeRule(index)} className="h-9 w-9 rounded-xl text-slate-400 hover:text-destructive">
                   <X className="h-4 w-4" />
                 </Button>
               </div>
@@ -202,28 +235,31 @@ export function SmartListBuilder({ listId, initialName, initialFilters, tags }: 
           </div>
 
           {rules.length < 5 && (
-            <Button variant="outline" size="sm" onClick={addRule} className="mt-4 rounded-xl border-dashed border-2">
+            <Button variant="outline" size="sm" onClick={addRule} className="mt-4 rounded-xl border-2 border-dashed bg-white">
               <Plus className="h-4 w-4 mr-2" /> Add rule
             </Button>
           )}
         </div>
       </div>
 
-      <div className="bg-white border border-border p-6 rounded-2xl shadow-sm">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Users className="h-5 w-5 text-teal-600"/> Live Preview</h3>
-          <Button variant="secondary" onClick={runPreview} disabled={isPreviewing || rules.length === 0} className="rounded-xl shadow-sm">
+      <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-none sm:p-6">
+        <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+          <div>
+            <h3 className="flex items-center gap-2 text-lg font-bold text-slate-950"><Users className="h-5 w-5 text-emerald-700"/> Audience preview</h3>
+            <p className="mt-1 text-xs text-slate-500">Test the rules before saving this list.</p>
+          </div>
+          <Button variant="secondary" onClick={runPreview} disabled={isPreviewing || rules.length === 0} className="h-10 rounded-xl shadow-none">
             {isPreviewing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2 text-slate-600" />} Run preview
           </Button>
         </div>
 
         {previewData ? (
           <div className="animate-in fade-in-50">
-            <p className="text-sm text-slate-600 mb-4 bg-teal-50 border border-teal-100 p-3 rounded-xl">
-              This list currently matches <strong className="text-teal-900">{previewData.total} people</strong>.
+            <p className="mb-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm text-emerald-800">
+              This list currently matches <strong>{previewData.total} people</strong>.
             </p>
-            <div className="border border-border rounded-xl overflow-hidden">
-              <table className="w-full text-sm text-left">
+            <div className="overflow-x-auto rounded-2xl border border-slate-200">
+              <table className="w-full min-w-[560px] text-left text-sm">
                 <thead className="bg-slate-50 border-b border-border">
                   <tr>
                     <th className="px-4 py-2 font-medium text-slate-500">Name</th>
@@ -235,11 +271,11 @@ export function SmartListBuilder({ listId, initialName, initialFilters, tags }: 
                   {previewData.people.length === 0 ? (
                     <tr><td colSpan={3} className="px-4 py-6 text-center text-slate-500">No matches found</td></tr>
                   ) : (
-                    previewData.people.map((p: any) => (
-                      <tr key={p.id}>
-                        <td className="px-4 py-2 font-medium text-slate-900">{p.first_name} {p.last_name}</td>
-                        <td className="px-4 py-2 text-slate-600 capitalize">{p.status}</td>
-                        <td className="px-4 py-2 text-slate-500">{p.email || '-'}</td>
+                    previewData.people.map((person) => (
+                      <tr key={person.id}>
+                        <td className="px-4 py-2 font-medium text-slate-900">{person.first_name} {person.last_name}</td>
+                        <td className="px-4 py-2 text-slate-600 capitalize">{person.status}</td>
+                        <td className="px-4 py-2 text-slate-500">{person.email || '-'}</td>
                       </tr>
                     ))
                   )}
@@ -253,8 +289,9 @@ export function SmartListBuilder({ listId, initialName, initialFilters, tags }: 
             </div>
           </div>
         ) : (
-          <div className="text-center py-10 border-2 border-dashed border-border rounded-xl">
-            <p className="text-slate-500 text-sm">Click "Run preview" to see who matches your rules.</p>
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/50 py-12 text-center">
+            <Users className="mx-auto h-7 w-7 text-slate-300" />
+            <p className="mt-3 text-sm font-medium text-slate-500">Run a preview to see who matches these rules.</p>
           </div>
         )}
       </div>

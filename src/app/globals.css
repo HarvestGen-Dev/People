@@ -49,37 +49,37 @@
 }
 
 :root {
-  --background: oklch(0.995 0 0);
-  --foreground: oklch(0.12 0 0);
+  --background: oklch(0.985 0.006 120);
+  --foreground: oklch(0.16 0.018 155);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.12 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.12 0 0);
-  --primary: oklch(0.62 0.18 150); /* Vibrant natural green */
+  --primary: oklch(0.52 0.14 158);
   --primary-foreground: oklch(0.98 0.02 150);
   --secondary: oklch(0.96 0 0);
   --secondary-foreground: oklch(0.2 0 0);
-  --muted: oklch(0.96 0 0);
-  --muted-foreground: oklch(0.45 0 0);
+  --muted: oklch(0.965 0.006 120);
+  --muted-foreground: oklch(0.48 0.015 155);
   --accent: oklch(0.96 0.01 150);
   --accent-foreground: oklch(0.2 0.05 150);
   --destructive: oklch(0.6 0.2 25);
-  --border: oklch(0.93 0 0);
-  --input: oklch(0.93 0 0);
-  --ring: oklch(0.62 0.18 150);
+  --border: oklch(0.91 0.01 135);
+  --input: oklch(0.91 0.01 135);
+  --ring: oklch(0.52 0.14 158);
   --chart-1: oklch(0.7 0.15 155);
   --chart-2: oklch(0.65 0.18 50);
   --chart-3: oklch(0.5 0.15 250);
   --chart-4: oklch(0.75 0.15 90);
   --chart-5: oklch(0.8 0.15 180);
-  --radius: 0.35rem; /* Sharp, minimal radius */
-  --sidebar: oklch(0.995 0 0);
-  --sidebar-foreground: oklch(0.3 0 0);
+  --radius: 0.65rem;
+  --sidebar: oklch(0.19 0.045 157);
+  --sidebar-foreground: oklch(0.94 0.018 150);
   --sidebar-primary: oklch(0.62 0.18 150);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.96 0 0);
-  --sidebar-accent-foreground: oklch(0.12 0 0);
-  --sidebar-border: oklch(0.93 0 0);
+  --sidebar-accent: oklch(0.29 0.055 157);
+  --sidebar-accent-foreground: oklch(0.98 0.01 150);
+  --sidebar-border: oklch(0.28 0.04 157);
   --sidebar-ring: oklch(0.62 0.18 150);
 }
 
@@ -122,9 +122,19 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
   }
   html, body {
-    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+    min-height: 100%;
+    scroll-behavior: smooth;
+  }
+}
+
+@layer utilities {
+  .landing-grid {
+    background-image:
+      linear-gradient(to right, rgb(6 78 59 / 0.07) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(6 78 59 / 0.07) 1px, transparent 1px);
+    background-size: 32px 32px;
   }
 }

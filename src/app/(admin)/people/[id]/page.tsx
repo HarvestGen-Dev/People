@@ -2,7 +2,7 @@ import { getPersonById, getPersonNotes, getPersonEvents, getPersonWorkflowCards 
 import { notFound } from 'next/navigation';
 import { PersonProfile } from '@/components/people/PersonProfile';
 import { Badge } from '@/components/ui/badge';
-import { User, MapPin, Cake, Phone } from 'lucide-react';
+import { ArrowLeft, Cake, Mail, MapPin, Pencil, Phone } from 'lucide-react';
 import { format } from 'date-fns';
 import { Topbar } from '@/components/layout/Topbar';
 import { Button } from '@/components/ui/button';
@@ -42,23 +42,36 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
 
   return (
     <>
-      <Topbar title={`${person.first_name} ${person.last_name}`}>
+      <Topbar title="Person profile">
         <div className="flex items-center gap-2">
           <Link href={`/people/${person.id}/edit`}>
-            <Button variant="outline" className="rounded-xl shadow-sm h-9">Edit</Button>
+            <Button variant="outline" className="h-9 rounded-xl border-slate-200 bg-white font-semibold shadow-sm">
+              <Pencil className="mr-2 h-3.5 w-3.5" />
+              Edit person
+            </Button>
           </Link>
         </div>
       </Topbar>
 
-      {/* Profile Header - Sticky */}
-      <div className="sticky top-0 z-10 bg-white border-b border-border shadow-sm px-8 py-6">
-        <div className="max-w-7xl mx-auto flex items-start gap-6">
-          <div className="h-20 w-20 shrink-0 rounded-full bg-gradient-to-br from-primary/80 to-primary text-white flex items-center justify-center font-bold text-2xl shadow-md border-2 border-white ring-2 ring-primary/20">
-            {person.first_name[0]}{person.last_name[0]}
-          </div>
-          <div className="flex-1">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-bold text-foreground tracking-tight">{person.first_name} {person.last_name}</h1>
+      <div className="border-b border-slate-200/80 bg-white">
+        <div className="mx-auto max-w-[1440px] px-5 py-7 sm:px-8 lg:px-10">
+          <Link
+            href="/people"
+            className="mb-6 inline-flex items-center gap-2 text-xs font-bold text-slate-500 transition-colors hover:text-emerald-700"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to directory
+          </Link>
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+            <div className="grid h-20 w-20 shrink-0 place-items-center rounded-3xl bg-emerald-950 text-2xl font-bold text-white shadow-lg shadow-emerald-950/15">
+              {person.first_name[0]}
+              {person.last_name[0]}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-3xl font-bold tracking-[-0.035em] text-slate-950">
+                {person.first_name} {person.last_name}
+              </h1>
               <Badge className={`capitalize shadow-none font-medium px-2.5 py-0.5 ${getStatusColor(person.status)}`}>
                 {person.status}
               </Badge>
@@ -71,20 +84,21 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
               )}
             </div>
             
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-3 text-sm text-muted-foreground font-medium">
-              {person.email && <span className="flex items-center gap-1.5"><User className="h-4 w-4 text-primary/70" /> {person.email}</span>}
-              {person.phone && <span className="flex items-center gap-1.5"><Phone className="h-4 w-4 text-primary/70" /> {person.phone}</span>}
-              {person.campus && <span className="flex items-center gap-1.5"><MapPin className="h-4 w-4 text-primary/70" /> {person.campus}</span>}
-              {person.birthdate && <span className="flex items-center gap-1.5"><Cake className="h-4 w-4 text-primary/70" /> Born {format(new Date(person.birthdate), 'd MMM yyyy')}</span>}
+            <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-medium text-slate-500">
+              {person.email && <span className="flex items-center gap-1.5"><Mail className="h-4 w-4 text-emerald-600" /> {person.email}</span>}
+              {person.phone && <span className="flex items-center gap-1.5"><Phone className="h-4 w-4 text-emerald-600" /> {person.phone}</span>}
+              {person.campus && <span className="flex items-center gap-1.5"><MapPin className="h-4 w-4 text-emerald-600" /> {person.campus}</span>}
+              {person.birthdate && <span className="flex items-center gap-1.5"><Cake className="h-4 w-4 text-emerald-600" /> Born {format(new Date(person.birthdate), 'd MMM yyyy')}</span>}
             </div>
-            <div className="text-xs text-muted-foreground mt-3">
+            <div className="mt-3 text-xs text-slate-400">
               Member since {person.created_at ? format(new Date(person.created_at), 'MMM yyyy') : '—'}
             </div>
+          </div>
           </div>
         </div>
       </div>
 
-      <div className="p-8 max-w-7xl mx-auto pt-0">
+      <div className="mx-auto max-w-[1440px] px-5 pb-10 sm:px-8 lg:px-10">
         <PersonProfile 
           person={person}
           notes={notes} 

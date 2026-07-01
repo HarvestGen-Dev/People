@@ -6,12 +6,16 @@ import "./globals.css";
 const outfit = Outfit({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "People | HarvestGen",
-  description: "Member management system for Harvest Generation Church",
+  title: {
+    default: "HarvestGen People",
+    template: "%s | HarvestGen People",
+  },
+  description:
+    "The people and relationship platform for Harvest Generation Church—profiles, smart lists, workflows, events, and connected church systems.",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#ffffff",
+  themeColor: "#064e3b",
 };
 
 export default function RootLayout({

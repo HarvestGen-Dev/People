@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import { RegistrationForm } from '@/components/events/RegistrationForm';
+import type { Event } from '@/lib/types';
 import { Calendar, MapPin, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import { Metadata } from 'next';
@@ -135,7 +136,7 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
                     This event is full.
                   </div>
                 ) : (
-                  <RegistrationForm event={event as any} spotsRemaining={spotsRemaining} />
+                  <RegistrationForm event={event as Event} spotsRemaining={spotsRemaining} />
                 )}
               </div>
             </div>

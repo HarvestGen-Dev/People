@@ -2,7 +2,12 @@
 
 import { useState } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { PersonWithRelations, Note, PersonEvent, WorkflowCard } from '@/lib/types';
+import {
+  PersonWithRelations,
+  Note,
+  PersonEvent,
+  WorkflowCardWithRelations,
+} from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,14 +16,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatRelative } from '@/lib/utils/time';
-import { BookOpen, Coffee, User, Users, Trash2, Clock, CalendarDays, ExternalLink, Activity } from 'lucide-react';
+import { BookOpen, Coffee, User, Users, Trash2, Clock, CalendarDays, Activity } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface PersonProfileProps {
   person: PersonWithRelations;
   notes: Note[];
   events: PersonEvent[];
-  workflowCards: any[];
+  workflowCards: WorkflowCardWithRelations[];
 }
 
 export function PersonProfile({ person, notes, events, workflowCards }: PersonProfileProps) {
@@ -98,24 +103,25 @@ export function PersonProfile({ person, notes, events, workflowCards }: PersonPr
   };
 
   return (
-    <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full mt-8">
-      <TabsList className="mb-6 h-12 bg-card border border-border p-1 rounded-xl shadow-sm w-full md:w-auto overflow-x-auto justify-start inline-flex">
-        <TabsTrigger value="overview" className="rounded-lg px-6 h-full data-[state=active]:bg-primary/10 data-[state=active]:text-primary font-medium">Overview</TabsTrigger>
-        <TabsTrigger value="notes" className="rounded-lg px-6 h-full data-[state=active]:bg-primary/10 data-[state=active]:text-primary font-medium">Notes</TabsTrigger>
-        <TabsTrigger value="activity" className="rounded-lg px-6 h-full data-[state=active]:bg-primary/10 data-[state=active]:text-primary font-medium">Activity</TabsTrigger>
-        <TabsTrigger value="admin" className="rounded-lg px-6 h-full data-[state=active]:bg-red-500/10 data-[state=active]:text-red-600 font-medium">Admin</TabsTrigger>
+    <Tabs value={currentTab} onValueChange={handleTabChange} className="mt-6 w-full">
+      <TabsList className="mb-6 inline-flex h-12 w-full justify-start overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1 shadow-none md:w-auto">
+        <TabsTrigger value="overview" className="h-full rounded-xl px-5 font-semibold data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-800">Overview</TabsTrigger>
+        <TabsTrigger value="notes" className="h-full rounded-xl px-5 font-semibold data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-800">Notes <span className="ml-1.5 text-xs text-slate-400">{notes.length}</span></TabsTrigger>
+        <TabsTrigger value="activity" className="h-full rounded-xl px-5 font-semibold data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-800">Activity <span className="ml-1.5 text-xs text-slate-400">{events.length}</span></TabsTrigger>
+        <TabsTrigger value="admin" className="h-full rounded-xl px-5 font-semibold data-[state=active]:bg-red-50 data-[state=active]:text-red-700">Admin</TabsTrigger>
       </TabsList>
 
       {/* OVERVIEW TAB */}
       <TabsContent value="overview" className="animate-in fade-in-50 duration-300">
-        <div className="grid md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 space-y-6">
-            <Card className="rounded-2xl border-border bg-card shadow-sm">
-              <CardHeader>
-                <CardTitle>Personal Details</CardTitle>
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="space-y-6 lg:col-span-2">
+            <Card className="rounded-3xl border-slate-200/80 bg-white shadow-none">
+              <CardHeader className="border-b border-slate-100">
+                <CardTitle className="text-lg font-bold text-slate-950">Personal details</CardTitle>
+                <CardDescription>Contact and demographic information for this person.</CardDescription>
               </CardHeader>
-              <CardContent>
-                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-4">
+              <CardContent className="pt-6">
+                <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 [&>div]:rounded-2xl [&>div]:bg-slate-50/80 [&>div]:p-4 [&_dd]:mt-1.5 [&_dd]:font-semibold [&_dd]:text-slate-900 [&_dt]:text-[10px] [&_dt]:font-bold [&_dt]:uppercase [&_dt]:tracking-[0.13em] [&_dt]:text-slate-400">
                   <div>
                     <dt className="text-sm font-medium text-muted-foreground mb-1">Full Name</dt>
                     <dd className="text-foreground font-medium">{person.first_name} {person.last_name}</dd>
@@ -152,13 +158,13 @@ export function PersonProfile({ person, notes, events, workflowCards }: PersonPr
                 
                 {person.person_field_values && person.person_field_values.length > 0 && (
                   <>
-                    <div className="border-t border-border my-6 pt-6">
-                      <h4 className="text-sm font-semibold text-foreground mb-4">Custom Fields</h4>
-                      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-4">
-                        {person.person_field_values.map((pf: any) => (
-                          <div key={pf.id}>
-                            <dt className="text-sm font-medium text-muted-foreground mb-1">{pf.field_definition?.name}</dt>
-                            <dd className="text-foreground">{pf.value || '—'}</dd>
+                    <div className="mt-6 border-t border-slate-100 pt-6">
+                      <h4 className="mb-4 text-sm font-bold text-slate-900">Custom fields</h4>
+                      <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 [&>div]:rounded-2xl [&>div]:border [&>div]:border-slate-100 [&>div]:p-4 [&_dd]:mt-1.5 [&_dd]:font-semibold [&_dd]:text-slate-900 [&_dt]:text-[10px] [&_dt]:font-bold [&_dt]:uppercase [&_dt]:tracking-[0.13em] [&_dt]:text-slate-400">
+                        {person.person_field_values.map((fieldValue) => (
+                          <div key={fieldValue.id}>
+                            <dt className="text-sm font-medium text-muted-foreground mb-1">{fieldValue.field_definition?.name}</dt>
+                            <dd className="text-foreground">{fieldValue.value || '—'}</dd>
                           </div>
                         ))}
                       </dl>
@@ -170,25 +176,27 @@ export function PersonProfile({ person, notes, events, workflowCards }: PersonPr
           </div>
 
           <div className="space-y-6">
-            <Card className="rounded-2xl border-border bg-card shadow-sm">
+            <Card className="rounded-3xl border-slate-200/80 bg-white shadow-none">
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg">Tags</CardTitle>
-                  <Button variant="link" className="h-auto p-0 text-primary">Manage</Button>
+                  <Button variant="link" onClick={() => router.push(`${pathname}/edit`)} className="h-auto p-0 text-emerald-700">Manage</Button>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
                   {person.person_tags && person.person_tags.length > 0 ? (
-                    person.person_tags.map((pt: any) => (
-                      <Badge 
-                        key={pt.tag.id}
-                        style={{ backgroundColor: pt.tag.color + '20', color: pt.tag.color, borderColor: pt.tag.color + '40' }}
-                        className="border shadow-none py-1"
-                      >
-                        {pt.tag.name}
-                      </Badge>
-                    ))
+                    person.person_tags.map((personTag) =>
+                      personTag.tag ? (
+                        <Badge
+                          key={personTag.tag.id}
+                          style={{ backgroundColor: personTag.tag.color + '20', color: personTag.tag.color, borderColor: personTag.tag.color + '40' }}
+                          className="border shadow-none py-1"
+                        >
+                          {personTag.tag.name}
+                        </Badge>
+                      ) : null
+                    )
                   ) : (
                     <span className="text-sm text-muted-foreground">No tags assigned.</span>
                   )}
@@ -196,7 +204,7 @@ export function PersonProfile({ person, notes, events, workflowCards }: PersonPr
               </CardContent>
             </Card>
 
-            <Card className="rounded-2xl border-border bg-card shadow-sm">
+            <Card className="rounded-3xl border-slate-200/80 bg-white shadow-none">
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg">Household</CardTitle>
@@ -208,18 +216,18 @@ export function PersonProfile({ person, notes, events, workflowCards }: PersonPr
                     <div className="font-semibold text-foreground flex items-center gap-2">
                       <Users className="h-4 w-4 text-muted-foreground" /> {person.household.name}
                     </div>
-                    <Button variant="link" className="h-auto p-0 mt-2 text-primary">View household</Button>
+                    <p className="mt-2 text-xs text-slate-500">Household relationship</p>
                   </div>
                 ) : (
                   <div>
                     <span className="text-sm text-muted-foreground block mb-3">Not part of a household.</span>
-                    <Button variant="outline" size="sm" className="w-full rounded-xl shadow-sm">Add to household</Button>
+                    <Button variant="outline" size="sm" onClick={() => router.push(`${pathname}/edit`)} className="w-full rounded-xl shadow-sm">Add to household</Button>
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            <Card className="rounded-2xl border-border bg-card shadow-sm">
+            <Card className="rounded-3xl border-slate-200/80 bg-white shadow-none">
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg">Workflows</CardTitle>
@@ -229,7 +237,7 @@ export function PersonProfile({ person, notes, events, workflowCards }: PersonPr
                 {workflowCards.length > 0 ? (
                   <div className="space-y-3">
                     {workflowCards.map(card => (
-                      <div key={card.id} className="p-3 bg-muted/50 rounded-xl border border-border">
+                      <div key={card.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-3.5">
                         <div className="font-medium text-sm text-foreground">{card.workflows?.name || 'Workflow'} <span className="text-muted-foreground font-normal mx-1">→</span> {card.workflow_steps?.name || 'Done'}</div>
                         <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1"><User className="h-3 w-3" /> {card.assigned_to || 'Unassigned'}</span>
@@ -237,7 +245,7 @@ export function PersonProfile({ person, notes, events, workflowCards }: PersonPr
                         </div>
                       </div>
                     ))}
-                    <Button variant="link" className="h-auto p-0 w-full text-primary justify-center text-sm mt-2">View workflow board</Button>
+                    <Button variant="link" onClick={() => router.push('/workflows')} className="mt-2 h-auto w-full justify-center p-0 text-sm text-emerald-700">View workflow board</Button>
                   </div>
                 ) : (
                   <span className="text-sm text-muted-foreground">No active workflows.</span>
@@ -250,7 +258,7 @@ export function PersonProfile({ person, notes, events, workflowCards }: PersonPr
 
       {/* NOTES TAB */}
       <TabsContent value="notes" className="animate-in fade-in-50 duration-300">
-        <Card className="rounded-2xl border-border bg-card shadow-sm">
+        <Card className="rounded-3xl border-slate-200/80 bg-white shadow-none">
           <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-4">
             <CardTitle>Pastoral & General Notes</CardTitle>
             <Dialog open={isAddingNote} onOpenChange={setIsAddingNote}>
@@ -297,9 +305,9 @@ export function PersonProfile({ person, notes, events, workflowCards }: PersonPr
             {notes.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">No notes found. Add one to get started.</div>
             ) : (
-              <div className="space-y-4">
+              <div className="grid gap-4 lg:grid-cols-2">
                 {notes.map(note => (
-                  <div key={note.id} className="p-5 border border-border rounded-xl bg-background shadow-sm group">
+                  <div key={note.id} className="group rounded-2xl border border-slate-200 bg-slate-50/40 p-5">
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <Badge variant="outline" className="capitalize text-xs font-medium text-slate-600 bg-slate-50">{note.category.replace('_', ' ')}</Badge>
@@ -330,7 +338,7 @@ export function PersonProfile({ person, notes, events, workflowCards }: PersonPr
 
       {/* ACTIVITY TAB */}
       <TabsContent value="activity" className="animate-in fade-in-50 duration-300">
-        <Card className="rounded-2xl border-border bg-card shadow-sm">
+        <Card className="rounded-3xl border-slate-200/80 bg-white shadow-none">
           <CardHeader className="border-b border-border pb-4">
             <CardTitle>Timeline Activity</CardTitle>
             <CardDescription>A chronological view of all events from connected integrations and the CRM.</CardDescription>
@@ -343,13 +351,13 @@ export function PersonProfile({ person, notes, events, workflowCards }: PersonPr
                 <p className="text-sm mt-1">Events from Shepherd and Drip & Brew will appear here automatically.</p>
               </div>
             ) : (
-              <div className="relative border-l-2 border-muted ml-4 pl-6 space-y-8 py-2">
+              <div className="relative ml-4 space-y-8 border-l-2 border-emerald-100 py-2 pl-6">
                 {events.map(event => (
                   <div key={event.id} className="relative">
-                    <div className="absolute -left-[35px] top-1 h-8 w-8 rounded-full bg-card border-2 border-muted flex items-center justify-center">
+                    <div className="absolute -left-[35px] top-1 flex h-8 w-8 items-center justify-center rounded-full border-2 border-emerald-100 bg-white">
                       {getEventIcon(event.source)}
                     </div>
-                    <div className="bg-background border border-border p-4 rounded-xl shadow-sm">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50/40 p-5">
                       <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                         <div className="font-semibold text-foreground text-base">
                           {formatEventName(event.event_type)}
@@ -373,24 +381,19 @@ export function PersonProfile({ person, notes, events, workflowCards }: PersonPr
                 ))}
               </div>
             )}
-            {events.length > 0 && (
-              <div className="mt-8 text-center">
-                <Button variant="outline" className="rounded-xl shadow-sm">Load more</Button>
-              </div>
-            )}
           </CardContent>
         </Card>
       </TabsContent>
 
       {/* ADMIN TAB */}
       <TabsContent value="admin" className="animate-in fade-in-50 duration-300">
-        <Card className="rounded-2xl border-red-200 bg-red-50/50 shadow-sm">
+        <Card className="rounded-3xl border-red-200 bg-red-50/50 shadow-none">
           <CardHeader>
             <CardTitle className="text-red-700">Danger Zone</CardTitle>
             <CardDescription className="text-red-600/80">Advanced administrative actions.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="flex items-center justify-between p-4 bg-white border border-red-100 rounded-xl">
+            <div className="flex flex-col items-start justify-between gap-4 rounded-2xl border border-red-100 bg-white p-5 sm:flex-row sm:items-center">
               <div>
                 <h4 className="font-semibold text-foreground">Delete this person</h4>
                 <p className="text-sm text-muted-foreground mt-1">

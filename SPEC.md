@@ -15,7 +15,7 @@
 
 | Layer | Choice | Notes |
 |---|---|---|
-| Framework | Next.js 14 (App Router) | TypeScript strict mode, SSR routing |
+| Framework | Next.js 16 (App Router) | TypeScript strict mode, SSR routing |
 | Styling | Tailwind CSS + shadcn/ui | Clean, data-dense admin aesthetic |
 | Database | Supabase (PostgreSQL) | **Row-Level Security (RLS)** for multi-tenancy per church |
 | Auth | Supabase Auth (or Clerk) | Multi-org auth supporting per-church roles |

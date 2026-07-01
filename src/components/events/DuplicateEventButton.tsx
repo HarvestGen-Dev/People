@@ -21,8 +21,8 @@ export function DuplicateEventButton({ eventId }: { eventId: string }) {
       const { data } = await res.json();
       toast.success('Event duplicated');
       router.push(`/events/${data.id}/edit`);
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to duplicate event');
       setIsDuplicating(false);
     }
   };

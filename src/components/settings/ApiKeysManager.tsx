@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, Copy, CheckCircle2, Loader2, Key } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { toast } from 'sonner';
+import type { ApiKey } from '@/lib/types';
 
 const SCOPES = [
   { id: 'people:read', label: 'people:read', desc: 'Read person profiles and lists' },
@@ -18,7 +19,12 @@ const SCOPES = [
   { id: 'events:write', label: 'events:write', desc: 'Push activity events to a person\'s timeline' },
 ];
 
-export function ApiKeysManager({ initialKeys, churchId }: { initialKeys: any[], churchId: string }) {
+type ApiKeySummary = Pick<
+  ApiKey,
+  'id' | 'name' | 'key_prefix' | 'scopes' | 'is_active' | 'expires_at' | 'last_used_at' | 'created_at'
+>;
+
+export function ApiKeysManager({ initialKeys }: { initialKeys: ApiKeySummary[], churchId: string }) {
   const [keys, setKeys] = useState(initialKeys);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   
@@ -78,8 +84,8 @@ export function ApiKeysManager({ initialKeys, churchId }: { initialKeys: any[], 
       setNewRawKey(data.rawKey);
       setKeys([data.apiKey, ...keys]);
       setStep(4);
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to create API key');
     } finally {
       setIsSubmitting(false);
     }
@@ -94,8 +100,8 @@ export function ApiKeysManager({ initialKeys, churchId }: { initialKeys: any[], 
       setKeys(keys.map(k => k.id === revokeId ? { ...k, is_active: false } : k));
       toast.success('API key revoked');
       setRevokeId(null);
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to revoke API key');
     }
   };
 
@@ -277,7 +283,7 @@ export function ApiKeysManager({ initialKeys, churchId }: { initialKeys: any[], 
               </div>
               
               <p className="text-xs text-slate-500 leading-snug border-l-2 border-amber-300 pl-3">
-                ⚠ Store this key somewhere safe. If you lose it, you'll need to create a new one.
+                ⚠ Store this key somewhere safe. If you lose it, you&apos;ll need to create a new one.
               </p>
             </div>
           )}
@@ -286,10 +292,10 @@ export function ApiKeysManager({ initialKeys, churchId }: { initialKeys: any[], 
             {step < 4 ? (
               <>
                 <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)} className="rounded-xl">Cancel</Button>
-                {step > 1 && <Button type="button" variant="outline" onClick={() => setStep(step - 1 as any)} className="rounded-xl">Back</Button>}
+                {step > 1 && <Button type="button" variant="outline" onClick={() => setStep(step === 3 ? 2 : 1)} className="rounded-xl">Back</Button>}
                 
                 {step < 3 ? (
-                  <Button type="button" onClick={() => setStep(step + 1 as any)} disabled={!formData.name.trim()} className="rounded-xl shadow-sm">Next step</Button>
+                  <Button type="button" onClick={() => setStep(step === 1 ? 2 : 3)} disabled={!formData.name.trim()} className="rounded-xl shadow-sm">Next step</Button>
                 ) : (
                   <Button type="button" onClick={handleCreate} disabled={isSubmitting || (hasExpiry && !formData.expires_at)} className="rounded-xl shadow-sm">
                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -299,7 +305,7 @@ export function ApiKeysManager({ initialKeys, churchId }: { initialKeys: any[], 
               </>
             ) : (
               <Button type="button" onClick={() => setIsDialogOpen(false)} className="rounded-xl w-full">
-                I've saved my key
+                I&apos;ve saved my key
               </Button>
             )}
           </DialogFooter>

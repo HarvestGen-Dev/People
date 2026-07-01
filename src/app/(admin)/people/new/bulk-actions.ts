@@ -3,7 +3,18 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
-export async function bulkCreatePeople(people: any[]) {
+export type BulkPersonInput = {
+  first_name?: string;
+  firstName?: string;
+  last_name?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  status?: string;
+  campus?: string;
+};
+
+export async function bulkCreatePeople(people: BulkPersonInput[]) {
   const supabase = await createClient();
 
   // Basic sanitization

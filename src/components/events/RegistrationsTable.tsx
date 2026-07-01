@@ -27,8 +27,8 @@ export function RegistrationsTable({ registrations, eventId, isFreeEvent }: { re
       if (!res.ok) throw new Error('Failed to approve');
       toast.success('Approved — confirmation email sent');
       window.location.reload(); // Quick refresh for now
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to approve');
       setLoadingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
     }
   };
@@ -47,8 +47,8 @@ export function RegistrationsTable({ registrations, eventId, isFreeEvent }: { re
       setRejectDialogId(null);
       setRejectReason('');
       window.location.reload();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to reject');
       setLoadingIds(prev => { const n = new Set(prev); n.delete(rejectDialogId); return n; });
     }
   };
@@ -67,8 +67,8 @@ export function RegistrationsTable({ registrations, eventId, isFreeEvent }: { re
       toast.success(`Approved ${ids.length} registrations`);
       setSelectedIds(new Set());
       window.location.reload();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Bulk approval failed');
       setLoadingIds(prev => { const n = new Set(prev); ids.forEach(id => n.delete(id)); return n; });
     }
   };
@@ -92,10 +92,10 @@ export function RegistrationsTable({ registrations, eventId, isFreeEvent }: { re
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex bg-muted/50 p-1 rounded-xl">
-          {['pending_review', 'approved', 'rejected'].map(tab => (
+          {(['pending_review', 'approved', 'rejected'] as const).map(tab => (
             <button
               key={tab}
-              onClick={() => { setFilter(tab as any); setSelectedIds(new Set()); }}
+              onClick={() => { setFilter(tab); setSelectedIds(new Set()); }}
               className={`px-4 py-1.5 text-sm font-medium rounded-lg capitalize transition-colors ${filter === tab ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
             >
               {tab.replace('_', ' ')}

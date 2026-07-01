@@ -2,7 +2,10 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { bulkCreatePeople } from '@/app/(admin)/people/new/bulk-actions';
+import {
+  bulkCreatePeople,
+  type BulkPersonInput,
+} from '@/app/(admin)/people/new/bulk-actions';
 import { toast } from 'sonner';
 import Papa from 'papaparse';
 import { UploadCloud } from 'lucide-react';
@@ -17,7 +20,7 @@ export function CSVImport() {
     if (!file) return;
 
     setIsImporting(true);
-    Papa.parse(file, {
+    Papa.parse<BulkPersonInput>(file, {
       header: true,
       skipEmptyLines: true,
       complete: async (results) => {

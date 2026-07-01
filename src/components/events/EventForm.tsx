@@ -35,6 +35,8 @@ const eventSchema = z.object({
   status: z.enum(['draft', 'published', 'closed']),
 });
 
+type EventFormData = z.infer<typeof eventSchema>;
+
 function slugify(text: string) {
   return text
     .toString()
@@ -67,7 +69,7 @@ export function EventForm({ event }: EventFormProps) {
     return localISOTime;
   };
 
-  const { register, handleSubmit, control, watch, setValue, formState: { errors } } = useForm({
+  const { register, handleSubmit, control, watch, setValue, formState: { errors } } = useForm<EventFormData>({
     resolver: zodResolver(eventSchema),
     defaultValues: {
       name: event?.name || '',
@@ -127,24 +129,19 @@ export function EventForm({ event }: EventFormProps) {
     return data.url; // Assuming backend returns { data: { url: string } }
   };
 
-  const onSubmit = async (data: any, forcePublish = false) => {
+  const onSubmit = async (data: EventFormData, forcePublish = false) => {
     setIsSubmitting(true);
     try {
-      if (forcePublish) {
-        data.status = 'published';
-      }
-
-      // Convert capacity from empty string to null
-      if (data.capacity === '') data.capacity = null;
-      if (data.end_at === '') data.end_at = null;
-      if (data.payment_link === '') data.payment_link = null;
-
-      // Ensure start_at and end_at are proper ISO strings with timezone info
-      // Browser's datetime-local gives YYYY-MM-DDTHH:mm. We append Z or parse it to Date
-      data.start_at = new Date(data.start_at).toISOString();
-      if (data.end_at) {
-        data.end_at = new Date(data.end_at).toISOString();
-      }
+      const payload = {
+        ...data,
+        status: forcePublish ? 'published' : data.status,
+        capacity: data.capacity ?? null,
+        end_at: data.end_at
+          ? new Date(data.end_at).toISOString()
+          : null,
+        payment_link: data.payment_link || null,
+        start_at: new Date(data.start_at).toISOString(),
+      };
 
       const url = isEdit ? `/api/admin/events/${event.id}` : '/api/admin/events';
       const method = isEdit ? 'PATCH' : 'POST';
@@ -152,7 +149,7 @@ export function EventForm({ event }: EventFormProps) {
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -178,8 +175,8 @@ export function EventForm({ event }: EventFormProps) {
           router.refresh();
         }
       }
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to save event');
     } finally {
       setIsSubmitting(false);
     }
@@ -313,7 +310,7 @@ export function EventForm({ event }: EventFormProps) {
             <CardContent className="space-y-4">
               <div className="flex items-start gap-3 p-3 bg-white rounded-xl border border-amber-100 shadow-sm text-sm text-amber-800 mb-4">
                 <AlertCircle className="h-5 w-5 shrink-0 mt-0.5 text-amber-600" />
-                <p>Payments are verified manually. Registrants will see this QR/link and upload proof of payment — you'll approve each registration from the Registrations tab.</p>
+                <p>Payments are verified manually. Registrants will see this QR/link and upload proof of payment — you&apos;ll approve each registration from the Registrations tab.</p>
               </div>
 
               <div className="grid sm:grid-cols-2 gap-6">

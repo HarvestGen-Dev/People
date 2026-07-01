@@ -39,6 +39,8 @@ const personSchema = z.object({
   household_id: z.string().optional().nullable(),
 });
 
+type PersonFormData = z.infer<typeof personSchema>;
+
 export function PersonForm({ person, tags, fieldDefinitions, households }: PersonFormProps) {
   const router = useRouter();
   const isEdit = !!person;
@@ -63,7 +65,7 @@ export function PersonForm({ person, tags, fieldDefinitions, households }: Perso
   const [photoUrl, setPhotoUrl] = useState(person?.photo_url || null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
 
-  const { register, handleSubmit, control, watch, setValue, formState: { errors } } = useForm({
+  const { register, handleSubmit, control, watch, setValue, formState: { errors } } = useForm<PersonFormData>({
     resolver: zodResolver(personSchema),
     defaultValues: {
       first_name: person?.first_name || '',
@@ -120,16 +122,19 @@ export function PersonForm({ person, tags, fieldDefinitions, households }: Perso
     return data.photo_url;
   };
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: PersonFormData) => {
     setIsSubmitting(true);
     try {
       // Clean up empty strings
-      Object.keys(data).forEach(key => {
-        if (data[key] === '') data[key] = null;
-      });
+      const cleanedPerson = Object.fromEntries(
+        Object.entries(data).map(([key, value]) => [
+          key,
+          value === '' ? null : value,
+        ])
+      );
 
       const payload = {
-        person: data,
+        person: cleanedPerson,
         tags: selectedTags,
         customFields,
         household_name: householdName ? householdName : undefined,
@@ -159,24 +164,24 @@ export function PersonForm({ person, tags, fieldDefinitions, households }: Perso
       toast.success(isEdit ? 'Person updated successfully' : 'Person created successfully');
       router.push(`/people/${personId}`);
       router.refresh();
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to save person');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      <Card className="rounded-2xl border-border shadow-sm">
-        <CardHeader>
-          <CardTitle>Basic Information</CardTitle>
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 [&_[data-slot=input]]:h-11 [&_[data-slot=input]]:rounded-xl [&_[data-slot=select-trigger]]:h-11 [&_[data-slot=select-trigger]]:rounded-xl">
+      <Card className="rounded-3xl border-slate-200/80 bg-white shadow-none">
+        <CardHeader className="border-b border-slate-100">
+          <CardTitle className="text-lg font-bold text-slate-950">Basic information</CardTitle>
           <CardDescription>Essential details about this person.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex items-center gap-6">
+        <CardContent className="space-y-6 pt-6">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
             <div className="relative group">
-              <div className="h-24 w-24 rounded-full border-2 border-dashed border-border bg-muted flex items-center justify-center overflow-hidden relative">
+              <div className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl border-2 border-dashed border-emerald-200 bg-emerald-50">
                 {photoUrl ? (
                   <img src={photoUrl} alt="Preview" className="w-full h-full object-cover" />
                 ) : (
@@ -195,7 +200,7 @@ export function PersonForm({ person, tags, fieldDefinitions, households }: Perso
               )}
             </div>
             
-            <div className="flex-1 grid grid-cols-2 gap-4">
+            <div className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="text-sm font-medium mb-1 block">First Name <span className="text-red-500">*</span></label>
                 <Input {...register('first_name')} className="rounded-xl" />
@@ -260,11 +265,12 @@ export function PersonForm({ person, tags, fieldDefinitions, households }: Perso
         </CardContent>
       </Card>
 
-      <Card className="rounded-2xl border-border shadow-sm">
-        <CardHeader>
-          <CardTitle>Additional Details</CardTitle>
+      <Card className="rounded-3xl border-slate-200/80 bg-white shadow-none">
+        <CardHeader className="border-b border-slate-100">
+          <CardTitle className="text-lg font-bold text-slate-950">Additional details</CardTitle>
+          <CardDescription>Information that helps teams understand and serve this person well.</CardDescription>
         </CardHeader>
-        <CardContent className="grid sm:grid-cols-2 gap-4">
+        <CardContent className="grid gap-4 pt-6 sm:grid-cols-2">
           <div>
             <label className="text-sm font-medium mb-1 block">Birthdate</label>
             <Input type="date" {...register('birthdate')} className="rounded-xl" />
@@ -300,12 +306,13 @@ export function PersonForm({ person, tags, fieldDefinitions, households }: Perso
         </CardContent>
       </Card>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card className="rounded-2xl border-border shadow-sm h-fit">
-          <CardHeader>
-            <CardTitle>Household & Tags</CardTitle>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Card className="h-fit rounded-3xl border-slate-200/80 bg-white shadow-none">
+          <CardHeader className="border-b border-slate-100">
+            <CardTitle className="text-lg font-bold text-slate-950">Household & tags</CardTitle>
+            <CardDescription>Connect this person to their family and ministry context.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-6 pt-6">
             <div>
               <label className="text-sm font-medium mb-1 block">Household</label>
               <Popover open={householdSearchOpen} onOpenChange={setHouseholdSearchOpen}>
@@ -390,11 +397,12 @@ export function PersonForm({ person, tags, fieldDefinitions, households }: Perso
         </Card>
 
         {fieldDefinitions.length > 0 && (
-          <Card className="rounded-2xl border-border shadow-sm h-fit">
-            <CardHeader>
-              <CardTitle>Custom Fields</CardTitle>
+          <Card className="h-fit rounded-3xl border-slate-200/80 bg-white shadow-none">
+            <CardHeader className="border-b border-slate-100">
+              <CardTitle className="text-lg font-bold text-slate-950">Custom fields</CardTitle>
+              <CardDescription>Church-specific information configured by your administrators.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-5 pt-6">
               {fieldDefinitions.map(def => {
                 const valObj = customFields.find(f => f.field_definition_id === def.id);
                 const value = valObj?.value || '';
@@ -433,11 +441,11 @@ export function PersonForm({ person, tags, fieldDefinitions, households }: Perso
         )}
       </div>
 
-      <div className="flex justify-end gap-3 pt-4">
-        <Button variant="outline" type="button" onClick={() => router.back()} disabled={isSubmitting} className="rounded-xl">
+      <div className="sticky bottom-3 z-20 flex flex-col-reverse justify-end gap-3 rounded-2xl border border-slate-200 bg-white/92 p-3 shadow-[0_20px_55px_-30px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:flex-row">
+        <Button variant="outline" type="button" onClick={() => router.back()} disabled={isSubmitting} className="h-10 rounded-xl px-5">
           Cancel
         </Button>
-        <Button type="submit" disabled={isSubmitting} className="rounded-xl shadow-sm bg-primary hover:bg-primary/90 px-8">
+        <Button type="submit" disabled={isSubmitting} className="h-10 rounded-xl bg-emerald-700 px-8 font-bold shadow-sm hover:bg-emerald-800">
           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {isEdit ? 'Save Changes' : 'Create Person'}
         </Button>

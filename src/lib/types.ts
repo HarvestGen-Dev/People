@@ -72,6 +72,13 @@ export interface PersonWithRelations extends Person {
   person_roles?: PersonRole[];
 }
 
+export type ListPerson = Pick<
+  Person,
+  'id' | 'first_name' | 'last_name' | 'email' | 'phone' | 'status' | 'campus' | 'photo_url'
+>;
+
+export type ListTag = Pick<Tag, 'id' | 'name' | 'color'>;
+
 export interface Role {
   id: string;
   name: string;
@@ -138,6 +145,32 @@ export interface WorkflowCard {
   updated_at: string;
 }
 
+export interface WorkflowCardWithRelations extends WorkflowCard {
+  workflows?: { name: string } | null;
+  workflow_steps?: { name: string } | null;
+}
+
+// <!-- AGENT: FRONTEND -->
+export type WorkflowPerson = Pick<
+  Person,
+  'id' | 'first_name' | 'last_name' | 'status' | 'created_at' | 'photo_url'
+>;
+
+export interface WorkflowBoardCard extends WorkflowCard {
+  people: WorkflowPerson;
+}
+
+export interface WorkflowAdminUser {
+  user_id: string;
+  role: 'owner' | 'admin' | 'member';
+}
+
+export interface WorkflowSummary extends Workflow {
+  steps_count: number;
+  active_cards: number;
+  completed_cards: number;
+}
+
 export interface List {
   id: string;
   name: string;
@@ -151,7 +184,7 @@ export interface List {
 export type SmartListRule = {
   field: string;
   op: string;
-  value?: unknown;
+  value?: string;
 };
 
 export type SmartListFilters = {
@@ -268,7 +301,7 @@ export type PersonSummary = {
   last_name: string
   email: string | null
   phone: string | null
-  status: string
+  status: Person['status']
   campus: string | null
   photo_url: string | null
   tags: Array<{ id: string; name: string; color: string }>

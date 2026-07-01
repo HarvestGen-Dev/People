@@ -2,7 +2,7 @@
 
 People is a church member relationship management system for Harvest Generation Church. It serves as the central source of truth for all member data, integrating with connected systems (Shepherd LMS, Drip & Brew Café POS) via a REST API.
 
-**Tech Stack:** Next.js 14 (App Router), TypeScript, Tailwind CSS, shadcn/ui, Supabase (Postgres + Auth + Storage).
+**Tech Stack:** Next.js 16 (App Router), TypeScript, Tailwind CSS, shadcn/ui, Supabase (Postgres + Auth + Storage).
 
 ---
 
@@ -48,6 +48,19 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser. Changes to the code will automatically reload the page.
+
+---
+
+## Verification
+
+<!-- AGENT: DEVOPS -->
+With Docker and the local Supabase stack running, execute the same release gate used by CI:
+
+```bash
+npm run verify
+```
+
+This runs TypeScript, ESLint, Supabase schema linting, lookup integration tests, and a production build.
 
 ---
 

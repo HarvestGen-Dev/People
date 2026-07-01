@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import { EventRegistration, EventWithStats, PersonWithRelations } from '@/lib/types';
+import { Event, EventRegistration } from '@/lib/types';
 import { format } from 'date-fns';
 
 const transporter = nodemailer.createTransport({
@@ -12,7 +12,9 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-function buildConfirmationEmailHtml(registration: any) {
+type RegistrationWithEvent = EventRegistration & { event: Event };
+
+function buildConfirmationEmailHtml(registration: RegistrationWithEvent) {
   const event = registration.event;
   const dateStr = format(new Date(event.start_at), 'EEEE, MMMM d, yyyy h:mm a');
   
@@ -39,8 +41,7 @@ function buildConfirmationEmailHtml(registration: any) {
 }
 
 export async function sendEventConfirmationEmail(
-  registration: any,
-  person: any
+  registration: RegistrationWithEvent
 ): Promise<{ success: boolean; error?: string }> {
   try {
     if (!process.env.BREVO_SMTP_USER || !process.env.BREVO_SMTP_KEY) {

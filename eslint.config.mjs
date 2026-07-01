@@ -20,6 +20,7 @@ const eslintConfig = defineConfig([
     "test-login.js",
     "update-user.js",
     "update-user2.js",
+    "scripts/fix-any.js",
   ]),
 ]);
 

@@ -1,19 +1,12 @@
 import { createServiceClient } from '@/lib/supabase/server';
-import { PersonSummary } from '@/lib/types';
-
-export interface ListRule {
-  field: string;
-  op: string;
-  value?: any;
-}
-
-export interface ListFilters {
-  operator: 'AND' | 'OR';
-  rules: ListRule[];
-}
+import {
+  PersonSummary,
+  SmartListFilters,
+  SmartListRule,
+} from '@/lib/types';
 
 export async function evaluateSmartList(
-  filters: ListFilters,
+  filters: SmartListFilters,
   churchId: string,
   options: { limit?: number; offset?: number } = {}
 ): Promise<{ people: PersonSummary[]; total: number }> {
@@ -52,7 +45,7 @@ export async function evaluateSmartList(
       }
       if (rule.field === 'created_at') {
         if (rule.op === 'within_last_days') {
-          const d = new Date(Date.now() - parseInt(rule.value) * 86400000).toISOString();
+          const d = new Date(Date.now() - parseInt(rule.value ?? '0') * 86400000).toISOString();
           query = query.gte('created_at', d);
         }
         if (rule.op === 'is_before') query = query.lt('created_at', rule.value);
@@ -91,9 +84,11 @@ export async function evaluateSmartList(
   }
 
   const matched = allPeople.filter(person => {
-    const personTags = person.person_tags?.map((pt: any) => pt.tag_id) || [];
+    const personTags = person.person_tags?.map(
+      (personTag: { tag_id: string }) => personTag.tag_id
+    ) || [];
 
-    const evaluateRule = (rule: ListRule) => {
+    const evaluateRule = (rule: SmartListRule) => {
       if (rule.field === 'status') {
         if (rule.op === 'is') return person.status === rule.value;
         if (rule.op === 'is_not') return person.status !== rule.value;
@@ -111,18 +106,18 @@ export async function evaluateSmartList(
       if (rule.field === 'created_at') {
         const pDate = new Date(person.created_at).getTime();
         if (rule.op === 'within_last_days') {
-          const cutoff = Date.now() - parseInt(rule.value) * 86400000;
+          const cutoff = Date.now() - parseInt(rule.value ?? '0') * 86400000;
           return pDate >= cutoff;
         }
-        if (rule.op === 'is_before') return pDate < new Date(rule.value).getTime();
-        if (rule.op === 'is_after') return pDate > new Date(rule.value).getTime();
+        if (rule.op === 'is_before') return pDate < new Date(rule.value ?? '').getTime();
+        if (rule.op === 'is_after') return pDate > new Date(rule.value ?? '').getTime();
       }
       if (rule.field === 'has_no_email') {
         return !person.email;
       }
       if (rule.field === 'tag') {
-        if (rule.op === 'includes') return personTags.includes(rule.value);
-        if (rule.op === 'excludes') return !personTags.includes(rule.value);
+        if (rule.op === 'includes') return personTags.includes(rule.value ?? '');
+        if (rule.op === 'excludes') return !personTags.includes(rule.value ?? '');
       }
       return false;
     };

@@ -111,8 +111,8 @@ export function RegistrationForm({ event, spotsRemaining }: RegistrationFormProp
 
       setReferenceNumber(responseData.data.reference);
       setStep(3); // Success screen
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to register');
     } finally {
       setIsSubmitting(false);
     }
