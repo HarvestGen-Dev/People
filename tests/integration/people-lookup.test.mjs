@@ -5,7 +5,7 @@ import crypto from 'node:crypto';
 import { after, before, test } from 'node:test';
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
-
+import ws from 'ws';
 dotenv.config({ path: '.env.local', quiet: true });
 
 const port = Number(process.env.LOOKUP_TEST_PORT ?? 3107);
@@ -16,7 +16,11 @@ const rawApiKey = `people_k1_${crypto.randomBytes(16).toString('hex')}`;
 const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY,
-  { auth: { persistSession: false, autoRefreshToken: false } }
+  {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: fetch },
+    realtime: { transport: ws },
+  }
 );
 
 let server;

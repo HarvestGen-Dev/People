@@ -2,7 +2,7 @@ CREATE TYPE event_status AS ENUM ('draft', 'published', 'closed');
 CREATE TYPE registration_status AS ENUM ('pending_review', 'approved', 'rejected');
 
 CREATE TABLE events (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
     slug VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -25,7 +25,7 @@ CREATE TABLE events (
 );
 
 CREATE TABLE event_registrations (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
     event_id UUID REFERENCES events(id) ON DELETE CASCADE NOT NULL,
     person_id UUID REFERENCES people(id) ON DELETE SET NULL,
