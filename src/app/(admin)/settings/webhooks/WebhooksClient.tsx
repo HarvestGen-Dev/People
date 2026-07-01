@@ -3,14 +3,13 @@
 import { useState } from 'react'
 import { Webhook, WebhookDelivery } from '@/lib/types'
 import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
-import { Plus, Check, X, Trash2, Edit2, Play, ChevronRight, Activity } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
+import { Plus, Check, X, Trash2, Play, Activity } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
-import { useRouter } from 'next/navigation'
 
 const EVENT_TYPES = [
   { id: 'person.created', label: 'person.created', desc: 'A new person is added to People' },
@@ -34,7 +33,7 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: Webhook[]
   
   const toast = ({ title }: { title: string; variant?: 'destructive' }) =>
     window.alert(title)
-  const router = useRouter()
+
 
   const handleCreate = async () => {
     if (!name || !url || selectedEvents.length === 0) {
@@ -59,7 +58,7 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: Webhook[]
       setUrl('')
       setSelectedEvents([])
       toast({ title: 'Webhook created successfully' })
-    } catch (err) {
+    } catch {
       toast({ title: 'Error creating webhook', variant: 'destructive' })
     } finally {
       setIsSubmitting(false)
@@ -75,7 +74,7 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: Webhook[]
       
       setWebhooks(webhooks.filter(w => w.id !== id))
       toast({ title: 'Webhook deleted' })
-    } catch (err) {
+    } catch {
       toast({ title: 'Error deleting webhook', variant: 'destructive' })
     }
   }
@@ -90,7 +89,7 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: Webhook[]
       if (!res.ok) throw new Error('Failed to update')
       
       setWebhooks(webhooks.map(w => w.id === id ? { ...w, is_active: !is_active } : w))
-    } catch (err) {
+    } catch {
       toast({ title: 'Error updating webhook', variant: 'destructive' })
     }
   }
@@ -131,7 +130,7 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: Webhook[]
       if (!res.ok) throw new Error('Failed to fetch deliveries')
       const data = await res.json()
       setDeliveries(data)
-    } catch (err) {
+    } catch {
       toast({ title: 'Error fetching deliveries', variant: 'destructive' })
     } finally {
       setIsLoadingDeliveries(false)

@@ -11,7 +11,7 @@ export default async function TagsSettingsPage() {
   const { churchId } = await requireTenantContext({ requireManager: true });
   const supabase = createServiceClient();
 
-  const { data: tags, error } = await supabase
+  const { data: tags } = await supabase
     .from('tags')
     .select('*, person_tags(count)')
     .eq('church_id', churchId)
