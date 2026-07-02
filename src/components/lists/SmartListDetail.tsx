@@ -11,6 +11,7 @@ import type {
   ListTag,
   SmartListFilters,
 } from '@/lib/types';
+import { useAdminPermissions } from '@/components/layout/AdminPermissions';
 
 type SmartListRecord = Omit<List, 'filters'> & {
   filters: SmartListFilters | null;
@@ -25,6 +26,7 @@ export function SmartListDetail({
   people: ListPerson[];
   tags: ListTag[];
 }) {
+  const { canManage } = useAdminPermissions();
   const [isEditing, setIsEditing] = useState(false);
 
   const handleExport = () => {
@@ -80,9 +82,11 @@ export function SmartListDetail({
           <p className="mt-2 text-sm text-slate-500">{people.length} matching people · updates automatically</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
-          <Button variant="outline" onClick={() => setIsEditing(true)} className="rounded-xl bg-white shadow-sm gap-2">
-            <Edit2 className="h-4 w-4" /> Edit rules
-          </Button>
+          {canManage && (
+            <Button variant="outline" onClick={() => setIsEditing(true)} className="rounded-xl bg-white shadow-sm gap-2">
+              <Edit2 className="h-4 w-4" /> Edit rules
+            </Button>
+          )}
           <Button onClick={handleExport} className="rounded-xl bg-emerald-700 font-bold shadow-sm hover:bg-emerald-800 gap-2">
             <Download className="h-4 w-4" /> Export CSV
           </Button>

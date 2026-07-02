@@ -14,7 +14,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Upload, Loader2, Image as ImageIcon, QrCode, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { marked } from 'marked';
+import { renderSafeMarkdown } from '@/lib/safe-markdown';
 
 interface EventFormProps {
   event?: Event;
@@ -224,7 +224,11 @@ export function EventForm({ event }: EventFormProps) {
                 </TabsContent>
                 <TabsContent value="preview" className="m-0 border-0 p-4 min-h-[200px] prose prose-sm max-w-none">
                   {watchDescription ? (
-                    <div dangerouslySetInnerHTML={{ __html: marked.parse(watchDescription) }} />
+                    <div
+                      dangerouslySetInnerHTML={{
+                        __html: renderSafeMarkdown(watchDescription),
+                      }}
+                    />
                   ) : (
                     <p className="text-muted-foreground italic">Nothing to preview</p>
                   )}

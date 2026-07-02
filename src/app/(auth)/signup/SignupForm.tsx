@@ -172,7 +172,7 @@ export function SignupForm({
             </div>
           </div>
           <div className="space-y-2">
-            <Label className="text-foreground font-medium">
+            <Label htmlFor="gender" className="text-foreground font-medium">
               Gender <span className="font-normal text-slate-400">(optional)</span>
             </Label>
             <Select
@@ -187,7 +187,7 @@ export function SignupForm({
                 )
               }
             >
-              <SelectTrigger className="h-11 w-full rounded-xl">
+              <SelectTrigger id="gender" className="h-11 w-full rounded-xl">
                 <SelectValue placeholder="Select gender" />
               </SelectTrigger>
               <SelectContent>

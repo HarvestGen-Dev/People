@@ -69,6 +69,8 @@ export function TeamManager({
   const [claimRequests, setClaimRequests] = useState(initialClaimRequests);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [busyInvitationId, setBusyInvitationId] = useState<string | null>(null);
+  const [busyClaimId, setBusyClaimId] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'admin' | 'member'>('member');
   const [expiresInDays, setExpiresInDays] = useState('7');
@@ -135,79 +137,103 @@ export function TeamManager({
   };
 
   const revokeInvitation = async (id: string) => {
-    const response = await fetch(`/api/admin/invitations/${id}`, {
-      method: 'DELETE',
-    });
-    const body = await response.json();
-    if (!response.ok) {
-      toast.error(body.error || 'Unable to revoke invitation');
-      return;
+    setBusyInvitationId(id);
+    try {
+      const response = await fetch(`/api/admin/invitations/${id}`, {
+        method: 'DELETE',
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error(body.error || 'Unable to revoke invitation');
+      }
+      setInvitations((current) =>
+        current.map((invitation) =>
+          invitation.id === id
+            ? { ...invitation, revokedAt: new Date().toISOString() }
+            : invitation
+        )
+      );
+      toast.success('Invitation revoked');
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error ? error.message : 'Unable to revoke invitation'
+      );
+    } finally {
+      setBusyInvitationId(null);
     }
-    setInvitations((current) =>
-      current.map((invitation) =>
-        invitation.id === id
-          ? { ...invitation, revokedAt: new Date().toISOString() }
-          : invitation
-      )
-    );
-    toast.success('Invitation revoked');
   };
 
   const resendInvitation = async (id: string) => {
-    const response = await fetch(`/api/admin/invitations/${id}/resend`, {
-      method: 'POST',
-    });
-    const body = await response.json();
-    if (!response.ok) {
-      toast.error(body.error || 'Unable to resend invitation');
-      return;
-    }
+    setBusyInvitationId(id);
+    try {
+      const response = await fetch(`/api/admin/invitations/${id}/resend`, {
+        method: 'POST',
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error(body.error || 'Unable to resend invitation');
+      }
 
-    const replacement: InvitationSummary = {
-      id: body.data.invitation.id,
-      email: body.data.invitation.email,
-      role: body.data.invitation.role,
-      expiresAt: body.data.invitation.expires_at,
-      acceptedAt: null,
-      revokedAt: null,
-      sentAt: body.data.email_sent ? new Date().toISOString() : null,
-      createdAt: body.data.invitation.created_at,
-    };
-    setInvitations((current) => [
-      replacement,
-      ...current.map((invitation) =>
-        invitation.id === id
-          ? { ...invitation, revokedAt: new Date().toISOString() }
-          : invitation
-      ),
-    ]);
-    setCreatedInvitation({
-      email: replacement.email,
-      inviteUrl: body.data.invite_url,
-      emailSent: body.data.email_sent,
-      emailError: body.data.email_error,
-    });
-    toast.success('Invitation rotated');
+      const replacement: InvitationSummary = {
+        id: body.data.invitation.id,
+        email: body.data.invitation.email,
+        role: body.data.invitation.role,
+        expiresAt: body.data.invitation.expires_at,
+        acceptedAt: null,
+        revokedAt: null,
+        sentAt: body.data.email_sent ? new Date().toISOString() : null,
+        createdAt: body.data.invitation.created_at,
+      };
+      setInvitations((current) => [
+        replacement,
+        ...current.map((invitation) =>
+          invitation.id === id
+            ? { ...invitation, revokedAt: new Date().toISOString() }
+            : invitation
+        ),
+      ]);
+      setCreatedInvitation({
+        email: replacement.email,
+        inviteUrl: body.data.invite_url,
+        emailSent: body.data.email_sent,
+        emailError: body.data.email_error,
+      });
+      toast.success('Invitation rotated');
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error ? error.message : 'Unable to resend invitation'
+      );
+    } finally {
+      setBusyInvitationId(null);
+    }
   };
 
   const reviewClaim = async (
     requestId: string,
     decision: 'approve' | 'reject'
   ) => {
-    const response = await fetch('/api/admin/claims', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ request_id: requestId, decision }),
-    });
-    const body = await response.json();
-    if (!response.ok) {
-      toast.error(body.error || 'Unable to review claim');
-      return;
+    setBusyClaimId(requestId);
+    try {
+      const response = await fetch('/api/admin/claims', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ request_id: requestId, decision }),
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error(body.error || 'Unable to review claim');
+      }
+      setClaimRequests((current) =>
+        current.filter((request) => request.id !== requestId)
+      );
+      toast.success(decision === 'approve' ? 'Profile access approved' : 'Claim rejected');
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error ? error.message : 'Unable to review claim'
+      );
+    } finally {
+      setBusyClaimId(null);
     }
-    setClaimRequests((current) =>
-      current.filter((request) => request.id !== requestId)
-    );
-    toast.success(decision === 'approve' ? 'Profile access approved' : 'Claim rejected');
   };
 
   return (
@@ -352,6 +378,7 @@ export function TeamManager({
                     size="sm"
                     variant="ghost"
                     onClick={() => resendInvitation(invitation.id)}
+                    disabled={busyInvitationId === invitation.id}
                     className="w-fit rounded-xl"
                   >
                     Resend
@@ -361,6 +388,7 @@ export function TeamManager({
                     size="sm"
                     variant="ghost"
                     onClick={() => revokeInvitation(invitation.id)}
+                    disabled={busyInvitationId === invitation.id}
                     className="w-fit rounded-xl text-red-600 hover:bg-red-50 hover:text-red-700"
                   >
                     Revoke
@@ -400,6 +428,7 @@ export function TeamManager({
                     size="sm"
                     variant="outline"
                     onClick={() => reviewClaim(request.id, 'reject')}
+                    disabled={busyClaimId === request.id}
                     className="rounded-xl"
                   >
                     Reject
@@ -407,6 +436,7 @@ export function TeamManager({
                   <Button
                     size="sm"
                     onClick={() => reviewClaim(request.id, 'approve')}
+                    disabled={busyClaimId === request.id}
                     className="rounded-xl bg-emerald-700 hover:bg-emerald-800"
                   >
                     Approve
@@ -458,92 +488,104 @@ export function TeamManager({
 
       <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
         <DialogContent className="rounded-3xl sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold">
-              Invite a teammate
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-3">
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-700">
-                Email address
-              </label>
-              <Input
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="teammate@example.com"
-                className="h-11 rounded-xl"
-                autoFocus
-              />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
+          <form
+            className="contents"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleInvite();
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold">
+                Invite a teammate
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-3">
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
-                  Role
+                <label htmlFor="invite-email" className="mb-2 block text-sm font-semibold text-slate-700">
+                  Email address
                 </label>
-                <Select
-                  value={role}
-                  onValueChange={(value) =>
-                    setRole(value === 'admin' ? 'admin' : 'member')
-                  }
-                >
-                  <SelectTrigger className="h-11 rounded-xl">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="member">Member</SelectItem>
-                    {currentRole === 'owner' && (
-                      <SelectItem value="admin">Administrator</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
+                <Input
+                  id="invite-email"
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="teammate@example.com"
+                  className="h-11 rounded-xl"
+                  autoFocus
+                  required
+                />
               </div>
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
-                  Link expires
-                </label>
-                <Select
-                  value={expiresInDays}
-                  onValueChange={(value) => setExpiresInDays(value || '7')}
-                >
-                  <SelectTrigger className="h-11 rounded-xl">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">In 1 day</SelectItem>
-                    <SelectItem value="7">In 7 days</SelectItem>
-                    <SelectItem value="14">In 14 days</SelectItem>
-                    <SelectItem value="30">In 30 days</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="invite-role" className="mb-2 block text-sm font-semibold text-slate-700">
+                    Role
+                  </label>
+                  <Select
+                    value={role}
+                    onValueChange={(value) =>
+                      setRole(value === 'admin' ? 'admin' : 'member')
+                    }
+                  >
+                    <SelectTrigger id="invite-role" className="h-11 rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="member">Member</SelectItem>
+                      {currentRole === 'owner' && (
+                        <SelectItem value="admin">Administrator</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label htmlFor="invite-expiry" className="mb-2 block text-sm font-semibold text-slate-700">
+                    Link expires
+                  </label>
+                  <Select
+                    value={expiresInDays}
+                    onValueChange={(value) => setExpiresInDays(value || '7')}
+                  >
+                    <SelectTrigger id="invite-expiry" className="h-11 rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">In 1 day</SelectItem>
+                      <SelectItem value="7">In 7 days</SelectItem>
+                      <SelectItem value="14">In 14 days</SelectItem>
+                      <SelectItem value="30">In 30 days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="rounded-2xl bg-emerald-50 p-4 text-xs leading-5 text-emerald-800">
+                The link is single-use and bound to this exact email address.
               </div>
             </div>
-            <div className="rounded-2xl bg-emerald-50 p-4 text-xs leading-5 text-emerald-800">
-              The link is single-use and bound to this exact email address.
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="ghost"
-              onClick={() => setIsInviteOpen(false)}
-              className="rounded-xl"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleInvite}
-              disabled={!email.trim() || isSaving}
-              className="rounded-xl bg-emerald-700 font-bold hover:bg-emerald-800"
-            >
-              {isSaving ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <UserPlus className="mr-2 h-4 w-4" />
-              )}
-              Create invitation
-            </Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setIsInviteOpen(false)}
+                disabled={isSaving}
+                className="rounded-xl"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={!email.trim() || isSaving}
+                className="rounded-xl bg-emerald-700 font-bold hover:bg-emerald-800"
+              >
+                {isSaving ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <UserPlus className="mr-2 h-4 w-4" />
+                )}
+                Create invitation
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 

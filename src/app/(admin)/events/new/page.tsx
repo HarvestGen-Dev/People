@@ -3,12 +3,15 @@ import { EventForm } from '@/components/events/EventForm';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { requireTenantContext } from '@/lib/tenant-context';
 
 export const metadata = {
   title: 'New Event | HarvestGen',
 };
 
-export default function NewEventPage() {
+export default async function NewEventPage() {
+  await requireTenantContext({ requireManager: true });
+
   return (
     <>
       <Topbar title="New Event">

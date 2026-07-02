@@ -24,6 +24,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import type { WorkflowSummary } from '@/lib/types';
+import { useAdminPermissions } from '@/components/layout/AdminPermissions';
 
 export function WorkflowIndexManager({
   initialWorkflows,
@@ -31,6 +32,7 @@ export function WorkflowIndexManager({
   initialWorkflows: WorkflowSummary[];
 }) {
   const router = useRouter();
+  const { canManage } = useAdminPermissions();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formData, setFormData] = useState({ name: '', description: '' });
   const [isSaving, setIsSaving] = useState(false);
@@ -81,13 +83,15 @@ export function WorkflowIndexManager({
             forward.
           </p>
         </div>
-        <Button
-          onClick={() => setIsDialogOpen(true)}
-          className="h-11 rounded-xl bg-emerald-700 px-5 font-bold hover:bg-emerald-800"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          New workflow
-        </Button>
+        {canManage && (
+          <Button
+            onClick={() => setIsDialogOpen(true)}
+            className="h-11 rounded-xl bg-emerald-700 px-5 font-bold hover:bg-emerald-800"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            New workflow
+          </Button>
+        )}
       </header>
 
       <section className="grid gap-4 sm:grid-cols-3">
@@ -130,12 +134,14 @@ export function WorkflowIndexManager({
             Start with a simple visitor journey, pastoral follow-up, or ministry
             onboarding pipeline.
           </p>
-          <Button
-            onClick={() => setIsDialogOpen(true)}
-            className="mt-6 rounded-xl bg-emerald-700 font-bold hover:bg-emerald-800"
-          >
-            Create workflow
-          </Button>
+          {canManage && (
+            <Button
+              onClick={() => setIsDialogOpen(true)}
+              className="mt-6 rounded-xl bg-emerald-700 font-bold hover:bg-emerald-800"
+            >
+              Create workflow
+            </Button>
+          )}
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -208,7 +214,7 @@ export function WorkflowIndexManager({
         </div>
       )}
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      {canManage && <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="rounded-3xl sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold tracking-tight">
@@ -266,7 +272,7 @@ export function WorkflowIndexManager({
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </Dialog>}
     </div>
   );
 }

@@ -9,10 +9,10 @@ import {
   Users,
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { marked } from 'marked';
 import { createServiceClient } from '@/lib/supabase/server';
 import { RegistrationForm } from '@/components/events/RegistrationForm';
 import type { Event } from '@/lib/types';
+import { renderSafeMarkdown } from '@/lib/safe-markdown';
 
 async function getEventBySlug(slug: string) {
   const supabase = createServiceClient();
@@ -164,7 +164,7 @@ export default async function PublicEventPage({
                 <div
                   className="prose prose-slate max-w-none prose-headings:tracking-tight prose-a:text-emerald-700"
                   dangerouslySetInnerHTML={{
-                    __html: marked.parse(event.description),
+                    __html: renderSafeMarkdown(event.description),
                   }}
                 />
               ) : (

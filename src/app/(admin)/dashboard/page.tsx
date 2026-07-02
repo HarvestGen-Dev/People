@@ -38,7 +38,9 @@ const statStyles = [
 ];
 
 export default async function DashboardPage() {
-  const { churchId } = await requireTenantContext();
+  const { churchId, role, isPlatformAdmin } = await requireTenantContext();
+  const canManage =
+    isPlatformAdmin || role === 'owner' || role === 'admin';
   const supabase = await createClient();
 
   const [activeRes, visitorRes, newRes, eventsRes] = await Promise.all([
@@ -113,13 +115,15 @@ export default async function DashboardPage() {
             The people, follow-ups, and activity that need your attention.
           </p>
         </div>
-        <Link
-          href="/people/new"
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-emerald-800"
-        >
-          <Plus className="h-4 w-4" />
-          Add person
-        </Link>
+        {canManage && (
+          <Link
+            href="/people/new"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-emerald-800"
+          >
+            <Plus className="h-4 w-4" />
+            Add person
+          </Link>
+        )}
       </header>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -139,19 +143,14 @@ export default async function DashboardPage() {
                 <stat.icon className="h-[18px] w-[18px]" />
               </div>
             </div>
-            <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-slate-100">
-              <div
-                className="h-full rounded-full bg-emerald-500"
-                style={{
-                  width: `${Math.min(100, Math.max(12, statValues[index] * 2))}%`,
-                }}
-              />
-            </div>
+            <p className="mt-5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-300">
+              Current snapshot
+            </p>
           </div>
         ))}
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-3">
+      {canManage && <section className="grid gap-3 sm:grid-cols-3">
         {[
           {
             icon: LayoutList,
@@ -189,7 +188,7 @@ export default async function DashboardPage() {
             <ArrowRight className="h-4 w-4 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-emerald-600" />
           </Link>
         ))}
-      </section>
+      </section>}
 
       <div className="grid gap-6 xl:grid-cols-[1.55fr_0.85fr]">
         <section className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white">

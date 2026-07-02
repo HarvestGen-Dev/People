@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import type { List, ListPerson } from '@/lib/types';
 import { ListPeopleTable } from './ListPeopleTable';
+import { useAdminPermissions } from '@/components/layout/AdminPermissions';
 
 export function StaticListDetail({
   list,
@@ -18,6 +19,7 @@ export function StaticListDetail({
   people: ListPerson[];
 }) {
   const router = useRouter();
+  const { canManage } = useAdminPermissions();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<ListPerson[]>([]);
@@ -98,9 +100,11 @@ export function StaticListDetail({
           <p className="mt-2 text-sm text-slate-500">{people.length} manually selected people</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
-          <Button variant="outline" onClick={() => setIsSearchOpen(true)} className="rounded-xl bg-white shadow-sm gap-2">
-            <Plus className="h-4 w-4" /> Add people
-          </Button>
+          {canManage && (
+            <Button variant="outline" onClick={() => setIsSearchOpen(true)} className="rounded-xl bg-white shadow-sm gap-2">
+              <Plus className="h-4 w-4" /> Add people
+            </Button>
+          )}
           <Button onClick={handleExport} className="rounded-xl bg-emerald-700 font-bold shadow-sm hover:bg-emerald-800 gap-2">
             <Download className="h-4 w-4" /> Export CSV
           </Button>
@@ -110,10 +114,10 @@ export function StaticListDetail({
       <ListPeopleTable
         people={people}
         emptyMessage="This list is empty. Add people to get started."
-        onRemove={removePerson}
+        onRemove={canManage ? removePerson : undefined}
       />
 
-      <Dialog open={isSearchOpen} onOpenChange={setIsSearchOpen}>
+      {canManage && <Dialog open={isSearchOpen} onOpenChange={setIsSearchOpen}>
         <DialogContent className="rounded-3xl sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">Add people to {list.name}</DialogTitle>
@@ -171,7 +175,7 @@ export function StaticListDetail({
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </Dialog>}
     </div>
   );
 }
