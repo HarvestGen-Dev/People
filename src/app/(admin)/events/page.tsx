@@ -11,6 +11,7 @@ import {
 import { format } from 'date-fns';
 import { createServiceClient } from '@/lib/supabase/server';
 import { CopyButton } from '@/components/events/CopyButton';
+import { ShareEventButton } from '@/components/events/ShareEventButton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { EventWithStats } from '@/lib/types';
@@ -171,7 +172,6 @@ export default async function EventsPage() {
                   className="relative block aspect-[16/8.5] overflow-hidden bg-emerald-950"
                 >
                   {event.cover_image_url ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
                     <img
                       src={event.cover_image_url}
                       alt={event.name}
@@ -242,7 +242,14 @@ export default async function EventsPage() {
                   <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
                     <div className="flex items-center gap-1">
                       {event.status === 'published' && (
-                        <CopyButton textToCopy={publicLink} />
+                        <>
+                          <CopyButton textToCopy={publicLink} />
+                          <ShareEventButton
+                            eventName={event.name}
+                            publicUrl={publicLink}
+                            compact
+                          />
+                        </>
                       )}
                       <Link href={`/events/${event.id}/registrations`}>
                         <Button

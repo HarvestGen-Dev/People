@@ -19,8 +19,10 @@ export default async function TeamSettingsPage() {
         <TeamManager
           churchName={tenant.churchName}
           currentRole={tenant.role}
+          currentIsPlatformAdmin={tenant.isPlatformAdmin}
           initialMembers={team.members}
           initialInvitations={team.invitations}
+          initialClaimRequests={team.claimRequests}
           now={new Date().toISOString()}
         />
       </div>

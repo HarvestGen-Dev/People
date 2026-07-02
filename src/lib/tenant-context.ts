@@ -14,6 +14,7 @@ export type TenantContext = {
   churchName: string;
   churchSlug: string;
   role: TenantRole;
+  isPlatformAdmin: boolean;
 };
 
 type TenantContextOptions = {
@@ -64,6 +65,47 @@ export async function requireTenantContext(
     options.churchId ?? cookieStore.get('people_church_id')?.value;
 
   const serviceClient = createServiceClient();
+  const { data: platformAdministrator, error: platformError } =
+    await serviceClient
+      .from('platform_admins')
+      .select('user_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+  if (platformError) {
+    throw new Error(`Unable to resolve platform access: ${platformError.message}`);
+  }
+
+  if (platformAdministrator) {
+    let churchQuery = serviceClient
+      .from('churches')
+      .select('id, name, slug');
+
+    churchQuery = selectedChurchId
+      ? churchQuery.eq('id', selectedChurchId)
+      : churchQuery.order('created_at', { ascending: true }).limit(1);
+
+    const { data: platformChurch, error: churchError } =
+      await churchQuery.maybeSingle();
+
+    if (churchError) {
+      throw new Error(`Unable to resolve platform church: ${churchError.message}`);
+    }
+
+    if (!platformChurch) {
+      throw new TenantContextError('No church is available to manage', 403);
+    }
+
+    return {
+      user,
+      churchId: platformChurch.id,
+      churchName: platformChurch.name,
+      churchSlug: platformChurch.slug,
+      role: 'owner',
+      isPlatformAdmin: true,
+    };
+  }
+
   let query = serviceClient
     .from('church_memberships')
     .select('church_id, role, churches!inner(id, name, slug)')
@@ -122,6 +164,7 @@ export async function requireTenantContext(
     churchName: church.name,
     churchSlug: church.slug,
     role: membership.role,
+    isPlatformAdmin: false,
   };
 }
 

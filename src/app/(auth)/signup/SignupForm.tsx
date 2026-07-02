@@ -51,9 +51,11 @@ export function SignupForm({
 
       if ('error' in result) {
         setError(result.error);
+      } else if (result.redirectTo) {
+        window.location.href = result.redirectTo;
       } else {
-        setSuccess('Account created. You can now sign in.');
-        setTimeout(() => router.push('/login'), 1500);
+        setSuccess('Check your email to verify the account and accept the invitation.');
+        setTimeout(() => router.push('/login'), 2500);
       }
     } catch {
       setError('An unexpected error occurred. Please try again.');

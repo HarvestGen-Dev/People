@@ -1,12 +1,11 @@
 // <!-- AGENT: BACKEND -->
-import { createHash, randomBytes } from 'crypto';
 import { NextResponse } from 'next/server';
-import { createServiceClient } from '@/lib/supabase/server';
 import {
   adminApiError,
   requireTenantContext,
 } from '@/lib/tenant-context';
 import { getChurchTeam } from '@/lib/team';
+import { createChurchInvitation } from '@/lib/auth/create-invitation';
 
 type CreateInvitationBody = {
   church_id?: string;
@@ -61,7 +60,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const serviceClient = createServiceClient();
     if (role === 'admin' && tenant.role !== 'owner') {
       return NextResponse.json(
         { error: 'Only church owners can invite administrators' },
@@ -69,55 +67,36 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: existingInvitation, error: existingInvitationError } =
-      await serviceClient
-        .from('church_invitations')
-        .select('id')
-        .eq('church_id', tenant.churchId)
-        .eq('email', email)
-        .is('accepted_at', null)
-        .gt('expires_at', new Date().toISOString())
-        .limit(1)
-        .maybeSingle();
-
-    if (existingInvitationError) throw existingInvitationError;
-    if (existingInvitation) {
-      return NextResponse.json(
-        { error: 'A valid pending invitation already exists for this email' },
-        { status: 409 }
-      );
-    }
-
-    const rawToken = randomBytes(32).toString('base64url');
-    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
-    const expiresAt = new Date(
-      Date.now() + expiresInDays * 24 * 60 * 60 * 1000
-    ).toISOString();
-
-    const { data: invitation, error: invitationError } = await serviceClient
-      .from('church_invitations')
-      .insert({
-        church_id: tenant.churchId,
-        email,
-        token_hash: tokenHash,
-        role,
-        invited_by: tenant.user.id,
-        expires_at: expiresAt,
-      })
-      .select('id, church_id, email, role, expires_at, created_at')
-      .single();
-
-    if (invitationError) throw invitationError;
-
     const appUrl =
       process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin;
-    const inviteUrl = `${appUrl.replace(/\/$/, '')}/signup?invite=${encodeURIComponent(rawToken)}`;
+    const result = await createChurchInvitation({
+      churchId: tenant.churchId,
+      churchName: tenant.churchName,
+      email,
+      role,
+      expiresInDays,
+      invitedBy: tenant.user.id,
+      appUrl,
+    });
 
     return NextResponse.json(
-      { data: { invitation, invite_url: inviteUrl } },
+      {
+        data: {
+          invitation: result.invitation,
+          invite_url: result.inviteUrl,
+          email_sent: result.emailSent,
+          email_error: result.emailError,
+        },
+      },
       { status: 201 }
     );
   } catch (error: unknown) {
+    if (
+      error instanceof Error &&
+      error.message === 'A valid pending invitation already exists for this email'
+    ) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
     return adminApiError(error);
   }
 }
