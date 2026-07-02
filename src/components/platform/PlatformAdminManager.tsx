@@ -40,6 +40,12 @@ export function PlatformAdminManager({
   const [saving, setSaving] = useState(false);
   const [invitation, setInvitation] = useState<InvitationResult | null>(null);
 
+  const closeOwnerDialog = () => {
+    if (saving) return;
+    setOwnerChurch(null);
+    setOwnerEmail('');
+  };
+
   const createChurch = async () => {
     setSaving(true);
     const response = await fetch('/api/platform/churches', {
@@ -70,31 +76,40 @@ export function PlatformAdminManager({
   };
 
   const inviteOwner = async () => {
-    if (!ownerChurch) return;
+    const email = ownerEmail.trim();
+    if (!ownerChurch || !email) return;
+
     setSaving(true);
-    const response = await fetch('/api/platform/invitations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        church_id: ownerChurch.id,
-        email: ownerEmail,
-        expires_in_days: 7,
-      }),
-    });
-    const body = await response.json();
-    setSaving(false);
-    if (!response.ok) {
-      toast.error(body.error || 'Unable to invite owner');
-      return;
+    try {
+      const response = await fetch('/api/platform/invitations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          church_id: ownerChurch.id,
+          email,
+          expires_in_days: 7,
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error(body.error || 'Unable to invite owner');
+      }
+
+      setOwnerChurch(null);
+      setOwnerEmail('');
+      setInvitation({
+        email: body.data.invitation.email,
+        inviteUrl: body.data.invite_url,
+        emailSent: body.data.email_sent,
+        emailError: body.data.email_error,
+      });
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error ? error.message : 'Unable to invite owner'
+      );
+    } finally {
+      setSaving(false);
     }
-    setOwnerChurch(null);
-    setOwnerEmail('');
-    setInvitation({
-      email: body.data.invitation.email,
-      inviteUrl: body.data.invite_url,
-      emailSent: body.data.email_sent,
-      emailError: body.data.email_error,
-    });
   };
 
   const manageChurch = async (churchId: string) => {
@@ -218,37 +233,62 @@ export function PlatformAdminManager({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!ownerChurch} onOpenChange={(open) => !open && setOwnerChurch(null)}>
-        <DialogContent className="rounded-3xl sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold">
-              Invite owner to {ownerChurch?.name}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-3">
-            <Input
-              type="email"
-              value={ownerEmail}
-              onChange={(event) => setOwnerEmail(event.target.value)}
-              placeholder="owner@example.com"
-              className="h-11 rounded-xl"
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setOwnerChurch(null)} className="rounded-xl">
-              Cancel
-            </Button>
-            <Button
-              onClick={inviteOwner}
-              disabled={saving || !ownerEmail}
-              className="rounded-xl bg-emerald-700"
+      {ownerChurch && (
+        <Dialog open onOpenChange={(open) => !open && closeOwnerDialog()}>
+          <DialogContent className="rounded-3xl sm:max-w-lg">
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void inviteOwner();
+              }}
             >
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Send owner invitation
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              <DialogHeader>
+                <DialogTitle className="text-2xl font-bold">
+                  Invite owner to {ownerChurch.name}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="py-6">
+                <label
+                  htmlFor="owner-email"
+                  className="mb-2 block text-sm font-semibold text-slate-700"
+                >
+                  Email address
+                </label>
+                <Input
+                  id="owner-email"
+                  type="email"
+                  value={ownerEmail}
+                  onChange={(event) => setOwnerEmail(event.target.value)}
+                  placeholder="owner@example.com"
+                  className="h-11 rounded-xl"
+                  autoComplete="email"
+                  autoFocus
+                  required
+                />
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={closeOwnerDialog}
+                  disabled={saving}
+                  className="rounded-xl"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={saving || !ownerEmail.trim()}
+                  className="rounded-xl bg-emerald-700"
+                >
+                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Send owner invitation
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
 
       <InvitationResultDialog
         invitation={invitation}

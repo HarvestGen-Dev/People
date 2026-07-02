@@ -53,13 +53,17 @@ export function InvitationResultDialog({
 
   const copyInvitation = async () => {
     if (!invitation) return;
-    await navigator.clipboard.writeText(invitation.inviteUrl);
-    toast.success('Invitation link copied');
+    try {
+      await navigator.clipboard.writeText(invitation.inviteUrl);
+      toast.success('Invitation link copied');
+    } catch {
+      toast.error('Unable to copy the invitation link');
+    }
   };
 
   return (
     <Dialog open={!!invitation} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="rounded-3xl sm:max-w-lg">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold">Invitation ready</DialogTitle>
         </DialogHeader>
