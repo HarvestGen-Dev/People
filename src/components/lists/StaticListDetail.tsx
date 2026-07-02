@@ -155,7 +155,7 @@ export function StaticListDetail({
                         {inList ? (
                           <span className="text-xs font-medium text-slate-500">In list</span>
                         ) : (
-                          <input type="checkbox" checked={selected} readOnly className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary pointer-events-none" />
+                          <input type="checkbox" placeholder="Select" checked={selected} readOnly className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary pointer-events-none" />
                         )}
                       </li>
                     );

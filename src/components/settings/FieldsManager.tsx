@@ -303,7 +303,7 @@ export function FieldsManager({ initialFields }: { initialFields: FieldDefinitio
                   {formData.options.map(opt => (
                     <div key={opt} className="bg-white border border-border text-sm px-2 py-1 rounded-md flex items-center gap-1 shadow-sm">
                       {opt}
-                      <button type="button" onClick={() => removeOption(opt)} className="text-slate-400 hover:text-destructive"><X className="h-3 w-3" /></button>
+                      <button type="button" title="Remove option" onClick={() => removeOption(opt)} className="text-slate-400 hover:text-destructive"><X className="h-3 w-3" /></button>
                     </div>
                   ))}
                 </div>

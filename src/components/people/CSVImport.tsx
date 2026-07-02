@@ -61,6 +61,7 @@ export function CSVImport() {
           accept=".csv"
           onChange={handleFileUpload}
           disabled={isImporting}
+          placeholder="Select CSV File"
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
         />
         <Button className="bg-teal-600 hover:bg-teal-700 pointer-events-none" disabled={isImporting}>
