@@ -14,6 +14,7 @@ supabase db lint --local --level warning --fail-on warning
 echo "=== Running Integration Tests ==="
 npm run test:integration:lookup
 npm run test:integration:onboarding
+npm run test:integration:events
 
 echo "=== Running Production Build ==="
 npm run build

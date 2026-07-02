@@ -3,8 +3,8 @@ import { Event, EventRegistration } from '@/lib/types';
 import { format } from 'date-fns';
 
 const transporter = nodemailer.createTransport({
-  host: 'smtp-relay.brevo.com',
-  port: 587,
+  host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
+  port: Number(process.env.SMTP_PORT) || 587,
   secure: false,
   auth: {
     user: process.env.BREVO_SMTP_USER || '',

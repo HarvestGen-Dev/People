@@ -35,79 +35,96 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
 
     const { data: event } = await supabase
       .from('events')
-      .select('*')
+      .select('church_id, price')
       .eq('id', eventId)
       .single();
 
-    if (!event || event.status !== 'published') {
-      return NextResponse.json({ error: 'Event not found or not published' }, { status: 404 });
+    if (!event) {
+      return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
 
-    if (!body.first_name || !body.last_name || !body.email) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    if (
+      !body.first_name || typeof body.first_name !== 'string' ||
+      !body.last_name || typeof body.last_name !== 'string' ||
+      !body.email || typeof body.email !== 'string'
+    ) {
+      return NextResponse.json({ error: 'Missing or invalid required fields' }, { status: 400 });
     }
 
-    if (event.capacity) {
-      const { count: approvedCount } = await supabase
-        .from('event_registrations')
-        .select('*', { count: 'exact', head: true })
-        .eq('event_id', event.id)
-        .eq('status', 'approved');
+    const firstName = body.first_name.trim();
+    const lastName = body.last_name.trim();
+    const email = body.email.trim();
+    const phone = typeof body.phone === 'string' ? body.phone.trim() : null;
 
-      if ((approvedCount || 0) >= event.capacity) {
-        return NextResponse.json({ error: 'This event is full' }, { status: 409 });
-      }
+    if (!firstName || !lastName || !email) {
+      return NextResponse.json({ error: 'Missing or invalid required fields after trimming' }, { status: 400 });
     }
 
-    if (event.price > 0) {
-      const expectedProofPrefix = `${event.church_id}/${event.id}/`;
-      if (
-        typeof body.payment_proof_url !== 'string' ||
-        !body.payment_proof_url.startsWith(expectedProofPrefix)
-      ) {
-        return NextResponse.json(
-          { error: 'A valid payment proof is required for this event' },
-          { status: 400 }
-        );
-      }
+    if (body.payment_proof_url !== undefined && body.payment_proof_url !== null && typeof body.payment_proof_url !== 'string') {
+      return NextResponse.json({ error: 'Invalid payment proof format' }, { status: 400 });
+    }
+
+    if (firstName.length > 100 || lastName.length > 100 || email.length > 255 || (phone && phone.length > 50)) {
+      return NextResponse.json({ error: 'Field length exceeds maximum limit' }, { status: 400 });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return NextResponse.json({ error: 'Invalid email format' }, { status: 400 });
+    }
+
+    const guests = typeof body.guests === 'number' ? body.guests : 1;
+    if (!Number.isInteger(guests) || guests < 1 || guests > 100) {
+      return NextResponse.json({ error: 'Invalid guest count' }, { status: 400 });
+    }
+
+    const { data: registrationId, error: rpcError } = await supabase
+      .rpc('register_for_event', {
+        p_church_id: event.church_id,
+        p_event_id: eventId,
+        p_first_name: firstName,
+        p_last_name: lastName,
+        p_email: email,
+        p_phone: phone,
+        p_guests: guests,
+        p_payment_proof_url: body.payment_proof_url || null,
+        p_paid_checkbox: Boolean(body.paid_checkbox)
+      });
+
+    if (rpcError) {
+      if (rpcError.message.includes('event_not_published')) return NextResponse.json({ error: 'Event not published' }, { status: 404 });
+      if (rpcError.message.includes('event_closed')) return NextResponse.json({ error: 'Registration for this event has closed' }, { status: 400 });
+      if (rpcError.message.includes('event_full')) return NextResponse.json({ error: 'This event is full' }, { status: 409 });
+      if (rpcError.message.includes('invalid_guest_count')) return NextResponse.json({ error: 'Invalid guest count' }, { status: 400 });
+      if (rpcError.message.includes('invalid_payment_proof')) return NextResponse.json({ error: 'A valid payment proof is required for this event' }, { status: 400 });
+      if (rpcError.message.includes('payment_proof_not_found')) return NextResponse.json({ error: 'Uploaded payment proof could not be verified' }, { status: 400 });
+      if (rpcError.message.includes('proof_already_used')) return NextResponse.json({ error: 'This payment proof has already been used for another registration' }, { status: 409 });
+      throw rpcError;
     }
 
     const isFree = event.price === 0;
-    const initialStatus = isFree ? 'approved' : 'pending_review';
+    const reference = `REG-${registrationId.substring(0, 6).toUpperCase()}`;
 
-    const { data: registration, error: insertError } = await supabase
-      .from('event_registrations')
-      .insert({
-        church_id: event.church_id,
-        event_id: event.id,
-        first_name: body.first_name,
-        last_name: body.last_name,
-        email: body.email,
-        phone: body.phone,
-        guests: body.guests || 1,
-        amount_due: body.amount_due || 0,
-        payment_proof_url: body.payment_proof_url || null,
-        paid_checkbox: body.paid_checkbox || false,
-        status: initialStatus,
-      })
-      .select()
-      .single();
-
-    if (insertError) throw insertError;
-
-    const responseStatus = initialStatus;
-
-    if (isFree) {
-      // Run auto-approve pipeline inline
-      await approveRegistration(registration.id, event.church_id, null);
+    if (isFree && registrationId) {
+      const approveRes = await approveRegistration(registrationId, event.church_id, null);
+      if (!approveRes.success) {
+        // If auto-approve fails due to an identity conflict, we leave it pending_review.
+        return NextResponse.json({ 
+          data: { 
+            registration_id: registrationId, 
+            status: 'pending_review',
+            reference,
+            message: 'Registered but requires manual review due to identity conflict.'
+          } 
+        });
+      }
+      return NextResponse.json({ data: { registration_id: registrationId, status: 'approved', reference } });
     }
-
-    const reference = `REG-${registration.id.substring(0, 6).toUpperCase()}`;
 
     return NextResponse.json({
       data: {
-        registration_id: registration.id,
-        status: responseStatus,
+        registration_id: registrationId,
+        status: 'pending_review',
         reference,
       }
     });
@@ -122,4 +139,3 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
     );
   }
 }
-// <!-- AGENT: BACKEND -->
