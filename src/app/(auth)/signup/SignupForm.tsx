@@ -8,6 +8,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Card,
   CardContent,
   CardDescription,
@@ -29,6 +36,13 @@ export function SignupForm({
 }: SignupFormProps) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [gender, setGender] = useState<
+    'male' | 'female' | 'other' | 'prefer_not_to_say' | ''
+  >('');
+  const [birthdate, setBirthdate] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -47,7 +61,13 @@ export function SignupForm({
     }
 
     try {
-      const result = await signUpAction(invitationToken, password);
+      const result = await signUpAction(invitationToken, password, {
+        firstName,
+        lastName,
+        phone,
+        gender: gender || undefined,
+        birthdate,
+      });
 
       if ('error' in result) {
         setError(result.error);
@@ -65,7 +85,7 @@ export function SignupForm({
   };
 
   return (
-    <Card className="w-full max-w-md rounded-3xl border-slate-200/80 bg-white shadow-[0_24px_70px_-38px_rgba(15,23,42,0.45)]">
+    <Card className="w-full max-w-xl rounded-3xl border-slate-200/80 bg-white shadow-[0_24px_70px_-38px_rgba(15,23,42,0.45)]">
       <CardHeader className="space-y-2 px-7 pt-8 text-left sm:px-9">
         <div className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">
           You&apos;re invited
@@ -74,11 +94,41 @@ export function SignupForm({
           Join {churchName}
         </CardTitle>
         <CardDescription className="text-muted-foreground text-base">
-          Create your People account using this invitation.
+          Create your account and tell us a little about yourself.
         </CardDescription>
       </CardHeader>
       <CardContent className="px-7 pb-8 sm:px-9">
         <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="firstName" className="text-foreground font-medium">
+                First name
+              </Label>
+              <Input
+                id="firstName"
+                value={firstName}
+                onChange={(event) => setFirstName(event.target.value)}
+                required
+                maxLength={100}
+                autoComplete="given-name"
+                className="h-11 w-full rounded-xl"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lastName" className="text-foreground font-medium">
+                Last name
+              </Label>
+              <Input
+                id="lastName"
+                value={lastName}
+                onChange={(event) => setLastName(event.target.value)}
+                required
+                maxLength={100}
+                autoComplete="family-name"
+                className="h-11 w-full rounded-xl"
+              />
+            </div>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="email" className="text-foreground font-medium">
               Email
@@ -90,6 +140,65 @@ export function SignupForm({
               readOnly
               className="h-11 w-full rounded-xl bg-slate-50"
             />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="phone" className="text-foreground font-medium">
+                Phone <span className="font-normal text-slate-400">(optional)</span>
+              </Label>
+              <Input
+                id="phone"
+                type="tel"
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+                maxLength={50}
+                autoComplete="tel"
+                className="h-11 w-full rounded-xl"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="birthdate" className="text-foreground font-medium">
+                Birthdate <span className="font-normal text-slate-400">(optional)</span>
+              </Label>
+              <Input
+                id="birthdate"
+                type="date"
+                value={birthdate}
+                onChange={(event) => setBirthdate(event.target.value)}
+                max={new Date().toISOString().slice(0, 10)}
+                autoComplete="bday"
+                className="h-11 w-full rounded-xl"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-foreground font-medium">
+              Gender <span className="font-normal text-slate-400">(optional)</span>
+            </Label>
+            <Select
+              value={gender}
+              onValueChange={(value) =>
+                setGender(
+                  value as
+                    | 'male'
+                    | 'female'
+                    | 'other'
+                    | 'prefer_not_to_say'
+                )
+              }
+            >
+              <SelectTrigger className="h-11 w-full rounded-xl">
+                <SelectValue placeholder="Select gender" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="male">Male</SelectItem>
+                <SelectItem value="female">Female</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+                <SelectItem value="prefer_not_to_say">
+                  Prefer not to say
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label htmlFor="password" className="text-foreground font-medium">
@@ -140,7 +249,11 @@ export function SignupForm({
             type="submit"
             className="h-11 w-full rounded-xl bg-emerald-700 font-bold text-white shadow-sm hover:bg-emerald-800"
             disabled={
-              isLoading || password.length < 8 || !confirmPassword
+              isLoading ||
+              !firstName.trim() ||
+              !lastName.trim() ||
+              password.length < 8 ||
+              !confirmPassword
             }
           >
             {isLoading ? 'Creating account...' : 'Create account'}

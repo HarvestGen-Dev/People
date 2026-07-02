@@ -237,6 +237,7 @@ export function PlatformAdminManager({
         <Dialog open onOpenChange={(open) => !open && closeOwnerDialog()}>
           <DialogContent className="rounded-3xl sm:max-w-lg">
             <form
+              className="contents"
               onSubmit={(event) => {
                 event.preventDefault();
                 void inviteOwner();

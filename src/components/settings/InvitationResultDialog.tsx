@@ -63,11 +63,11 @@ export function InvitationResultDialog({
 
   return (
     <Dialog open={!!invitation} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl sm:max-w-lg">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-3xl sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold">Invitation ready</DialogTitle>
         </DialogHeader>
-        <div className="space-y-5 py-3">
+        <div className="min-w-0 space-y-5 overflow-x-hidden overflow-y-auto py-3">
           <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-emerald-100 text-emerald-700">
             <Check className="h-6 w-6" />
           </div>
@@ -75,7 +75,7 @@ export function InvitationResultDialog({
             This single-use invitation is bound to{' '}
             <strong className="text-slate-900">{invitation?.email}</strong>.
           </p>
-          <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2">
+          <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2">
             <Link2 className="ml-2 h-4 w-4 shrink-0 text-slate-400" />
             <code className="min-w-0 flex-1 truncate text-xs text-slate-500">
               {invitation?.inviteUrl}
@@ -99,10 +99,10 @@ export function InvitationResultDialog({
               <img
                 src={qrCode.dataUrl}
                 alt="Invitation QR code"
-                className="mx-auto h-56 w-56"
+                className="mx-auto aspect-square h-auto w-full max-w-56"
               />
             ) : (
-              <div className="mx-auto h-56 w-56 animate-pulse rounded-2xl bg-slate-100" />
+              <div className="mx-auto aspect-square w-full max-w-56 animate-pulse rounded-2xl bg-slate-100" />
             )}
           </div>
           <div
