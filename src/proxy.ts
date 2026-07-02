@@ -30,10 +30,12 @@ export async function proxy(request: NextRequest) {
     }
   )
 
-  const { data: { session } } = await supabase.auth.getSession()
+  // Validate the session with Supabase instead of trusting cookie contents.
+  // This prevents stale local/cloud cookies from reaching protected layouts.
+  const { data: { user } } = await supabase.auth.getUser()
 
-  // If trying to access protected route without session
-  if (!session) {
+  // If trying to access protected route without a valid user
+  if (!user) {
     // Only redirect to login if it's not a public route
     if (
       request.nextUrl.pathname !== '/' &&
