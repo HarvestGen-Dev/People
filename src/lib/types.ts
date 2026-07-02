@@ -221,7 +221,6 @@ export interface Webhook {
   name: string;
   url: string;
   events: string[];
-  secret: string;
   is_active: boolean;
   deliveries?: WebhookDelivery[];
   created_at: string;

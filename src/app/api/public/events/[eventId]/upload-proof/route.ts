@@ -1,40 +1,42 @@
+// <!-- AGENT: BACKEND -->
 import { createServiceClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { validateImageUpload } from '@/lib/image-upload';
 
 export async function POST(request: Request, { params }: { params: Promise<{ eventId: string }> }) {
   try {
     const { eventId } = await params;
-    const formData = await request.formData();
-    const file = formData.get('file') as File;
+    const supabase = createServiceClient();
+    const { data: event } = await supabase
+      .from('events')
+      .select('id, church_id, price, status')
+      .eq('id', eventId)
+      .maybeSingle();
 
-    if (!file || !file.type.startsWith('image/')) {
-      return NextResponse.json({ error: 'Invalid file' }, { status: 400 });
+    if (!event || event.status !== 'published' || event.price <= 0) {
+      return NextResponse.json(
+        { error: 'Paid event not found or not published' },
+        { status: 404 }
+      );
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      return NextResponse.json({ error: 'File size must be less than 5MB' }, { status: 400 });
+    const formData = await request.formData();
+    const image = validateImageUpload(formData.get('file'), 5 * 1024 * 1024);
+    if ('error' in image) {
+      return NextResponse.json({ error: image.error }, { status: 400 });
     }
 
     const timestamp = Date.now();
-    const ext = file.name.split('.').pop();
-    const randomString = Math.random().toString(36).substring(7);
-    const filePath = `${eventId}/${timestamp}-${randomString}.${ext}`;
+    const randomString = crypto.randomUUID();
+    const filePath = `${event.church_id}/${event.id}/${timestamp}-${randomString}.${image.extension}`;
 
-    const supabase = createServiceClient();
-    
-    // We upload to payment-proofs bucket.
-    // Note: since this is a public endpoint, we use the service role client.
     const { error: uploadError } = await supabase.storage
       .from('payment-proofs')
-      .upload(filePath, file, { upsert: true });
+      .upload(filePath, image.file, { upsert: false });
 
     if (uploadError) throw uploadError;
 
-    const { data: { publicUrl } } = supabase.storage
-      .from('payment-proofs')
-      .getPublicUrl(filePath);
-
-    return NextResponse.json({ data: { url: publicUrl } });
+    return NextResponse.json({ data: { path: filePath } });
   } catch (error: unknown) {
     return NextResponse.json(
       {

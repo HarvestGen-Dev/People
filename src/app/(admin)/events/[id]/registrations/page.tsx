@@ -1,3 +1,4 @@
+// <!-- AGENT: BACKEND -->
 import { createServiceClient } from '@/lib/supabase/server';
 import { Topbar } from '@/components/layout/Topbar';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,37 @@ export default async function EventRegistrationsPage({ params }: { params: Promi
     .eq('church_id', churchId)
     .order('created_at', { ascending: false });
 
+  const registrationsWithProofUrls = await Promise.all(
+    (registrations || []).map(async (registration) => {
+      const storedProof = registration.payment_proof_url;
+      if (!storedProof) {
+        return registration;
+      }
+
+      const legacyPublicMarker =
+        '/storage/v1/object/public/payment-proofs/';
+      const markerIndex = storedProof.indexOf(legacyPublicMarker);
+      const proofPath = markerIndex >= 0
+        ? decodeURIComponent(
+            storedProof.slice(markerIndex + legacyPublicMarker.length)
+          )
+        : storedProof;
+
+      if (/^https?:\/\//.test(proofPath)) {
+        return registration;
+      }
+
+      const { data } = await supabase.storage
+        .from('payment-proofs')
+        .createSignedUrl(proofPath, 60 * 60);
+
+      return {
+        ...registration,
+        payment_proof_url: data?.signedUrl || null,
+      };
+    })
+  );
+
   return (
     <>
       <Topbar title={`${event.name} — Registrations`}>
@@ -46,10 +78,11 @@ export default async function EventRegistrationsPage({ params }: { params: Promi
 
       <div className="mx-auto max-w-[1440px] p-5 animate-in fade-in-50 duration-300 sm:p-8 lg:p-10">
         <RegistrationsTable 
-          registrations={registrations || []} 
+          registrations={registrationsWithProofUrls}
           isFreeEvent={event.price === 0}
         />
       </div>
     </>
   );
 }
+// <!-- AGENT: BACKEND -->

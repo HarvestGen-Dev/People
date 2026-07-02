@@ -63,16 +63,19 @@ export function SignupForm({
   };
 
   return (
-    <Card className="w-full max-w-md border-border bg-card shadow-xl rounded-2xl">
-      <CardHeader className="space-y-2 text-center">
-        <CardTitle className="text-3xl font-bold tracking-tight text-foreground">
+    <Card className="w-full max-w-md rounded-3xl border-slate-200/80 bg-white shadow-[0_24px_70px_-38px_rgba(15,23,42,0.45)]">
+      <CardHeader className="space-y-2 px-7 pt-8 text-left sm:px-9">
+        <div className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">
+          You&apos;re invited
+        </div>
+        <CardTitle className="text-3xl font-bold tracking-[-0.035em] text-slate-950">
           Join {churchName}
         </CardTitle>
         <CardDescription className="text-muted-foreground text-base">
           Create your People account using this invitation.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-7 pb-8 sm:px-9">
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-2">
             <Label htmlFor="email" className="text-foreground font-medium">
@@ -83,7 +86,7 @@ export function SignupForm({
               type="email"
               value={email}
               readOnly
-              className="w-full rounded-lg bg-muted"
+              className="h-11 w-full rounded-xl bg-slate-50"
             />
           </div>
           <div className="space-y-2">
@@ -98,7 +101,7 @@ export function SignupForm({
               required
               minLength={8}
               autoComplete="new-password"
-              className="w-full rounded-lg"
+              className="h-11 w-full rounded-xl"
             />
           </div>
           <div className="space-y-2">
@@ -116,7 +119,7 @@ export function SignupForm({
               required
               minLength={8}
               autoComplete="new-password"
-              className="w-full rounded-lg"
+              className="h-11 w-full rounded-xl"
             />
           </div>
 
@@ -133,7 +136,7 @@ export function SignupForm({
 
           <Button
             type="submit"
-            className="w-full rounded-xl h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-sm"
+            className="h-11 w-full rounded-xl bg-emerald-700 font-bold text-white shadow-sm hover:bg-emerald-800"
             disabled={
               isLoading || password.length < 8 || !confirmPassword
             }

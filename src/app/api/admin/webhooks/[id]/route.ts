@@ -1,3 +1,4 @@
+// <!-- AGENT: BACKEND -->
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import {
@@ -13,12 +14,19 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const body = await req.json()
     const { is_active } = body
 
+    if (typeof is_active !== 'boolean') {
+      return NextResponse.json(
+        { error: 'is_active must be a boolean' },
+        { status: 400 }
+      )
+    }
+
     const { data, error } = await supabase
       .from('webhooks')
       .update({ is_active })
       .eq('id', id)
       .eq('church_id', churchId)
-      .select()
+      .select('id, name, url, events, is_active, created_at')
       .single()
 
     if (error) throw error
@@ -46,3 +54,4 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     return adminApiError(error)
   }
 }
+// <!-- AGENT: BACKEND -->

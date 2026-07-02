@@ -1,3 +1,4 @@
+// <!-- AGENT: BACKEND -->
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import crypto from 'crypto'
@@ -6,6 +7,13 @@ import {
   requireTenantContext,
 } from '@/lib/tenant-context'
 
+const WEBHOOK_EVENTS = new Set([
+  'person.created',
+  'person.updated',
+  'person.status_changed',
+  'event.logged',
+])
+
 export async function GET() {
   try {
     const { churchId } = await requireTenantContext({ requireManager: true })
@@ -13,7 +21,7 @@ export async function GET() {
 
     const { data: webhooks, error } = await supabase
       .from('webhooks')
-      .select('*, deliveries:webhook_deliveries(id, delivered_at, failed_at, response_status)')
+      .select('id, name, url, events, is_active, created_at, deliveries:webhook_deliveries(id, delivered_at, failed_at, response_status, created_at)')
       .eq('church_id', churchId)
       .order('created_at', { ascending: false })
 
@@ -29,10 +37,38 @@ export async function POST(req: Request) {
     const { churchId } = await requireTenantContext({ requireManager: true })
     const supabase = await createClient()
     const body = await req.json()
-    const { name, url, events } = body
+    const name = typeof body.name === 'string' ? body.name.trim() : ''
+    const url = typeof body.url === 'string' ? body.url.trim() : ''
+    const events = Array.isArray(body.events)
+      ? [...new Set(body.events.filter((event: unknown): event is string => (
+          typeof event === 'string' && WEBHOOK_EVENTS.has(event)
+        )))]
+      : []
 
-    if (!name || !url || !events || !events.length) {
+    if (!name || !url || !events.length) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    }
+    if (
+      Array.isArray(body.events) &&
+      events.length !== new Set(body.events).size
+    ) {
+      return NextResponse.json(
+        { error: 'One or more webhook events are invalid' },
+        { status: 400 }
+      )
+    }
+
+    let endpoint: URL
+    try {
+      endpoint = new URL(url)
+    } catch {
+      return NextResponse.json({ error: 'Endpoint URL is invalid' }, { status: 400 })
+    }
+    if (!['http:', 'https:'].includes(endpoint.protocol)) {
+      return NextResponse.json(
+        { error: 'Endpoint URL must use HTTP or HTTPS' },
+        { status: 400 }
+      )
     }
 
     const secret = crypto.randomUUID()
@@ -47,7 +83,7 @@ export async function POST(req: Request) {
         secret,
         is_active: true,
       })
-      .select()
+      .select('id, name, url, events, is_active, created_at')
       .single()
 
     if (error) throw error
@@ -56,3 +92,4 @@ export async function POST(req: Request) {
     return adminApiError(error)
   }
 }
+// <!-- AGENT: BACKEND -->

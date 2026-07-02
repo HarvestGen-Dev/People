@@ -1,5 +1,6 @@
 'use client';
 
+// <!-- AGENT: FRONTEND -->
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,14 +20,13 @@ type TagData = {
   people_count: number;
 };
 
-export function TagsManager({ initialTags, churchId }: { initialTags: TagData[], churchId: string }) {
+export function TagsManager({ initialTags }: { initialTags: TagData[] }) {
   const [tags, setTags] = useState<TagData[]>(initialTags);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null); // null = create mode
   
   const [formData, setFormData] = useState({ name: '', color: PRESET_COLORS[0] });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const openCreate = () => {
     setFormData({ name: '', color: PRESET_COLORS[0] });
@@ -95,15 +95,28 @@ export function TagsManager({ initialTags, churchId }: { initialTags: TagData[],
   };
 
   return (
-    <div>
-      <div className="flex justify-end mb-4">
-        <Button onClick={openCreate} className="rounded-xl shadow-sm bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
+    <div className="space-y-6">
+      <header className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+        <div>
+          <div className="text-xs font-bold uppercase tracking-[0.17em] text-emerald-700">
+            Organization
+          </div>
+          <h1 className="mt-2 text-3xl font-bold tracking-[-0.035em] text-slate-950">
+            Tags
+          </h1>
+          <p className="mt-2 max-w-2xl text-slate-500">
+            Create consistent labels for segments, ministries, and follow-up needs.
+          </p>
+        </div>
+        <Button onClick={openCreate} className="h-11 rounded-xl bg-emerald-700 px-5 font-bold hover:bg-emerald-800">
           <Plus className="h-4 w-4" /> New tag
         </Button>
-      </div>
+      </header>
 
-      <div className="bg-white border border-border rounded-2xl overflow-hidden shadow-sm">
-        <table className="w-full text-sm text-left">
+      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] text-left text-sm">
+          <caption className="sr-only">Tags and the number of people assigned to each tag</caption>
           <thead className="bg-slate-50/50 border-b border-border text-slate-500 font-medium">
             <tr>
               <th className="px-6 py-3 w-16 text-center">Color</th>
@@ -128,11 +141,11 @@ export function TagsManager({ initialTags, churchId }: { initialTags: TagData[],
                   <td className="px-6 py-3 font-medium text-slate-900">{tag.name}</td>
                   <td className="px-6 py-3 text-slate-500">{tag.people_count}</td>
                   <td className="px-6 py-3 text-right">
-                    <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-primary" onClick={() => openEdit(tag)}>
+                    <div className="flex justify-end gap-1 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+                      <Button aria-label={`Edit ${tag.name}`} variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-emerald-700" onClick={() => openEdit(tag)}>
                         <Edit2 className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-destructive hover:bg-destructive/10" onClick={() => handleDelete(tag.id)}>
+                      <Button aria-label={`Delete ${tag.name}`} variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:bg-red-50 hover:text-red-700" onClick={() => handleDelete(tag.id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -142,6 +155,7 @@ export function TagsManager({ initialTags, churchId }: { initialTags: TagData[],
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -151,8 +165,9 @@ export function TagsManager({ initialTags, churchId }: { initialTags: TagData[],
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-6 py-2">
             <div>
-              <label className="text-sm font-medium mb-1.5 block">Name</label>
+              <label htmlFor="tag-name" className="text-sm font-medium mb-1.5 block">Name</label>
               <Input 
+                id="tag-name"
                 autoFocus
                 value={formData.name} 
                 onChange={e => setFormData({ ...formData, name: e.target.value })} 

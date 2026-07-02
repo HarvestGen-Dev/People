@@ -1,3 +1,4 @@
+// <!-- AGENT: BACKEND -->
 import { createServiceClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { approveRegistration } from '@/lib/events/approve-registration';
@@ -58,8 +59,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
       }
     }
 
-    if (event.price > 0 && !body.payment_proof_url) {
-      return NextResponse.json({ error: 'Payment proof is required for paid events' }, { status: 400 });
+    if (event.price > 0) {
+      const expectedProofPrefix = `${event.church_id}/${event.id}/`;
+      if (
+        typeof body.payment_proof_url !== 'string' ||
+        !body.payment_proof_url.startsWith(expectedProofPrefix)
+      ) {
+        return NextResponse.json(
+          { error: 'A valid payment proof is required for this event' },
+          { status: 400 }
+        );
+      }
     }
 
     const isFree = event.price === 0;
@@ -112,3 +122,4 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
     );
   }
 }
+// <!-- AGENT: BACKEND -->

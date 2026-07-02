@@ -1,3 +1,4 @@
+// <!-- AGENT: BACKEND -->
 import { NextRequest, NextResponse } from 'next/server';
 import { validateApiKey } from '@/lib/api-auth';
 import { createServiceClient } from '@/lib/supabase/server';
@@ -83,7 +84,6 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: unknown) {
-    console.error('Error in POST /people/lookup:', error);
     if (error instanceof PersonIdentityConflictError) {
       return NextResponse.json(
         { error: error.message, code: 'identity_conflict' },
@@ -91,6 +91,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.error('Error in POST /people/lookup:', error);
     return NextResponse.json(
       {
         error:

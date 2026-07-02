@@ -1,5 +1,6 @@
 'use client';
 
+// <!-- AGENT: FRONTEND -->
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -71,7 +72,7 @@ export function RegistrationForm({ event, spotsRemaining }: RegistrationFormProp
       throw new Error('Failed to upload payment proof');
     }
     const { data } = await res.json();
-    return data.url;
+    return data.path;
   };
 
   const submitRegistration = async (data: RegData) => {

@@ -16,13 +16,13 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
 
   if (!invitation) {
     return (
-      <Card className="w-full max-w-md border-border bg-card shadow-xl rounded-2xl">
-        <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-bold tracking-tight">
+      <Card className="w-full max-w-md rounded-3xl border-slate-200/80 bg-white shadow-[0_24px_70px_-38px_rgba(15,23,42,0.45)]">
+        <CardHeader className="px-7 pt-8 text-center sm:px-9">
+          <CardTitle className="text-3xl font-bold tracking-[-0.035em]">
             Invitation required
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-5 text-center">
+        <CardContent className="space-y-5 px-7 pb-8 text-center sm:px-9">
           <p className="text-muted-foreground">
             Ask your church administrator for a valid People invitation link.
           </p>

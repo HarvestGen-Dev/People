@@ -1,15 +1,16 @@
 'use client'
 
+// <!-- AGENT: FRONTEND -->
 import { useState } from 'react'
-import { Webhook, WebhookDelivery } from '@/lib/types'
+import { WebhookDelivery } from '@/lib/types'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Plus, Check, X, Trash2, Play, Activity } from 'lucide-react'
+import { Plus, Check, X, Trash2, Play, Activity, Webhook as WebhookIcon } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
+import { toast } from 'sonner'
 
 const EVENT_TYPES = [
   { id: 'person.created', label: 'person.created', desc: 'A new person is added to People' },
@@ -18,11 +19,26 @@ const EVENT_TYPES = [
   { id: 'event.logged', label: 'event.logged', desc: 'An integration event is logged' }
 ]
 
-export function WebhooksClient({ initialWebhooks }: { initialWebhooks: Webhook[] }) {
-  const [webhooks, setWebhooks] = useState<Webhook[]>(initialWebhooks)
+type WebhookSummary = {
+  id: string
+  name: string
+  url: string
+  events: string[]
+  is_active: boolean
+  created_at: string
+  deliveries?: Array<
+    Pick<
+      WebhookDelivery,
+      'id' | 'delivered_at' | 'failed_at' | 'response_status' | 'created_at'
+    >
+  >
+}
+
+export function WebhooksClient({ initialWebhooks }: { initialWebhooks: WebhookSummary[] }) {
+  const [webhooks, setWebhooks] = useState<WebhookSummary[]>(initialWebhooks)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isTestOpen, setIsTestOpen] = useState(false)
-  const [selectedWebhook, setSelectedWebhook] = useState<Webhook | null>(null)
+  const [selectedWebhook, setSelectedWebhook] = useState<WebhookSummary | null>(null)
   
   const [name, setName] = useState('')
   const [url, setUrl] = useState('')
@@ -31,13 +47,9 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: Webhook[]
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [testResult, setTestResult] = useState<{ success: boolean; duration: number; error?: string } | null>(null)
   
-  const toast = ({ title }: { title: string; variant?: 'destructive' }) =>
-    window.alert(title)
-
-
   const handleCreate = async () => {
     if (!name || !url || selectedEvents.length === 0) {
-      toast({ title: 'Please fill all required fields', variant: 'destructive' })
+      toast.error('Complete all required fields')
       return
     }
 
@@ -57,9 +69,9 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: Webhook[]
       setName('')
       setUrl('')
       setSelectedEvents([])
-      toast({ title: 'Webhook created successfully' })
-    } catch {
-      toast({ title: 'Error creating webhook', variant: 'destructive' })
+      toast.success('Webhook created')
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to create webhook')
     } finally {
       setIsSubmitting(false)
     }
@@ -73,9 +85,9 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: Webhook[]
       if (!res.ok) throw new Error('Failed to delete')
       
       setWebhooks(webhooks.filter(w => w.id !== id))
-      toast({ title: 'Webhook deleted' })
-    } catch {
-      toast({ title: 'Error deleting webhook', variant: 'destructive' })
+      toast.success('Webhook deleted')
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete webhook')
     }
   }
 
@@ -89,8 +101,8 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: Webhook[]
       if (!res.ok) throw new Error('Failed to update')
       
       setWebhooks(webhooks.map(w => w.id === id ? { ...w, is_active: !is_active } : w))
-    } catch {
-      toast({ title: 'Error updating webhook', variant: 'destructive' })
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update webhook')
     }
   }
 
@@ -121,7 +133,7 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: Webhook[]
   const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([])
   const [isLoadingDeliveries, setIsLoadingDeliveries] = useState(false)
 
-  const handleViewDeliveries = async (webhook: Webhook) => {
+  const handleViewDeliveries = async (webhook: WebhookSummary) => {
     setSelectedWebhook(webhook)
     setIsDeliveriesOpen(true)
     setIsLoadingDeliveries(true)
@@ -130,8 +142,8 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: Webhook[]
       if (!res.ok) throw new Error('Failed to fetch deliveries')
       const data = await res.json()
       setDeliveries(data)
-    } catch {
-      toast({ title: 'Error fetching deliveries', variant: 'destructive' })
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to load deliveries')
     } finally {
       setIsLoadingDeliveries(false)
     }
@@ -139,23 +151,33 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: Webhook[]
 
   return (
     <div className="space-y-6">
-      <Card className="bg-slate-50 border-slate-200">
-        <CardContent className="pt-6">
-          <p className="text-slate-600">
-            Webhooks let People notify your other systems when something changes. For example, when a new visitor is added, Shepherd can automatically create an account for them.
+      <header className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+        <div>
+          <div className="text-xs font-bold uppercase tracking-[0.17em] text-emerald-700">
+            Event delivery
+          </div>
+          <h1 className="mt-2 text-3xl font-bold tracking-[-0.035em] text-slate-950">
+            Webhooks
+          </h1>
+          <p className="mt-2 max-w-2xl text-slate-500">
+            Notify trusted systems when people and integration activity change.
           </p>
-        </CardContent>
-      </Card>
-
-      <div className="flex justify-between items-center">
-        <h2 className="text-lg font-semibold text-slate-900">Configured Webhooks</h2>
-        <Button onClick={() => setIsCreateOpen(true)} className="bg-teal-600 hover:bg-teal-700">
+        </div>
+        <Button onClick={() => setIsCreateOpen(true)} className="h-11 rounded-xl bg-emerald-700 px-5 font-bold hover:bg-emerald-800">
           <Plus className="w-4 h-4 mr-2" /> Add webhook
         </Button>
+      </header>
+
+      <div className="flex gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-900">
+        <WebhookIcon className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" />
+        Each delivery is signed server-side. Signing secrets are never displayed or
+        returned by the administration API.
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <table className="w-full text-sm text-left">
+      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[960px] text-left text-sm">
+          <caption className="sr-only">Configured webhooks and recent delivery status</caption>
           <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
             <tr>
               <th className="px-6 py-4">Name</th>
@@ -169,8 +191,8 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: Webhook[]
           <tbody className="divide-y divide-slate-100">
             {webhooks.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
-                  No webhooks configured.
+                <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                  No webhooks configured. Add one when an external system is ready to receive events.
                 </td>
               </tr>
             ) : (
@@ -192,7 +214,8 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: Webhook[]
                   <td className="px-6 py-4">
                     <button
                       onClick={() => handleToggle(webhook.id, webhook.is_active)}
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${webhook.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}
+                      aria-label={`${webhook.is_active ? 'Pause' : 'Activate'} ${webhook.name}`}
+                      className={`rounded-full px-2.5 py-1 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 ${webhook.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}
                     >
                       {webhook.is_active ? 'Active' : 'Paused'}
                     </button>
@@ -224,7 +247,7 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: Webhook[]
                     <Button
                       variant="ghost"
                       size="sm"
-                      title="View Deliveries"
+                      aria-label={`View deliveries for ${webhook.name}`}
                       onClick={() => handleViewDeliveries(webhook)}
                     >
                       <Activity className="w-4 h-4 text-slate-500 hover:text-teal-600" />
@@ -232,7 +255,7 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: Webhook[]
                     <Button
                       variant="ghost"
                       size="sm"
-                      title="Test Webhook"
+                      aria-label={`Test ${webhook.name}`}
                       onClick={() => {
                         setSelectedWebhook(webhook)
                         setIsTestOpen(true)
@@ -241,7 +264,7 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: Webhook[]
                     >
                       <Play className="w-4 h-4 text-slate-500 hover:text-teal-600" />
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(webhook.id)}>
+                    <Button aria-label={`Delete ${webhook.name}`} variant="ghost" size="sm" onClick={() => handleDelete(webhook.id)}>
                       <Trash2 className="w-4 h-4 text-slate-500 hover:text-red-600" />
                     </Button>
                   </td>
@@ -250,12 +273,13 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: Webhook[]
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Add Webhook</DialogTitle>
+            <DialogTitle>Add webhook</DialogTitle>
             <DialogDescription>
               Configure an endpoint to receive events from People.
             </DialogDescription>
@@ -263,13 +287,13 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: Webhook[]
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Name</Label>
-              <Input placeholder="e.g. Notify Shepherd of new visitors" value={name} onChange={e => setName(e.target.value)} />
+              <Label htmlFor="webhook-name">Name</Label>
+              <Input id="webhook-name" placeholder="e.g. Shepherd notifications" value={name} onChange={e => setName(e.target.value)} />
             </div>
 
             <div className="space-y-2">
-              <Label>URL</Label>
-              <Input type="url" placeholder="https://..." value={url} onChange={e => setUrl(e.target.value)} />
+              <Label htmlFor="webhook-url">Endpoint URL</Label>
+              <Input id="webhook-url" type="url" placeholder="https://example.com/webhooks/people" value={url} onChange={e => setUrl(e.target.value)} />
             </div>
 
             <div className="space-y-3">
@@ -304,8 +328,8 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: Webhook[]
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={isSubmitting} className="bg-teal-600 hover:bg-teal-700">
-              {isSubmitting ? 'Saving...' : 'Save Webhook'}
+            <Button onClick={handleCreate} disabled={isSubmitting} className="bg-emerald-700 hover:bg-emerald-800">
+              {isSubmitting ? 'Saving...' : 'Save webhook'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -314,7 +338,7 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: Webhook[]
       <Dialog open={isTestOpen} onOpenChange={setIsTestOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Test Webhook</DialogTitle>
+            <DialogTitle>Test webhook</DialogTitle>
             <DialogDescription>
               Send a test payload to {selectedWebhook?.url}
             </DialogDescription>
@@ -346,8 +370,8 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: Webhook[]
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsTestOpen(false)}>Close</Button>
-            <Button onClick={handleTest} disabled={isSubmitting} className="bg-teal-600 hover:bg-teal-700">
-              {isSubmitting ? 'Sending...' : 'Send Test Payload'}
+            <Button onClick={handleTest} disabled={isSubmitting} className="bg-emerald-700 hover:bg-emerald-800">
+              {isSubmitting ? 'Sending...' : 'Send test payload'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -355,7 +379,7 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: Webhook[]
       <Dialog open={isDeliveriesOpen} onOpenChange={setIsDeliveriesOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Delivery Log</DialogTitle>
+            <DialogTitle>Delivery history</DialogTitle>
             <DialogDescription>
               Recent deliveries for {selectedWebhook?.name}
             </DialogDescription>
@@ -367,8 +391,9 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: Webhook[]
             ) : deliveries.length === 0 ? (
               <p className="text-center text-slate-500 py-8 border rounded-lg bg-slate-50">No deliveries found.</p>
             ) : (
-              <div className="border rounded-lg overflow-hidden max-h-[500px] overflow-y-auto">
-                <table className="w-full text-sm text-left">
+              <div className="max-h-[500px] overflow-auto rounded-xl border">
+                <table className="w-full min-w-[640px] text-left text-sm">
+                  <caption className="sr-only">Recent webhook deliveries</caption>
                   <thead className="bg-slate-50 text-slate-500 border-b sticky top-0">
                     <tr>
                       <th className="px-4 py-3">Timestamp</th>

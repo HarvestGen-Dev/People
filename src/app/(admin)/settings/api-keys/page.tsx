@@ -1,3 +1,4 @@
+// <!-- AGENT: FRONTEND -->
 import { createServiceClient } from '@/lib/supabase/server';
 import { Topbar } from '@/components/layout/Topbar';
 import { ApiKeysManager } from '@/components/settings/ApiKeysManager';
@@ -20,9 +21,10 @@ export default async function ApiKeysSettingsPage() {
   return (
     <>
       <Topbar title="API keys" />
-      <div className="p-8 max-w-5xl animate-in fade-in-50 duration-300">
-        <ApiKeysManager initialKeys={apiKeys || []} churchId={churchId} />
+      <div className="mx-auto max-w-6xl p-5 animate-in fade-in-50 duration-300 sm:p-8 lg:p-10">
+        <ApiKeysManager initialKeys={apiKeys || []} />
       </div>
     </>
   );
 }
+// <!-- AGENT: FRONTEND -->

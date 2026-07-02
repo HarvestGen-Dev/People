@@ -1,5 +1,6 @@
 'use client';
 
+// <!-- AGENT: FRONTEND -->
 import { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -26,7 +27,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
             </div>
             <h2 className="mt-2 text-xl font-bold tracking-tight text-slate-950">Settings</h2>
           </div>
-          <nav className="flex gap-1 overflow-x-auto px-4 py-3 lg:block lg:space-y-1 lg:px-3 lg:py-2">
+          <nav aria-label="Settings" className="flex gap-1 overflow-x-auto px-4 py-3 lg:block lg:space-y-1 lg:px-3 lg:py-2">
             {settingsNav.map(item => {
               const isActive = pathname === item.href;
               return (
@@ -47,9 +48,9 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
           </nav>
         </aside>
 
-        <div className="min-w-0 flex-1 bg-[#f5f7f3]">
+        <main className="min-w-0 flex-1 bg-[#f5f7f3]">
           {children}
-        </div>
+        </main>
     </div>
   );
 }

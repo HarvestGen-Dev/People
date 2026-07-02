@@ -1,5 +1,6 @@
 'use client';
 
+// <!-- AGENT: FRONTEND -->
 import { useState } from 'react';
 import { FieldDefinition } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -7,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Edit2, Trash2, GripVertical, Loader2, X } from 'lucide-react';
+import { Braces, Plus, Edit2, Trash2, GripVertical, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -43,17 +44,23 @@ function SortableFieldRow({ field, onEdit, onDelete }: { field: FieldDefinition,
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="flex items-center gap-4 p-4 bg-white border border-border rounded-xl shadow-sm mb-3 group">
-      <div {...attributes} {...listeners} className="cursor-grab text-slate-400 hover:text-slate-600 focus:outline-none">
+    <div ref={setNodeRef} style={style} className="group mb-3 flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:items-center">
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        aria-label={`Reorder ${field.name}`}
+        className="mt-0.5 cursor-grab rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 sm:mt-0"
+      >
         <GripVertical className="h-5 w-5" />
-      </div>
+      </button>
       
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
           <span className="font-medium text-slate-900 truncate">{field.name}</span>
           {field.is_required && <span className="bg-red-50 text-red-600 text-[10px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">Required</span>}
         </div>
-        <div className="flex items-center gap-3 text-xs text-slate-500">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
           <span className="bg-slate-100 px-2 py-0.5 rounded font-mono text-[10px] uppercase text-slate-600 border border-slate-200">
             {field.field_type}
           </span>
@@ -64,11 +71,11 @@ function SortableFieldRow({ field, onEdit, onDelete }: { field: FieldDefinition,
         </div>
       </div>
       
-      <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-primary" onClick={() => onEdit(field)}>
+      <div className="flex justify-end gap-1 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+        <Button aria-label={`Edit ${field.name}`} variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-emerald-700" onClick={() => onEdit(field)}>
           <Edit2 className="h-4 w-4" />
         </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-destructive hover:bg-destructive/10" onClick={() => onDelete(field.id)}>
+        <Button aria-label={`Delete ${field.name}`} variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:bg-red-50 hover:text-red-700" onClick={() => onDelete(field.id)}>
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
@@ -76,7 +83,7 @@ function SortableFieldRow({ field, onEdit, onDelete }: { field: FieldDefinition,
   );
 }
 
-export function FieldsManager({ initialFields, churchId }: { initialFields: FieldDefinition[], churchId: string }) {
+export function FieldsManager({ initialFields }: { initialFields: FieldDefinition[] }) {
   const [fields, setFields] = useState<FieldDefinition[]>(initialFields);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -106,7 +113,7 @@ export function FieldsManager({ initialFields, churchId }: { initialFields: Fiel
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ids: newArray.map(f => f.id) })
-        }).catch(err => toast.error('Failed to save new order'));
+        }).catch(() => toast.error('Failed to save new order'));
 
         return newArray;
       });
@@ -215,18 +222,30 @@ export function FieldsManager({ initialFields, churchId }: { initialFields: Fiel
   };
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <p className="text-sm text-slate-500">Drag to reorder fields.</p>
-        <Button onClick={openCreate} className="rounded-xl shadow-sm bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
+    <div className="space-y-6">
+      <header className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+        <div>
+          <div className="text-xs font-bold uppercase tracking-[0.17em] text-emerald-700">
+            People data
+          </div>
+          <h1 className="mt-2 text-3xl font-bold tracking-[-0.035em] text-slate-950">
+            Custom fields
+          </h1>
+          <p className="mt-2 max-w-2xl text-slate-500">
+            Add structured information to every profile and set its display order.
+          </p>
+        </div>
+        <Button onClick={openCreate} className="h-11 rounded-xl bg-emerald-700 px-5 font-bold hover:bg-emerald-800">
           <Plus className="h-4 w-4" /> New field
         </Button>
-      </div>
+      </header>
 
-      <div className="bg-slate-50 p-4 rounded-2xl border border-border min-h-[300px]">
+      <section aria-label="Custom fields" className="min-h-[300px] rounded-3xl border border-slate-200 bg-slate-100/70 p-3 sm:p-4">
         {fields.length === 0 ? (
-          <div className="text-center py-12 text-slate-500">
-            No custom fields defined yet.
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-14 text-center">
+            <Braces className="mx-auto h-8 w-8 text-slate-300" />
+            <p className="mt-3 font-semibold text-slate-700">No custom fields yet</p>
+            <p className="mt-1 text-sm text-slate-500">Create one to capture information beyond the standard profile.</p>
           </div>
         ) : (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -237,7 +256,7 @@ export function FieldsManager({ initialFields, churchId }: { initialFields: Fiel
             </SortableContext>
           </DndContext>
         )}
-      </div>
+      </section>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-md rounded-2xl">
@@ -246,13 +265,13 @@ export function FieldsManager({ initialFields, churchId }: { initialFields: Fiel
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-5 py-2">
             <div>
-              <label className="text-sm font-medium mb-1 block">Field Name</label>
-              <Input value={formData.name} onChange={handleNameChange} placeholder="e.g. T-Shirt Size" className="rounded-xl" />
+              <label htmlFor="field-name" className="text-sm font-medium mb-1 block">Field name</label>
+              <Input id="field-name" value={formData.name} onChange={handleNameChange} placeholder="e.g. T-shirt size" className="rounded-xl" />
             </div>
             
             <div>
-              <label className="text-sm font-medium mb-1 block">Database Slug</label>
-              <Input value={formData.slug} onChange={e => setFormData({ ...formData, slug: e.target.value })} className="rounded-xl font-mono text-sm" placeholder="t_shirt_size" />
+              <label htmlFor="field-slug" className="text-sm font-medium mb-1 block">API slug</label>
+              <Input id="field-slug" value={formData.slug} onChange={e => setFormData({ ...formData, slug: e.target.value })} className="rounded-xl font-mono text-sm" placeholder="t_shirt_size" />
             </div>
 
             <div className="grid grid-cols-2 gap-4">

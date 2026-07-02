@@ -1,3 +1,4 @@
+// <!-- AGENT: FRONTEND -->
 import { createServiceClient } from '@/lib/supabase/server';
 import { Topbar } from '@/components/layout/Topbar';
 import { FieldsManager } from '@/components/settings/FieldsManager';
@@ -20,9 +21,10 @@ export default async function FieldsSettingsPage() {
   return (
     <>
       <Topbar title="Custom fields" />
-      <div className="p-8 max-w-4xl animate-in fade-in-50 duration-300">
-        <FieldsManager initialFields={fields || []} churchId={churchId} />
+      <div className="mx-auto max-w-5xl p-5 animate-in fade-in-50 duration-300 sm:p-8 lg:p-10">
+        <FieldsManager initialFields={fields || []} />
       </div>
     </>
   );
 }
+// <!-- AGENT: FRONTEND -->

@@ -1,12 +1,13 @@
 'use client';
 
+// <!-- AGENT: FRONTEND -->
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Copy, CheckCircle2, Loader2, Key } from 'lucide-react';
+import { Plus, Copy, CheckCircle2, Loader2, ShieldCheck } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { toast } from 'sonner';
 import type { ApiKey } from '@/lib/types';
@@ -24,7 +25,7 @@ type ApiKeySummary = Pick<
   'id' | 'name' | 'key_prefix' | 'scopes' | 'is_active' | 'expires_at' | 'last_used_at' | 'created_at'
 >;
 
-export function ApiKeysManager({ initialKeys }: { initialKeys: ApiKeySummary[], churchId: string }) {
+export function ApiKeysManager({ initialKeys }: { initialKeys: ApiKeySummary[] }) {
   const [keys, setKeys] = useState(initialKeys);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   
@@ -114,30 +115,34 @@ export function ApiKeysManager({ initialKeys }: { initialKeys: ApiKeySummary[], 
   };
 
   return (
-    <div>
-      <div className="bg-white border border-border p-6 rounded-2xl mb-8 shadow-sm">
-        <div className="flex gap-4">
-          <div className="w-12 h-12 bg-teal-50 rounded-xl flex items-center justify-center shrink-0">
-            <Key className="h-6 w-6 text-teal-600" />
+    <div className="space-y-6">
+      <header className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+        <div>
+          <div className="text-xs font-bold uppercase tracking-[0.17em] text-emerald-700">
+            Integration access
           </div>
-          <div>
-            <h3 className="text-lg font-bold text-slate-900 mb-1">API keys</h3>
-            <p className="text-slate-500">
-              API keys let external systems like Shepherd and Drip & Brew securely read and write data in People. 
-              Each key has scoped permissions — grant only what each system needs.
-            </p>
-          </div>
+          <h1 className="mt-2 text-3xl font-bold tracking-[-0.035em] text-slate-950">
+            API keys
+          </h1>
+          <p className="mt-2 max-w-2xl text-slate-500">
+            Issue tenant-bound credentials and grant only the scopes each system needs.
+          </p>
         </div>
-      </div>
-
-      <div className="flex justify-end mb-4">
-        <Button onClick={openCreate} className="rounded-xl shadow-sm bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
+        <Button onClick={openCreate} className="h-11 rounded-xl bg-emerald-700 px-5 font-bold hover:bg-emerald-800">
           <Plus className="h-4 w-4" /> New API key
         </Button>
+      </header>
+
+      <div className="flex gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-900">
+        <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" />
+        The complete key is shown once after creation. Stored records contain only a
+        hash and a short identifying prefix.
       </div>
 
-      <div className="bg-white border border-border rounded-2xl overflow-hidden shadow-sm">
-        <table className="w-full text-sm text-left">
+      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[880px] text-left text-sm">
+          <caption className="sr-only">API keys, permissions, usage, and status</caption>
           <thead className="bg-slate-50/50 border-b border-border text-slate-500 font-medium">
             <tr>
               <th className="px-6 py-3">Name</th>
@@ -195,6 +200,7 @@ export function ApiKeysManager({ initialKeys }: { initialKeys: ApiKeySummary[], 
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={(open) => {
@@ -215,12 +221,12 @@ export function ApiKeysManager({ initialKeys }: { initialKeys: ApiKeySummary[], 
           {step === 1 && (
             <div className="py-2 space-y-4">
               <div>
-                <label className="text-sm font-medium mb-1 block">Name</label>
-                <Input value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. Shepherd LMS" className="rounded-xl" autoFocus />
+                <label htmlFor="api-key-name" className="text-sm font-medium mb-1 block">Name</label>
+                <Input id="api-key-name" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. Shepherd LMS" className="rounded-xl" autoFocus />
               </div>
               <div>
-                <label className="text-sm font-medium mb-1 block">Description (optional)</label>
-                <Textarea value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} className="rounded-xl min-h-[80px]" />
+                <label htmlFor="api-key-description" className="text-sm font-medium mb-1 block">Description (optional)</label>
+                <Textarea id="api-key-description" value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} className="rounded-xl min-h-[80px]" />
               </div>
             </div>
           )}
