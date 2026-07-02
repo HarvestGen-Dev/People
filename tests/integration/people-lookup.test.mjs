@@ -95,11 +95,9 @@ before(async () => {
   if (keyError) throw keyError;
 
   server = spawn(
-    'npm',
+    './node_modules/.bin/next',
     [
-      'run',
       'dev',
-      '--',
       '--hostname',
       '127.0.0.1',
       '--port',
