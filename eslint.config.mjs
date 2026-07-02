@@ -22,6 +22,12 @@ const eslintConfig = defineConfig([
     "update-user2.js",
     "scripts/fix-any.js",
   ]),
+  {
+    rules: {
+      "@next/next/no-img-element": "off",
+      "react-hooks/incompatible-library": "off"
+    }
+  }
 ]);
 
 export default eslintConfig;
