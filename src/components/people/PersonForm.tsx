@@ -65,7 +65,7 @@ export function PersonForm({ person, tags, fieldDefinitions, households }: Perso
   const [photoUrl, setPhotoUrl] = useState(person?.photo_url || null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
 
-  const { register, handleSubmit, control, watch, setValue, formState: { errors } } = useForm<PersonFormData>({
+  const { register, handleSubmit, formState: { errors }, watch, control, setValue } = useForm<PersonFormData>({
     resolver: zodResolver(personSchema),
     defaultValues: {
       first_name: person?.first_name || '',

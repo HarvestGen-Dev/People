@@ -3,11 +3,8 @@
 // <!-- AGENT: FRONTEND -->
 import { useState } from 'react';
 import {
-  Check,
   Clock3,
-  Copy,
   Crown,
-  Link2,
   Loader2,
   Mail,
   ShieldCheck,
@@ -35,11 +32,14 @@ import {
 } from '@/components/ui/select';
 import type { TenantRole } from '@/lib/tenant-context';
 import type {
+  ClaimRequestSummary,
   InvitationSummary,
   TeamMemberSummary,
 } from '@/lib/team';
-
-type CreatedInvitation = InvitationSummary & { inviteUrl: string };
+import {
+  InvitationResultDialog,
+  type InvitationResult,
+} from '@/components/settings/InvitationResultDialog';
 
 const roleStyles: Record<TenantRole, string> = {
   owner: 'border-amber-200 bg-amber-100 text-amber-800',
@@ -50,29 +50,35 @@ const roleStyles: Record<TenantRole, string> = {
 export function TeamManager({
   churchName,
   currentRole,
+  currentIsPlatformAdmin,
   initialMembers,
   initialInvitations,
+  initialClaimRequests,
   now,
 }: {
   churchName: string;
   currentRole: TenantRole;
+  currentIsPlatformAdmin: boolean;
   initialMembers: TeamMemberSummary[];
   initialInvitations: InvitationSummary[];
+  initialClaimRequests: ClaimRequestSummary[];
   now: string;
 }) {
   const [members] = useState(initialMembers);
   const [invitations, setInvitations] = useState(initialInvitations);
+  const [claimRequests, setClaimRequests] = useState(initialClaimRequests);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'admin' | 'member'>('member');
   const [expiresInDays, setExpiresInDays] = useState('7');
   const [createdInvitation, setCreatedInvitation] =
-    useState<CreatedInvitation | null>(null);
+    useState<InvitationResult | null>(null);
 
   const pendingInvitations = invitations.filter(
     (invitation) =>
       !invitation.acceptedAt &&
+      !invitation.revokedAt &&
       new Date(invitation.expiresAt).getTime() > new Date(now).getTime()
   );
   const historyInvitations = invitations.filter(
@@ -97,17 +103,23 @@ export function TeamManager({
         throw new Error(body.error || 'Failed to create invitation');
       }
 
-      const invitation: CreatedInvitation = {
+      const invitation: InvitationSummary = {
         id: body.data.invitation.id,
         email: body.data.invitation.email,
         role: body.data.invitation.role,
         expiresAt: body.data.invitation.expires_at,
         acceptedAt: null,
+        revokedAt: null,
+        sentAt: body.data.email_sent ? new Date().toISOString() : null,
         createdAt: body.data.invitation.created_at,
-        inviteUrl: body.data.invite_url,
       };
       setInvitations((current) => [invitation, ...current]);
-      setCreatedInvitation(invitation);
+      setCreatedInvitation({
+        email: invitation.email,
+        inviteUrl: body.data.invite_url,
+        emailSent: body.data.email_sent,
+        emailError: body.data.email_error,
+      });
       setIsInviteOpen(false);
       setEmail('');
       setRole('member');
@@ -122,10 +134,80 @@ export function TeamManager({
     }
   };
 
-  const copyInvitation = async () => {
-    if (!createdInvitation) return;
-    await navigator.clipboard.writeText(createdInvitation.inviteUrl);
-    toast.success('Invitation link copied');
+  const revokeInvitation = async (id: string) => {
+    const response = await fetch(`/api/admin/invitations/${id}`, {
+      method: 'DELETE',
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      toast.error(body.error || 'Unable to revoke invitation');
+      return;
+    }
+    setInvitations((current) =>
+      current.map((invitation) =>
+        invitation.id === id
+          ? { ...invitation, revokedAt: new Date().toISOString() }
+          : invitation
+      )
+    );
+    toast.success('Invitation revoked');
+  };
+
+  const resendInvitation = async (id: string) => {
+    const response = await fetch(`/api/admin/invitations/${id}/resend`, {
+      method: 'POST',
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      toast.error(body.error || 'Unable to resend invitation');
+      return;
+    }
+
+    const replacement: InvitationSummary = {
+      id: body.data.invitation.id,
+      email: body.data.invitation.email,
+      role: body.data.invitation.role,
+      expiresAt: body.data.invitation.expires_at,
+      acceptedAt: null,
+      revokedAt: null,
+      sentAt: body.data.email_sent ? new Date().toISOString() : null,
+      createdAt: body.data.invitation.created_at,
+    };
+    setInvitations((current) => [
+      replacement,
+      ...current.map((invitation) =>
+        invitation.id === id
+          ? { ...invitation, revokedAt: new Date().toISOString() }
+          : invitation
+      ),
+    ]);
+    setCreatedInvitation({
+      email: replacement.email,
+      inviteUrl: body.data.invite_url,
+      emailSent: body.data.email_sent,
+      emailError: body.data.email_error,
+    });
+    toast.success('Invitation rotated');
+  };
+
+  const reviewClaim = async (
+    requestId: string,
+    decision: 'approve' | 'reject'
+  ) => {
+    const response = await fetch('/api/admin/claims', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ request_id: requestId, decision }),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      toast.error(body.error || 'Unable to review claim');
+      return;
+    }
+    setClaimRequests((current) =>
+      current.filter((request) => request.id !== requestId)
+    );
+    toast.success(decision === 'approve' ? 'Profile access approved' : 'Claim rejected');
   };
 
   return (
@@ -263,6 +345,73 @@ export function TeamManager({
                 >
                   {invitation.role}
                 </Badge>
+                {(invitation.role !== 'owner' || currentIsPlatformAdmin) && (
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => resendInvitation(invitation.id)}
+                    className="w-fit rounded-xl"
+                  >
+                    Resend
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => revokeInvitation(invitation.id)}
+                    className="w-fit rounded-xl text-red-600 hover:bg-red-50 hover:text-red-700"
+                  >
+                    Revoke
+                  </Button>
+                </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
+        <div className="border-b border-slate-100 px-5 py-5 sm:px-6">
+          <h2 className="font-bold text-slate-950">Profile claim requests</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Review verified accounts whose imported profiles were not eligible for automatic claiming.
+          </p>
+        </div>
+        {claimRequests.length === 0 ? (
+          <div className="px-6 py-10 text-center text-sm text-slate-400">
+            No profile claims require review.
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {claimRequests.map((request) => (
+              <div
+                key={request.id}
+                className="flex flex-col justify-between gap-3 px-5 py-4 sm:flex-row sm:items-center sm:px-6"
+              >
+                <div>
+                  <div className="font-bold text-slate-900">{request.personName}</div>
+                  <div className="mt-1 text-xs text-slate-500">{request.email}</div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => reviewClaim(request.id, 'reject')}
+                    className="rounded-xl"
+                  >
+                    Reject
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => reviewClaim(request.id, 'approve')}
+                    className="rounded-xl bg-emerald-700 hover:bg-emerald-800"
+                  >
+                    Approve
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
@@ -398,52 +547,10 @@ export function TeamManager({
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={!!createdInvitation}
-        onOpenChange={(open) => !open && setCreatedInvitation(null)}
-      >
-        <DialogContent className="rounded-3xl sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold">
-              Invitation ready
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-5 py-3">
-            <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-emerald-100 text-emerald-700">
-              <Check className="h-6 w-6" />
-            </div>
-            <p className="text-center text-sm leading-6 text-slate-600">
-              Send this link to{' '}
-              <strong className="text-slate-900">
-                {createdInvitation?.email}
-              </strong>
-              . It cannot be recovered after this window closes.
-            </p>
-            <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2">
-              <Link2 className="ml-2 h-4 w-4 shrink-0 text-slate-400" />
-              <code className="min-w-0 flex-1 truncate text-xs text-slate-500">
-                {createdInvitation?.inviteUrl}
-              </code>
-              <Button
-                onClick={copyInvitation}
-                size="sm"
-                className="rounded-xl bg-emerald-700 font-bold hover:bg-emerald-800"
-              >
-                <Copy className="mr-2 h-3.5 w-3.5" />
-                Copy
-              </Button>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              onClick={() => setCreatedInvitation(null)}
-              className="rounded-xl"
-            >
-              Done
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <InvitationResultDialog
+        invitation={createdInvitation}
+        onClose={() => setCreatedInvitation(null)}
+      />
     </div>
   );
 }

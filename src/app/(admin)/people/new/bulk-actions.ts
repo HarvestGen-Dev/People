@@ -1,6 +1,7 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/server';
+import { requireTenantContext } from '@/lib/tenant-context';
 import { revalidatePath } from 'next/cache';
 
 export type BulkPersonInput = {
@@ -12,19 +13,26 @@ export type BulkPersonInput = {
   phone?: string;
   status?: string;
   campus?: string;
+  allow_self_claim?: boolean | string;
 };
 
 export async function bulkCreatePeople(people: BulkPersonInput[]) {
-  const supabase = await createClient();
+  const tenant = await requireTenantContext({ requireManager: true });
+  const supabase = createServiceClient();
 
   // Basic sanitization
   const inserts = people.map(p => ({
+    church_id: tenant.churchId,
     first_name: p.first_name || p.firstName,
     last_name: p.last_name || p.lastName,
-    email: p.email || null,
-    phone: p.phone || null,
+    email: p.email?.trim().toLowerCase() || null,
+    phone: p.phone?.trim() || null,
     status: p.status || 'visitor',
-    campus: p.campus || 'Bandar Sunway'
+    campus: p.campus || 'Bandar Sunway',
+    allow_self_claim:
+      !!p.email &&
+      p.allow_self_claim !== false &&
+      String(p.allow_self_claim).toLowerCase() !== 'false',
   })).filter(p => p.first_name && p.last_name); // First and last name required
 
   if (inserts.length === 0) {
@@ -33,12 +41,15 @@ export async function bulkCreatePeople(people: BulkPersonInput[]) {
 
   const { data, error } = await supabase
     .from('people')
-    .insert(inserts)
+    .upsert(inserts, {
+      onConflict: 'church_id,email',
+      ignoreDuplicates: false,
+    })
     .select('id');
 
   if (error) {
     console.error('Error during bulk insert:', error);
-    return { error: 'Failed to import some records. They might have duplicate emails.' };
+    return { error: `Import failed: ${error.message}` };
   }
 
   revalidatePath('/people');

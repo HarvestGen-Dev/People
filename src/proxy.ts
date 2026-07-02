@@ -39,6 +39,7 @@ export async function proxy(request: NextRequest) {
       request.nextUrl.pathname !== '/' &&
       request.nextUrl.pathname !== '/login' &&
       request.nextUrl.pathname !== '/signup' &&
+      request.nextUrl.pathname !== '/auth/callback' &&
       request.nextUrl.pathname !== '/guide'
     ) {
       return NextResponse.redirect(new URL('/login', request.url))
@@ -46,7 +47,7 @@ export async function proxy(request: NextRequest) {
   } else {
     // If logged in, redirect away from landing page and login page
     if (request.nextUrl.pathname === '/' || request.nextUrl.pathname === '/login') {
-      return NextResponse.redirect(new URL('/dashboard', request.url))
+      return NextResponse.redirect(new URL('/account', request.url))
     }
   }
 

@@ -25,6 +25,7 @@ export async function getValidInvitation(
     .select('church_id, email, expires_at, churches(name, slug)')
     .eq('token_hash', hashInvitationToken(token))
     .is('accepted_at', null)
+    .is('revoked_at', null)
     .gt('expires_at', new Date().toISOString())
     .maybeSingle();
 

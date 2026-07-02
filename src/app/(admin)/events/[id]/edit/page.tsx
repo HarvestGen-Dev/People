@@ -18,6 +18,7 @@ export const metadata = {
 // Client components for actions
 import { DeleteEventButton } from '@/components/events/DeleteEventButton';
 import { DuplicateEventButton } from '@/components/events/DuplicateEventButton';
+import { ShareEventButton } from '@/components/events/ShareEventButton';
 
 export default async function EditEventPage({ params }: { params: Promise<{ id: string }> }) {
   const { churchId } = await requireTenantContext({ requireManager: true });
@@ -69,11 +70,17 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
           </Badge>
           
           {event.status === 'published' && (
-            <Link href={`${APP_URL}/e/${event.slug}`} target="_blank" rel="noopener noreferrer">
-              <Button variant="outline" className="rounded-xl shadow-sm h-9 gap-2">
-                View public page <ExternalLink className="h-3 w-3" />
-              </Button>
-            </Link>
+            <>
+              <ShareEventButton
+                eventName={event.name}
+                publicUrl={`${APP_URL}/e/${event.slug}`}
+              />
+              <Link href={`${APP_URL}/e/${event.slug}`} target="_blank" rel="noopener noreferrer">
+                <Button variant="outline" className="rounded-xl shadow-sm h-9 gap-2">
+                  View public page <ExternalLink className="h-3 w-3" />
+                </Button>
+              </Link>
+            </>
           )}
 
           <DropdownMenu>

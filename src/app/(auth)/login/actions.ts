@@ -1,11 +1,12 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { resolveAuthenticatedHome } from '@/lib/platform-auth'
 
 export async function loginWithPasswordAction(email: string, password: string) {
   const supabase = await createClient()
 
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   })
@@ -14,5 +15,9 @@ export async function loginWithPasswordAction(email: string, password: string) {
     return { error: error.message }
   }
 
-  return { success: true }
+  await supabase.rpc('claim_person_profile')
+  return {
+    success: true,
+    redirectTo: await resolveAuthenticatedHome(data.user.id),
+  }
 }

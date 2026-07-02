@@ -13,6 +13,7 @@ import {
   GitBranch,
   LayoutDashboard,
   LayoutList,
+  Network,
   LogOut,
   Settings,
   Users,
@@ -50,6 +51,7 @@ export function Sidebar({
 }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -69,6 +71,12 @@ export function Sidebar({
       } = await supabase.auth.getUser();
       if (user?.email) {
         setUserEmail(user.email);
+        const { data: platformAccess } = await supabase
+          .from('platform_admins')
+          .select('user_id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        setIsPlatformAdmin(!!platformAccess);
       } else {
         router.push('/login');
       }
@@ -194,7 +202,12 @@ export function Sidebar({
             Administration
           </div>
           <div className="space-y-1">
-            {administrationNav.map(renderNavItem)}
+          {[
+            ...(isPlatformAdmin
+              ? [{ label: 'Platform', href: '/platform', icon: Network }]
+              : []),
+            ...administrationNav,
+          ].map(renderNavItem)}
           </div>
         </nav>
 

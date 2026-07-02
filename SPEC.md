@@ -61,10 +61,24 @@ CREATE TABLE church_memberships (
 );
 ```
 
-New accounts are invitation-only. Invitations are tenant-bound, expire, are
-single-use, and store a SHA-256 token hash rather than the raw invitation token.
-Only owners and administrators may issue invitations; only owners may invite
-administrators.
+Dashboard accounts are invitation-only. Invitations are tenant-bound, expire,
+are single-use, and store a SHA-256 token hash rather than the raw invitation
+token. Only platform administrators may invite owners. Church owners may invite
+administrators, while owners and administrators may invite staff members.
+
+<!-- AGENT: ARCHITECT -->
+
+Platform administrators are stored in `platform_admins`, outside tenant
+membership roles. They may create churches, issue owner invitations, and manage
+any selected tenant. Privileged platform actions are written to
+`platform_audit_log`.
+
+Imported people may opt into verified-email self-claiming through
+`people.allow_self_claim`. A successful claim creates a `person_user_links`
+record, not a `church_memberships` record. Portal accounts can therefore read
+their linked profile only and never inherit church-wide dashboard access.
+Ambiguous or disabled claims create manager-reviewable
+`person_claim_requests`.
 
 RLS resolves access through `church_memberships`:
 

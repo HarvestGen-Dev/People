@@ -52,7 +52,9 @@ export function CSVImport() {
       <UploadCloud className="w-12 h-12 text-slate-400 mb-4" />
       <h3 className="text-lg font-medium text-slate-900 mb-1">Import from CSV</h3>
       <p className="text-sm text-slate-500 mb-6 text-center max-w-sm">
-        Upload a CSV file containing at least <code>first_name</code> and <code>last_name</code> columns. Optional columns: <code>email</code>, <code>phone</code>, <code>status</code>.
+        Upload a CSV containing <code>first_name</code> and <code>last_name</code>.
+        Profiles with an email can claim portal access after verification. Set{' '}
+        <code>allow_self_claim=false</code> to require administrator approval.
       </p>
       
       <div className="relative">

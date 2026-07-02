@@ -49,9 +49,8 @@ export default function LoginPage() {
         if (res.error) {
           setError(res.error);
         } else {
-          // Redirect to dashboard on successful password login using full page load
-          // to ensure cookies are sent to the server properly
-          window.location.href = '/dashboard';
+          // Full navigation ensures the newly issued session cookie is sent.
+          window.location.href = res.redirectTo || '/account';
         }
       }
     } catch (err: unknown) {
