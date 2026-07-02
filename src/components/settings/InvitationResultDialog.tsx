@@ -92,7 +92,6 @@ export function InvitationResultDialog({
             </div>
             {qrCode && qrCode.source === invitation?.inviteUrl ? (
               // The QR code is generated locally from the one-time invitation URL.
-              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={qrCode.dataUrl}
                 alt="Invitation QR code"

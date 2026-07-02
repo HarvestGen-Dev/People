@@ -78,7 +78,6 @@ export function ShareEventButton({
             <div className="rounded-2xl border border-slate-200 bg-white p-4 text-center">
               {qrDataUrl ? (
                 // Generated locally from the public event URL.
-                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={qrDataUrl}
                   alt={`${eventName} registration QR code`}

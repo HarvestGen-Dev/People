@@ -172,7 +172,6 @@ export default async function EventsPage() {
                   className="relative block aspect-[16/8.5] overflow-hidden bg-emerald-950"
                 >
                   {event.cover_image_url ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
                     <img
                       src={event.cover_image_url}
                       alt={event.name}
