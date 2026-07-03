@@ -184,7 +184,9 @@ before(async () => {
       cookies: {
         getAll() { return Array.from(cookieStore.entries()).map(([name, value]) => ({ name, value })); },
         setAll(cookies) { cookies.forEach(c => cookieStore.set(c.name, c.value)); }
-      }
+      },
+      global: { fetch: fetch },
+      realtime: { transport: ws }
     });
     await authClient.auth.signInWithPassword({ email, password });
     cookieStore.set('people_church_id', churchIdContext);
