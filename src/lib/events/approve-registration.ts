@@ -1,65 +1,93 @@
 import { createServiceClient } from '@/lib/supabase/server';
-import { lookupOrCreatePerson } from '@/lib/people/lookup-or-create';
 import { sendEventConfirmationEmail } from '@/lib/email/send-confirmation';
 
 export async function approveRegistration(
   registrationId: string,
   churchId: string,
-  reviewedBy: string | null  // null when auto-approved (free events)
+  reviewedBy: string | null
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = createServiceClient();
 
+  // 1. Transactional resolution and approval via RPC
+  const { data: rpcResult, error: rpcError } = await supabase.rpc('approve_event_registration', {
+    p_church_id: churchId,
+    p_registration_id: registrationId,
+    p_reviewed_by: reviewedBy
+  });
+
+  if (rpcError) {
+    return { success: false, error: 'Failed to approve registration' };
+  }
+
+  // The RPC returns a JSON object with success/error
+  const result = rpcResult as unknown as { success: boolean; error?: string; already_approved?: boolean };
+  if (!result.success) {
+    return { success: false, error: result.error };
+  }
+
+  // 2. Fetch the registration to process emails
   const { data: registration } = await supabase
     .from('event_registrations')
     .select('*, event:events(*)')
     .eq('id', registrationId)
-    .eq('church_id', churchId)
     .single();
 
-  if (!registration) return { success: false, error: 'Registration not found' };
+  if (!registration || registration.confirmation_email_sent_at) {
+    return { success: true };
+  }
 
-  // 1. Match-or-create person
-  const { person } = await lookupOrCreatePerson({
-    church_id: registration.church_id,
-    email: registration.email,
-    phone: registration.phone,
-    first_name: registration.first_name,
-    last_name: registration.last_name,
-  });
-
-  // 2. Update registration
-  await supabase
+  // 3. Atomic Outbox Claim for at-least-once email delivery
+  // Prevent concurrent workers from sending duplicates.
+  // Note: SMTP delivery is not transactional with the database. If SMTP accepts the 
+  // message but the subsequent timestamp update fails/crashes, it will retry and send a duplicate.
+  // This guarantees at-least-once delivery.
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+  
+  const { data: claim, error: claimError } = await supabase
     .from('event_registrations')
-    .update({
-      status: 'approved',
-      person_id: person.id,
-      reviewed_by: reviewedBy,
-      reviewed_at: new Date().toISOString(),
-    })
+    .update({ confirmation_email_claimed_at: new Date().toISOString() })
     .eq('id', registrationId)
-    .eq('church_id', churchId);
+    .is('confirmation_email_sent_at', null)
+    .or(`confirmation_email_claimed_at.is.null,confirmation_email_claimed_at.lt.${fiveMinutesAgo}`)
+    .select('id')
+    .maybeSingle();
 
-  // 3. Log person_events
-  await supabase.from('person_events').insert({
-    church_id: churchId,
-    person_id: person.id,
-    source: 'people', // Note: constraint check violation fix - using 'people' source
-    event_type: 'event_registered',
-    metadata: {
-      event_id: registration.event_id,
-      event_name: registration.event.name,
-      amount_paid: registration.amount_due,
-    },
-  });
+  if (claimError) {
+    return { success: false, error: 'Database error while claiming email outbox' };
+  }
 
-  // 4. Send confirmation email (fire and forget, but await the send result for logging)
+  if (!claim) {
+    // Another worker claimed it, or it was already sent
+    return { success: true };
+  }
+
+  // 4. Dispatch Email
   const emailResult = await sendEventConfirmationEmail(registration);
+
   if (emailResult.success) {
-    await supabase
+    // Mark as sent
+    const { error: sentError } = await supabase
       .from('event_registrations')
       .update({ confirmation_email_sent_at: new Date().toISOString() })
-      .eq('id', registrationId)
-      .eq('church_id', churchId);
+      .eq('id', registrationId);
+      
+    if (sentError) {
+      // It was sent but not marked. It will be sent again (at-least-once).
+      console.error('Failed to mark email as sent', sentError);
+      return { success: false, error: 'Failed to record email sent status' };
+    }
+  } else {
+    // Release claim on failure so it can be retried immediately
+    const { error: releaseError } = await supabase
+      .from('event_registrations')
+      .update({ confirmation_email_claimed_at: null })
+      .eq('id', registrationId);
+      
+    if (releaseError) {
+      console.error('Failed to release email claim', releaseError);
+      return { success: false, error: 'Failed to release email outbox claim' };
+    }
+    return { success: false, error: 'Failed to dispatch email via SMTP' };
   }
 
   return { success: true };

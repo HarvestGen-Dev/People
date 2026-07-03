@@ -18,7 +18,9 @@ export default async function PeoplePage({
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  const { churchId } = await requireTenantContext();
+  const { churchId, role, isPlatformAdmin } = await requireTenantContext();
+  const canManage =
+    isPlatformAdmin || role === 'owner' || role === 'admin';
   const supabase = await createClient();
 
   const resolvedSearchParams = await searchParams;
@@ -59,12 +61,14 @@ export default async function PeoplePage({
             Find members and visitors, understand their story, and coordinate care.
           </p>
         </div>
-        <Link href="/people/new">
-          <Button className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2 rounded-xl px-5 h-10 shadow-sm transition-all hover:shadow-md">
-            <Plus className="h-4 w-4" />
-            Add person
-          </Button>
-        </Link>
+        {canManage && (
+          <Link href="/people/new">
+            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2 rounded-xl px-5 h-10 shadow-sm transition-all hover:shadow-md">
+              <Plus className="h-4 w-4" />
+              Add person
+            </Button>
+          </Link>
+        )}
       </div>
 
       <PeopleFilters tags={tags} total={total} />

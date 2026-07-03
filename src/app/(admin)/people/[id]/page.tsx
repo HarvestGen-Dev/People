@@ -19,7 +19,9 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function PersonProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { churchId } = await requireTenantContext();
+  const { churchId, role, isPlatformAdmin } = await requireTenantContext();
+  const canManage =
+    isPlatformAdmin || role === 'owner' || role === 'admin';
 
   const person = await getPersonById(id, churchId);
   if (!person) notFound();
@@ -44,12 +46,14 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
     <>
       <Topbar title="Person profile">
         <div className="flex items-center gap-2">
-          <Link href={`/people/${person.id}/edit`}>
-            <Button variant="outline" className="h-9 rounded-xl border-slate-200 bg-white font-semibold shadow-sm">
-              <Pencil className="mr-2 h-3.5 w-3.5" />
-              Edit person
-            </Button>
-          </Link>
+          {canManage && (
+            <Link href={`/people/${person.id}/edit`}>
+              <Button variant="outline" className="h-9 rounded-xl border-slate-200 bg-white font-semibold shadow-sm">
+                <Pencil className="mr-2 h-3.5 w-3.5" />
+                Edit person
+              </Button>
+            </Link>
+          )}
         </div>
       </Topbar>
 

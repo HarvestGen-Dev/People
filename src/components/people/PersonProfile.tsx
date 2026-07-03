@@ -18,6 +18,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { formatRelative } from '@/lib/utils/time';
 import { BookOpen, Coffee, User, Users, Trash2, Clock, CalendarDays, Activity } from 'lucide-react';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
+import { useAdminPermissions } from '@/components/layout/AdminPermissions';
 
 interface PersonProfileProps {
   person: PersonWithRelations;
@@ -27,6 +29,7 @@ interface PersonProfileProps {
 }
 
 export function PersonProfile({ person, notes, events, workflowCards }: PersonProfileProps) {
+  const { canManage } = useAdminPermissions();
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -58,12 +61,15 @@ export function PersonProfile({ person, notes, events, workflowCards }: PersonPr
           category: noteCategory
         })
       });
-      if (res.ok) {
-        setIsAddingNote(false);
-        setNoteContent('');
-        setNoteCategory('general');
-        router.refresh();
-      }
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error || 'Unable to save note');
+      setIsAddingNote(false);
+      setNoteContent('');
+      setNoteCategory('general');
+      toast.success('Note added');
+      router.refresh();
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Unable to save note');
     } finally {
       setIsSubmittingNote(false);
     }
@@ -71,7 +77,13 @@ export function PersonProfile({ person, notes, events, workflowCards }: PersonPr
 
   const handleDeleteNote = async (noteId: string) => {
     if (!confirm('Are you sure you want to delete this note?')) return;
-    await fetch(`/api/admin/notes/${noteId}`, { method: 'DELETE' });
+    const response = await fetch(`/api/admin/notes/${noteId}`, { method: 'DELETE' });
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      toast.error(body?.error || 'Unable to delete note');
+      return;
+    }
+    toast.success('Note deleted');
     router.refresh();
   };
 
@@ -80,9 +92,14 @@ export function PersonProfile({ person, notes, events, workflowCards }: PersonPr
     setIsDeleting(true);
     try {
       const res = await fetch(`/api/admin/people/${person.id}`, { method: 'DELETE' });
-      if (res.ok) {
-        router.push('/people');
-      }
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error || 'Unable to delete person');
+      toast.success('Person deleted');
+      router.push('/people');
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error ? error.message : 'Unable to delete person'
+      );
     } finally {
       setIsDeleting(false);
     }
@@ -108,7 +125,9 @@ export function PersonProfile({ person, notes, events, workflowCards }: PersonPr
         <TabsTrigger value="overview" className="h-full rounded-xl px-5 font-semibold data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-800">Overview</TabsTrigger>
         <TabsTrigger value="notes" className="h-full rounded-xl px-5 font-semibold data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-800">Notes <span className="ml-1.5 text-xs text-slate-400">{notes.length}</span></TabsTrigger>
         <TabsTrigger value="activity" className="h-full rounded-xl px-5 font-semibold data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-800">Activity <span className="ml-1.5 text-xs text-slate-400">{events.length}</span></TabsTrigger>
-        <TabsTrigger value="admin" className="h-full rounded-xl px-5 font-semibold data-[state=active]:bg-red-50 data-[state=active]:text-red-700">Admin</TabsTrigger>
+        {canManage && (
+          <TabsTrigger value="admin" className="h-full rounded-xl px-5 font-semibold data-[state=active]:bg-red-50 data-[state=active]:text-red-700">Admin</TabsTrigger>
+        )}
       </TabsList>
 
       {/* OVERVIEW TAB */}
@@ -180,7 +199,9 @@ export function PersonProfile({ person, notes, events, workflowCards }: PersonPr
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg">Tags</CardTitle>
-                  <Button variant="link" onClick={() => router.push(`${pathname}/edit`)} className="h-auto p-0 text-emerald-700">Manage</Button>
+                  {canManage && (
+                    <Button variant="link" onClick={() => router.push(`${pathname}/edit`)} className="h-auto p-0 text-emerald-700">Manage</Button>
+                  )}
                 </div>
               </CardHeader>
               <CardContent>
@@ -221,7 +242,9 @@ export function PersonProfile({ person, notes, events, workflowCards }: PersonPr
                 ) : (
                   <div>
                     <span className="text-sm text-muted-foreground block mb-3">Not part of a household.</span>
-                    <Button variant="outline" size="sm" onClick={() => router.push(`${pathname}/edit`)} className="w-full rounded-xl shadow-sm">Add to household</Button>
+                    {canManage && (
+                      <Button variant="outline" size="sm" onClick={() => router.push(`${pathname}/edit`)} className="w-full rounded-xl shadow-sm">Add to household</Button>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -261,7 +284,7 @@ export function PersonProfile({ person, notes, events, workflowCards }: PersonPr
         <Card className="rounded-3xl border-slate-200/80 bg-white shadow-none">
           <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-4">
             <CardTitle>Pastoral & General Notes</CardTitle>
-            <Dialog open={isAddingNote} onOpenChange={setIsAddingNote}>
+            {canManage && <Dialog open={isAddingNote} onOpenChange={setIsAddingNote}>
               <DialogTrigger className="rounded-xl shadow-sm bg-primary hover:bg-primary/90 inline-flex items-center justify-center whitespace-nowrap text-sm font-medium h-9 px-4 py-2 text-primary-foreground">
                 Add note
               </DialogTrigger>
@@ -299,7 +322,7 @@ export function PersonProfile({ person, notes, events, workflowCards }: PersonPr
                   </Button>
                 </div>
               </DialogContent>
-            </Dialog>
+            </Dialog>}
           </CardHeader>
           <CardContent className="pt-6">
             {notes.length === 0 ? (
@@ -315,14 +338,17 @@ export function PersonProfile({ person, notes, events, workflowCards }: PersonPr
                           <Clock className="h-3 w-3" /> {formatRelative(note.created_at)}
                         </span>
                       </div>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-8 w-8 p-0 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive hover:bg-destructive/10 transition-all"
-                        onClick={() => handleDeleteNote(note.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {canManage && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label="Delete note"
+                          className="h-8 w-8 p-0 text-muted-foreground opacity-100 hover:text-destructive hover:bg-destructive/10 transition-all sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+                          onClick={() => handleDeleteNote(note.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                     <p className="text-foreground whitespace-pre-wrap text-sm leading-relaxed">{note.content}</p>
                     <div className="mt-3 pt-3 border-t border-border flex justify-between items-center text-xs text-muted-foreground">
@@ -386,7 +412,7 @@ export function PersonProfile({ person, notes, events, workflowCards }: PersonPr
       </TabsContent>
 
       {/* ADMIN TAB */}
-      <TabsContent value="admin" className="animate-in fade-in-50 duration-300">
+      {canManage && <TabsContent value="admin" className="animate-in fade-in-50 duration-300">
         <Card className="rounded-3xl border-red-200 bg-red-50/50 shadow-none">
           <CardHeader>
             <CardTitle className="text-red-700">Danger Zone</CardTitle>
@@ -420,7 +446,7 @@ export function PersonProfile({ person, notes, events, workflowCards }: PersonPr
             </div>
           </CardContent>
         </Card>
-      </TabsContent>
+      </TabsContent>}
     </Tabs>
   );
 }

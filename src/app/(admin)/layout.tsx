@@ -3,7 +3,15 @@ import { AdminShell } from '@/components/layout/AdminShell';
 import { requireTenantContext } from '@/lib/tenant-context';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  await requireTenantContext();
+  const tenant = await requireTenantContext();
 
-  return <AdminShell>{children}</AdminShell>;
+  return (
+    <AdminShell
+      userEmail={tenant.user.email || 'Signed-in account'}
+      role={tenant.role}
+      isPlatformAdmin={tenant.isPlatformAdmin}
+    >
+      {children}
+    </AdminShell>
+  );
 }

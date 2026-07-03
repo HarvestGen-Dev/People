@@ -27,22 +27,27 @@ export function SelfSignupForm() {
     }
 
     setIsLoading(true);
-    const result = await selfSignUpAction(email, password);
-    setIsLoading(false);
+    try {
+      const result = await selfSignUpAction(email, password);
 
-    if ('error' in result) {
-      setError(result.error);
-      return;
+      if ('error' in result) {
+        setError(result.error);
+        return;
+      }
+
+      if (result.redirectTo) {
+        window.location.href = result.redirectTo;
+        return;
+      }
+
+      setMessage(
+        'Check your email to verify your account. Your imported church profile will be linked after verification.'
+      );
+    } catch {
+      setError('Unable to create your account. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
-
-    if (result.redirectTo) {
-      window.location.href = result.redirectTo;
-      return;
-    }
-
-    setMessage(
-      'Check your email to verify your account. Your imported church profile will be linked after verification.'
-    );
   };
 
   return (

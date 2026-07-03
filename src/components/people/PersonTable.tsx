@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
+import { useAdminPermissions } from '@/components/layout/AdminPermissions';
 
 interface PersonTableProps {
   people: PersonWithRelations[];
@@ -72,6 +73,7 @@ function PersonTags({ person }: { person: PersonWithRelations }) {
 
 export function PersonTable({ people }: PersonTableProps) {
   const router = useRouter();
+  const { canManage } = useAdminPermissions();
 
   if (people.length === 0) {
     return (
@@ -84,11 +86,13 @@ export function PersonTable({ people }: PersonTableProps) {
           Adjust the current filters or add a new member or visitor to the
           directory.
         </p>
-        <Link href="/people/new" className="mt-6">
-          <Button className="h-10 rounded-xl bg-emerald-700 px-5 font-bold hover:bg-emerald-800">
-            Add person
-          </Button>
-        </Link>
+        {canManage && (
+          <Link href="/people/new" className="mt-6">
+            <Button className="h-10 rounded-xl bg-emerald-700 px-5 font-bold hover:bg-emerald-800">
+              Add person
+            </Button>
+          </Link>
+        )}
       </div>
     );
   }
@@ -228,13 +232,15 @@ export function PersonTable({ people }: PersonTableProps) {
                         >
                           View profile
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() =>
-                            router.push(`/people/${person.id}/edit`)
-                          }
-                        >
-                          Edit details
-                        </DropdownMenuItem>
+                        {canManage && (
+                          <DropdownMenuItem
+                            onClick={() =>
+                              router.push(`/people/${person.id}/edit`)
+                            }
+                          >
+                            Edit details
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </td>

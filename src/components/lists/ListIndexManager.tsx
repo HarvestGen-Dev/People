@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { ListWithCount, SmartListFilters } from '@/lib/types';
+import { useAdminPermissions } from '@/components/layout/AdminPermissions';
 
 type ListRow = ListWithCount & { filters: SmartListFilters | null };
 
@@ -38,6 +39,7 @@ export function ListIndexManager({
   initialLists: ListRow[];
 }) {
   const router = useRouter();
+  const { canManage } = useAdminPermissions();
   const [lists, setLists] = useState(initialLists);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -114,19 +116,27 @@ export function ListIndexManager({
         </div>
 
         {data.length === 0 ? (
-          <button
-            type="button"
-            onClick={openCreate}
-            className="flex w-full flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-white/60 px-6 py-12 text-center transition-colors hover:border-emerald-300 hover:bg-white"
-          >
+          <div className="flex w-full flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-white/60 px-6 py-12 text-center">
             <Icon className="h-7 w-7 text-slate-300" />
             <span className="mt-3 text-sm font-bold text-slate-700">
               No {type} lists yet
             </span>
             <span className="mt-1 text-xs text-slate-400">
-              Create one to organize your people.
+              {canManage
+                ? 'Create one to organize your people.'
+                : 'No lists are available yet.'}
             </span>
-          </button>
+            {canManage && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={openCreate}
+                className="mt-5 rounded-xl"
+              >
+                Create {type} list
+              </Button>
+            )}
+          </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {data.map((list) => {
@@ -146,7 +156,7 @@ export function ListIndexManager({
                     >
                       <Icon className="h-5 w-5" />
                     </div>
-                    <DropdownMenu>
+                    {canManage && <DropdownMenu>
                       <DropdownMenuTrigger
                         aria-label={`Actions for ${list.name}`}
                         className="grid h-9 w-9 place-items-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-800"
@@ -166,7 +176,7 @@ export function ListIndexManager({
                           Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
-                    </DropdownMenu>
+                    </DropdownMenu>}
                   </div>
 
                   <button
@@ -217,13 +227,15 @@ export function ListIndexManager({
             people for a ministry need.
           </p>
         </div>
-        <Button
-          onClick={openCreate}
-          className="h-11 rounded-xl bg-emerald-700 px-5 font-bold hover:bg-emerald-800"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          New list
-        </Button>
+        {canManage && (
+          <Button
+            onClick={openCreate}
+            className="h-11 rounded-xl bg-emerald-700 px-5 font-bold hover:bg-emerald-800"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            New list
+          </Button>
+        )}
       </header>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -257,7 +269,7 @@ export function ListIndexManager({
       {renderListGroup(smartLists, 'smart')}
       {renderListGroup(staticLists, 'static')}
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      {canManage && <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="rounded-3xl sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold tracking-tight">
@@ -340,7 +352,7 @@ export function ListIndexManager({
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </Dialog>}
     </div>
   );
 }

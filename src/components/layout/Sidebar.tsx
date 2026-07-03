@@ -1,7 +1,7 @@
 'use client';
 
 // <!-- AGENT: FRONTEND -->
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
@@ -26,6 +26,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import type { TenantRole } from '@/lib/tenant-context';
 
 const primaryNav = [
   { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
@@ -43,15 +44,19 @@ const administrationNav = [
 interface SidebarProps {
   mobileOpen?: boolean;
   onMobileClose?: () => void;
+  userEmail: string;
+  role: TenantRole;
+  isPlatformAdmin: boolean;
 }
 
 export function Sidebar({
   mobileOpen = false,
   onMobileClose,
+  userEmail,
+  role,
+  isPlatformAdmin,
 }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -63,26 +68,6 @@ export function Sidebar({
       ),
     []
   );
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user?.email) {
-        setUserEmail(user.email);
-        const { data: platformAccess } = await supabase
-          .from('platform_admins')
-          .select('user_id')
-          .eq('user_id', user.id)
-          .maybeSingle();
-        setIsPlatformAdmin(!!platformAccess);
-      } else {
-        router.push('/login');
-      }
-    };
-    fetchUser();
-  }, [supabase, router]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -206,7 +191,9 @@ export function Sidebar({
             ...(isPlatformAdmin
               ? [{ label: 'Platform', href: '/platform', icon: Network }]
               : []),
-            ...administrationNav,
+            ...(role === 'member' && !isPlatformAdmin
+              ? []
+              : administrationNav),
           ].map(renderNavItem)}
           </div>
         </nav>

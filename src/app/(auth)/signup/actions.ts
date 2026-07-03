@@ -1,5 +1,6 @@
 'use server'
 
+import { headers } from 'next/headers'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import {
   getValidInvitation,
@@ -10,9 +11,85 @@ import { resolveAuthenticatedHome } from '@/lib/platform-auth'
 type SignUpResult =
   | { success: true; redirectTo?: string }
   | { error: string }
+type InvitedProfileInput = {
+  firstName: string
+  lastName: string
+  phone?: string
+  gender?: 'male' | 'female' | 'other' | 'prefer_not_to_say'
+  birthdate?: string
+}
 type SelfSignUpResult =
   | { success: true; requiresVerification: boolean; redirectTo?: string }
   | { error: string }
+
+async function getAppUrl(): Promise<string> {
+  const configuredUrl = process.env.NEXT_PUBLIC_APP_URL?.trim()
+  if (configuredUrl) return configuredUrl.replace(/\/$/, '')
+
+  const requestHeaders = await headers()
+  const host = (
+    requestHeaders.get('x-forwarded-host') ??
+    requestHeaders.get('host')
+  )?.split(',')[0]?.trim()
+
+  if (!host) return 'http://localhost:3000'
+
+  const forwardedProtocol = requestHeaders
+    .get('x-forwarded-proto')
+    ?.split(',')[0]
+    ?.trim()
+  const protocol =
+    forwardedProtocol ?? (host.startsWith('localhost') ? 'http' : 'https')
+
+  return `${protocol}://${host}`
+}
+
+function validateInvitedProfile(
+  profile: InvitedProfileInput
+): string | null {
+  if (!profile.firstName.trim() || !profile.lastName.trim()) {
+    return 'First name and last name are required'
+  }
+  if (
+    profile.firstName.trim().length > 100 ||
+    profile.lastName.trim().length > 100
+  ) {
+    return 'First name and last name must be 100 characters or fewer'
+  }
+  if (profile.phone && profile.phone.trim().length > 50) {
+    return 'Phone number must be 50 characters or fewer'
+  }
+  if (profile.birthdate) {
+    const birthdate = new Date(`${profile.birthdate}T00:00:00Z`)
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(profile.birthdate) ||
+      Number.isNaN(birthdate.getTime()) ||
+      birthdate > new Date()
+    ) {
+      return 'Enter a valid birthdate'
+    }
+  }
+  return null
+}
+
+async function createInvitedPersonProfile(
+  invitationToken: string,
+  userId: string,
+  profile: InvitedProfileInput
+): Promise<string | null> {
+  const serviceClient = createServiceClient()
+  const { error } = await serviceClient.rpc('create_invited_person_profile', {
+    p_token_hash: hashInvitationToken(invitationToken),
+    p_user_id: userId,
+    p_first_name: profile.firstName.trim(),
+    p_last_name: profile.lastName.trim(),
+    p_phone: profile.phone?.trim() || null,
+    p_gender: profile.gender || null,
+    p_birthdate: profile.birthdate || null,
+  })
+
+  return error?.message ?? null
+}
 
 // <!-- AGENT: BACKEND -->
 export async function selfSignUpAction(
@@ -28,7 +105,7 @@ export async function selfSignUpAction(
   }
 
   const supabase = await createClient()
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const appUrl = await getAppUrl()
   const { data, error } = await supabase.auth.signUp({
     email: normalizedEmail,
     password,
@@ -54,10 +131,15 @@ export async function selfSignUpAction(
 // <!-- AGENT: BACKEND -->
 export async function signUpAction(
   invitationToken: string,
-  password: string
+  password: string,
+  profile: InvitedProfileInput
 ): Promise<SignUpResult> {
   if (password.length < 8) {
     return { error: 'Password must be at least 8 characters' }
+  }
+  const profileError = validateInvitedProfile(profile)
+  if (profileError) {
+    return { error: profileError }
   }
 
   const invitation = await getValidInvitation(invitationToken)
@@ -85,13 +167,22 @@ export async function signUpAction(
       return { error: 'Invitation could not be accepted. Please request a new invitation.' }
     }
 
+    const personError = await createInvitedPersonProfile(
+      invitationToken,
+      existingSignIn.data.user.id,
+      profile
+    )
+    if (personError) {
+      return { error: `Your profile could not be created: ${personError}` }
+    }
+
     return {
       success: true,
       redirectTo: await resolveAuthenticatedHome(existingSignIn.data.user.id),
     }
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const appUrl = await getAppUrl()
   const { data, error } = await sessionClient.auth.signUp({
     email: invitation.email,
     password,
@@ -111,6 +202,15 @@ export async function signUpAction(
           ? 'An account already exists for this email. Enter its current password to accept the invitation.'
           : error?.message ?? 'Unable to create account',
     }
+  }
+
+  const personError = await createInvitedPersonProfile(
+    invitationToken,
+    data.user.id,
+    profile
+  )
+  if (personError) {
+    return { error: `Your profile could not be created: ${personError}` }
   }
 
   if (data.session) {

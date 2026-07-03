@@ -320,7 +320,7 @@ export function PersonForm({ person, tags, fieldDefinitions, households }: Perso
                   {householdName ? `New: ${householdName}` : selectedHouseholdId ? households.find(h => h.id === selectedHouseholdId)?.name : 'Select household...'}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </PopoverTrigger>
-                <PopoverContent className="w-[300px] p-0" align="start">
+                <PopoverContent className="w-[min(300px,calc(100vw-2rem))] p-0" align="start">
                   <Command>
                     <CommandInput placeholder="Search households..." />
                     <CommandList>
@@ -360,7 +360,7 @@ export function PersonForm({ person, tags, fieldDefinitions, households }: Perso
                 <PopoverTrigger className="inline-flex items-center whitespace-nowrap text-sm font-medium h-9 px-4 py-2 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground w-full justify-between rounded-xl">
                   Select tags... <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </PopoverTrigger>
-                <PopoverContent className="w-[300px] p-0" align="start">
+                <PopoverContent className="w-[min(300px,calc(100vw-2rem))] p-0" align="start">
                   <Command>
                     <CommandInput placeholder="Search tags..." />
                     <CommandList>

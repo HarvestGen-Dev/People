@@ -28,7 +28,9 @@ const statusStyles: Record<string, string> = {
 };
 
 export default async function EventsPage() {
-  const { churchId } = await requireTenantContext();
+  const { churchId, role, isPlatformAdmin } = await requireTenantContext();
+  const canManage =
+    isPlatformAdmin || role === 'owner' || role === 'admin';
   const supabase = createServiceClient();
 
   const { data: eventsData } = await supabase
@@ -104,12 +106,14 @@ export default async function EventsPage() {
             attendee with a clear process.
           </p>
         </div>
-        <Link href="/events/new">
-          <Button className="h-11 rounded-xl bg-emerald-700 px-5 font-bold hover:bg-emerald-800">
-            <Plus className="mr-2 h-4 w-4" />
-            New event
-          </Button>
-        </Link>
+        {canManage && (
+          <Link href="/events/new">
+            <Button className="h-11 rounded-xl bg-emerald-700 px-5 font-bold hover:bg-emerald-800">
+              <Plus className="mr-2 h-4 w-4" />
+              New event
+            </Button>
+          </Link>
+        )}
       </header>
 
       <section className="grid gap-4 sm:grid-cols-3">
@@ -152,11 +156,13 @@ export default async function EventsPage() {
             Launch a registration page for a camp, course, conference, or
             ministry gathering.
           </p>
-          <Link href="/events/new">
-            <Button className="mt-6 rounded-xl bg-emerald-700 font-bold hover:bg-emerald-800">
-              Create event
-            </Button>
-          </Link>
+          {canManage && (
+            <Link href="/events/new">
+              <Button className="mt-6 rounded-xl bg-emerald-700 font-bold hover:bg-emerald-800">
+                Create event
+              </Button>
+            </Link>
+          )}
         </div>
       ) : (
         <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -168,7 +174,7 @@ export default async function EventsPage() {
                 className="group overflow-hidden rounded-3xl border border-slate-200/80 bg-white transition-all hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-[0_24px_55px_-40px_rgba(6,78,59,0.5)]"
               >
                 <Link
-                  href={`/events/${event.id}/edit`}
+                  href={canManage ? `/events/${event.id}/edit` : publicLink}
                   className="relative block aspect-[16/8.5] overflow-hidden bg-emerald-950"
                 >
                   {event.cover_image_url ? (
@@ -199,7 +205,7 @@ export default async function EventsPage() {
                 </Link>
 
                 <div className="p-5">
-                  <Link href={`/events/${event.id}/edit`}>
+                  <Link href={canManage ? `/events/${event.id}/edit` : publicLink}>
                     <h2 className="truncate text-xl font-bold tracking-tight text-slate-950 group-hover:text-emerald-700">
                       {event.name}
                     </h2>
@@ -251,7 +257,7 @@ export default async function EventsPage() {
                           />
                         </>
                       )}
-                      <Link href={`/events/${event.id}/registrations`}>
+                      {canManage && <Link href={`/events/${event.id}/registrations`}>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -259,7 +265,7 @@ export default async function EventsPage() {
                         >
                           Manage registrations
                         </Button>
-                      </Link>
+                      </Link>}
                     </div>
                     <ArrowRight className="h-4 w-4 text-slate-300" />
                   </div>

@@ -26,8 +26,8 @@ export function Pagination({ total, pageSize }: PaginationProps) {
   };
 
   return (
-    <div className="flex items-center justify-between px-2 py-4">
-      <div className="text-sm text-muted-foreground font-medium">
+    <div className="flex flex-wrap items-center justify-between gap-3 px-1 py-4 sm:px-2">
+      <div className="text-xs text-muted-foreground font-medium sm:text-sm">
         Page {currentPage} of {totalPages}
       </div>
       <div className="flex items-center gap-2">
@@ -38,8 +38,8 @@ export function Pagination({ total, pageSize }: PaginationProps) {
           disabled={currentPage <= 1}
           className="rounded-lg shadow-sm font-medium"
         >
-          <ChevronLeft className="h-4 w-4 mr-1" />
-          Previous
+          <ChevronLeft className="h-4 w-4 sm:mr-1" />
+          <span className="hidden sm:inline">Previous</span>
         </Button>
         <Button
           variant="outline"
@@ -48,8 +48,8 @@ export function Pagination({ total, pageSize }: PaginationProps) {
           disabled={currentPage >= totalPages}
           className="rounded-lg shadow-sm font-medium"
         >
-          Next
-          <ChevronRight className="h-4 w-4 ml-1" />
+          <span className="hidden sm:inline">Next</span>
+          <ChevronRight className="h-4 w-4 sm:ml-1" />
         </Button>
       </div>
     </div>

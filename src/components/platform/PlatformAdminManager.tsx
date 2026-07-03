@@ -48,31 +48,37 @@ export function PlatformAdminManager({
 
   const createChurch = async () => {
     setSaving(true);
-    const response = await fetch('/api/platform/churches', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, slug }),
-    });
-    const body = await response.json();
-    setSaving(false);
-    if (!response.ok) {
-      toast.error(body.error || 'Unable to create church');
-      return;
+    try {
+      const response = await fetch('/api/platform/churches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), slug: slug.trim() }),
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error(body.error || 'Unable to create church');
+      }
+      setChurches((current) => [
+        ...current,
+        {
+          id: body.data.id,
+          name: body.data.name,
+          slug: body.data.slug,
+          createdAt: body.data.created_at,
+          ownerCount: 0,
+        },
+      ].sort((a, b) => a.name.localeCompare(b.name)));
+      setCreateOpen(false);
+      setName('');
+      setSlug('');
+      toast.success('Church created');
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error ? error.message : 'Unable to create church'
+      );
+    } finally {
+      setSaving(false);
     }
-    setChurches((current) => [
-      ...current,
-      {
-        id: body.data.id,
-        name: body.data.name,
-        slug: body.data.slug,
-        createdAt: body.data.created_at,
-        ownerCount: 0,
-      },
-    ].sort((a, b) => a.name.localeCompare(b.name)));
-    setCreateOpen(false);
-    setName('');
-    setSlug('');
-    toast.success('Church created');
   };
 
   const inviteOwner = async () => {
@@ -190,46 +196,70 @@ export function PlatformAdminManager({
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="rounded-3xl sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold">Create church</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-3">
-            <Input
-              value={name}
-              onChange={(event) => {
-                setName(event.target.value);
-                if (!slug) {
-                  setSlug(
-                    event.target.value
-                      .toLowerCase()
-                      .replace(/[^a-z0-9]+/g, '-')
-                      .replace(/^-|-$/g, '')
-                  );
-                }
-              }}
-              placeholder="Church name"
-              className="h-11 rounded-xl"
-            />
-            <Input
-              value={slug}
-              onChange={(event) => setSlug(event.target.value.toLowerCase())}
-              placeholder="church-slug"
-              className="h-11 rounded-xl"
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setCreateOpen(false)} className="rounded-xl">
-              Cancel
-            </Button>
-            <Button
-              onClick={createChurch}
-              disabled={saving || !name || !slug}
-              className="rounded-xl bg-emerald-700"
-            >
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create
-            </Button>
-          </DialogFooter>
+          <form
+            className="contents"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void createChurch();
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold">Create church</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-3">
+              <div>
+                <label htmlFor="church-name" className="mb-2 block text-sm font-semibold text-slate-700">
+                  Church name
+                </label>
+                <Input
+                  id="church-name"
+                  value={name}
+                  onChange={(event) => {
+                    setName(event.target.value);
+                    if (!slug) {
+                      setSlug(
+                        event.target.value
+                          .toLowerCase()
+                          .replace(/[^a-z0-9]+/g, '-')
+                          .replace(/^-|-$/g, '')
+                      );
+                    }
+                  }}
+                  placeholder="Harvest Generation Church"
+                  className="h-11 rounded-xl"
+                  autoFocus
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="church-slug" className="mb-2 block text-sm font-semibold text-slate-700">
+                  URL slug
+                </label>
+                <Input
+                  id="church-slug"
+                  value={slug}
+                  onChange={(event) => setSlug(event.target.value.toLowerCase())}
+                  placeholder="harvest-generation"
+                  className="h-11 rounded-xl"
+                  pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                  required
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setCreateOpen(false)} disabled={saving} className="rounded-xl">
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={saving || !name.trim() || !slug.trim()}
+                className="rounded-xl bg-emerald-700"
+              >
+                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Create
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
@@ -237,6 +267,7 @@ export function PlatformAdminManager({
         <Dialog open onOpenChange={(open) => !open && closeOwnerDialog()}>
           <DialogContent className="rounded-3xl sm:max-w-lg">
             <form
+              className="contents"
               onSubmit={(event) => {
                 event.preventDefault();
                 void inviteOwner();

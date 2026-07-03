@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
   Dialog,
@@ -47,6 +48,7 @@ import type {
   WorkflowCard,
   WorkflowStep,
 } from '@/lib/types';
+import { useAdminPermissions } from '@/components/layout/AdminPermissions';
 
 type WorkflowCardUpdate = Partial<
   Pick<WorkflowCard, 'current_step_id' | 'assigned_to' | 'due_date' | 'notes'>
@@ -83,6 +85,7 @@ export function KanbanBoard({
   users,
 }: KanbanBoardProps) {
   const router = useRouter();
+  const { canManage } = useAdminPermissions();
   const [activeCard, setActiveCard] = useState<WorkflowBoardCard | null>(null);
   const [cardDraft, setCardDraft] = useState<CardDraft>(emptyDraft);
   const [isSavingCard, setIsSavingCard] = useState(false);
@@ -313,7 +316,7 @@ export function KanbanBoard({
               {columnCards.length}
             </span>
           </div>
-          {!isDone && (
+          {!isDone && canManage && (
             <DropdownMenu>
               <DropdownMenuTrigger
                 aria-label={`Actions for ${step.name}`}
@@ -356,7 +359,7 @@ export function KanbanBoard({
           ))}
         </div>
 
-        {!isDone && (
+        {!isDone && canManage && (
           <Button
             variant="ghost"
             className="mt-1 h-10 w-full justify-start rounded-xl text-slate-500 hover:bg-white hover:text-emerald-700"
@@ -390,17 +393,23 @@ export function KanbanBoard({
             {completedCount} done
           </div>
         </div>
-        <Button
-          variant="outline"
-          onClick={() => {
-            setInsertAfterId(steps.at(-1)?.id || null);
-            setIsAddStepOpen(true);
-          }}
-          className="h-9 rounded-xl border-slate-200 bg-white font-semibold"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Add step
-        </Button>
+        {canManage ? (
+          <Button
+            variant="outline"
+            onClick={() => {
+              setInsertAfterId(steps.at(-1)?.id || null);
+              setIsAddStepOpen(true);
+            }}
+            className="h-9 rounded-xl border-slate-200 bg-white font-semibold"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add step
+          </Button>
+        ) : (
+          <Badge variant="outline" className="w-fit bg-slate-50 text-slate-500">
+            Read only
+          </Badge>
+        )}
       </div>
 
       <div className="flex-1 overflow-x-auto p-4 sm:p-6 lg:p-8">
@@ -478,6 +487,7 @@ export function KanbanBoard({
                     Current step
                   </label>
                   <Select
+                    disabled={!canManage}
                     value={cardDraft.current_step_id}
                     onValueChange={(value) =>
                       setCardDraft({
@@ -505,6 +515,7 @@ export function KanbanBoard({
                   Assigned to
                 </label>
                 <Select
+                  disabled={!canManage}
                   value={cardDraft.assigned_to}
                   onValueChange={(value) =>
                     setCardDraft({
@@ -532,6 +543,7 @@ export function KanbanBoard({
                   Due date
                 </label>
                 <Input
+                  disabled={!canManage}
                   type="date"
                   value={cardDraft.due_date}
                   onChange={(event) =>
@@ -549,6 +561,7 @@ export function KanbanBoard({
                   Follow-up notes
                 </label>
                 <Textarea
+                  disabled={!canManage}
                   value={cardDraft.notes}
                   onChange={(event) =>
                     setCardDraft({ ...cardDraft, notes: event.target.value })
@@ -559,7 +572,7 @@ export function KanbanBoard({
               </div>
             </div>
 
-            <footer className="space-y-3 border-t border-slate-200 bg-slate-50 p-5 sm:p-6">
+            {canManage && <footer className="space-y-3 border-t border-slate-200 bg-slate-50 p-5 sm:p-6">
               <Button
                 onClick={handleUpdateCard}
                 disabled={isSavingCard}
@@ -590,12 +603,12 @@ export function KanbanBoard({
                 <Trash2 className="mr-2 h-4 w-4" />
                 Remove from workflow
               </Button>
-            </footer>
+            </footer>}
           </aside>
         </div>
       )}
 
-      <Dialog open={isAddStepOpen} onOpenChange={setIsAddStepOpen}>
+      {canManage && <Dialog open={isAddStepOpen} onOpenChange={setIsAddStepOpen}>
         <DialogContent className="rounded-3xl sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">Add workflow step</DialogTitle>
@@ -629,9 +642,9 @@ export function KanbanBoard({
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </Dialog>}
 
-      <Dialog open={isAddCardOpen} onOpenChange={setIsAddCardOpen}>
+      {canManage && <Dialog open={isAddCardOpen} onOpenChange={setIsAddCardOpen}>
         <DialogContent className="rounded-3xl sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">
@@ -766,7 +779,7 @@ export function KanbanBoard({
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </Dialog>}
     </div>
   );
 }
