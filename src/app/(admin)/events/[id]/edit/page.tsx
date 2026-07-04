@@ -7,6 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/compon
 import { ArrowLeft, ExternalLink, MoreHorizontal } from 'lucide-react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
 import { Event } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { requireTenantContext } from '@/lib/tenant-context';
@@ -43,6 +44,13 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
     .eq('event_id', id)
     .eq('church_id', churchId);
 
+  const { data: workflows } = await supabase
+    .from('workflows')
+    .select('id, name')
+    .eq('church_id', churchId)
+    .eq('is_active', true)
+    .order('name');
+
   const hasRegistrations = (count || 0) > 0;
   
   const getStatusColor = (status: string) => {
@@ -53,7 +61,10 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
     }
   };
 
-  const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://people.harvestgen.org';
+  const reqHeaders = await headers();
+  const host = reqHeaders.get('x-forwarded-host') || reqHeaders.get('host');
+  const proto = reqHeaders.get('x-forwarded-proto') || (process.env.NODE_ENV === 'development' ? 'http' : 'https');
+  const APP_URL = host ? `${proto}://${host}` : (process.env.NEXT_PUBLIC_APP_URL || 'https://people.harvestgen.org');
 
   return (
     <>
@@ -96,7 +107,7 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
       </Topbar>
 
       <div className="mx-auto max-w-6xl p-5 animate-in fade-in-50 duration-300 sm:p-8 lg:p-10">
-        <EventForm event={event as Event} />
+        <EventForm event={event as Event} workflows={workflows || undefined} />
       </div>
     </>
   );

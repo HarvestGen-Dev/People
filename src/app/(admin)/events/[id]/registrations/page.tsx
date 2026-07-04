@@ -7,15 +7,24 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { RegistrationsTable } from '@/components/events/RegistrationsTable';
 import { requireTenantContext } from '@/lib/tenant-context';
+import { getRegistrations } from '@/lib/queries/registrations';
+import { Pagination } from '@/components/ui/pagination';
 
 export const metadata = {
   title: 'Registrations | HarvestGen',
 };
 
-export default async function EventRegistrationsPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EventRegistrationsPage({ 
+  params,
+  searchParams,
+}: { 
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const { churchId } = await requireTenantContext({ requireManager: true });
   const supabase = createServiceClient();
   const { id } = await params;
+  const resolvedSearchParams = await searchParams;
 
   const { data: event, error: eventError } = await supabase
     .from('events')
@@ -28,43 +37,17 @@ export default async function EventRegistrationsPage({ params }: { params: Promi
     notFound();
   }
 
-  const { data: registrations } = await supabase
-    .from('event_registrations')
-    .select('*')
-    .eq('event_id', id)
-    .eq('church_id', churchId)
-    .order('created_at', { ascending: false });
+  const page = typeof resolvedSearchParams.page === 'string' ? parseInt(resolvedSearchParams.page, 10) : 1;
+  const status = typeof resolvedSearchParams.status === 'string' ? resolvedSearchParams.status : 'all';
+  const pageSize = 50;
 
-  const registrationsWithProofUrls = await Promise.all(
-    (registrations || []).map(async (registration) => {
-      const storedProof = registration.payment_proof_url;
-      if (!storedProof) {
-        return registration;
-      }
-
-      const legacyPublicMarker =
-        '/storage/v1/object/public/payment-proofs/';
-      const markerIndex = storedProof.indexOf(legacyPublicMarker);
-      const proofPath = markerIndex >= 0
-        ? decodeURIComponent(
-            storedProof.slice(markerIndex + legacyPublicMarker.length)
-          )
-        : storedProof;
-
-      if (/^https?:\/\//.test(proofPath)) {
-        return registration;
-      }
-
-      const { data } = await supabase.storage
-        .from('payment-proofs')
-        .createSignedUrl(proofPath, 60 * 60);
-
-      return {
-        ...registration,
-        payment_proof_url: data?.signedUrl || null,
-      };
-    })
-  );
+  const { registrations, total, statusCounts } = await getRegistrations({
+    church_id: churchId,
+    event_id: id,
+    page,
+    pageSize,
+    status,
+  });
 
   return (
     <>
@@ -76,11 +59,17 @@ export default async function EventRegistrationsPage({ params }: { params: Promi
         </Link>
       </Topbar>
 
-      <div className="mx-auto max-w-[1440px] p-5 animate-in fade-in-50 duration-300 sm:p-8 lg:p-10">
+      <div className="mx-auto max-w-[1440px] p-5 animate-in fade-in-50 duration-300 sm:p-8 lg:p-10 space-y-6">
         <RegistrationsTable 
-          registrations={registrationsWithProofUrls}
+          registrations={registrations}
           isFreeEvent={event.price === 0}
+          serverStatusCounts={statusCounts}
+          currentFilter={status}
         />
+
+        {total > pageSize && (
+          <Pagination total={total} pageSize={pageSize} />
+        )}
       </div>
     </>
   );

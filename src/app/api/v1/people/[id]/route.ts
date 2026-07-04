@@ -3,6 +3,7 @@ import { validateApiKey } from '@/lib/api-auth';
 import { createServiceClient } from '@/lib/supabase/server';
 import { adminApiError } from '@/lib/tenant-context';
 import { assertTenantRecords } from '@/lib/tenant-references';
+import { triggerWorkflowsForTags } from '@/lib/workflows/trigger-tags';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await validateApiKey(request, 'people:read');
@@ -145,6 +146,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           tag_id: tagId,
         }));
         await supabase.from('person_tags').insert(tagInserts);
+
+        // Trigger workflow automations async
+        triggerWorkflowsForTags(churchId, id, body.tag_ids).catch((err) => {
+          console.error('Failed to trigger tag workflows:', err);
+        });
       }
     }
 

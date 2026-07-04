@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateApiKey } from '@/lib/api-auth';
+import { triggerWorkflowsForTags } from '@/lib/workflows/trigger-tags';
 import { createServiceClient } from '@/lib/supabase/server';
 import { adminApiError } from '@/lib/tenant-context';
 import { assertTenantRecords } from '@/lib/tenant-references';
@@ -152,7 +153,13 @@ export async function POST(request: NextRequest) {
         person_id: person.id,
         tag_id: tagId,
       }));
-      await supabase.from('person_tags').insert(tagInserts);
+      const { error: tagsError } = await supabase.from('person_tags').insert(tagInserts);
+      if (tagsError) throw tagsError;
+
+      // Trigger workflow automations async
+      triggerWorkflowsForTags(churchId, person.id, tagIds).catch((err) => {
+        console.error('Failed to trigger tag workflows:', err);
+      });
     }
 
     // Fire webhook asynchronously

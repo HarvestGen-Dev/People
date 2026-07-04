@@ -34,7 +34,10 @@ export async function createChurchInvitation(input: {
 
   if (existingInvitationError) throw existingInvitationError;
   if (existingInvitation) {
-    throw new Error('A valid pending invitation already exists for this email');
+    const err = new Error('A valid pending invitation already exists for this email') as Error & { code?: string; existingId?: string };
+    err.code = 'ALREADY_INVITED';
+    err.existingId = existingInvitation.id;
+    throw err;
   }
 
   const rawToken = randomBytes(32).toString('base64url');

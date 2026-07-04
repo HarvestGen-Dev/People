@@ -55,6 +55,7 @@ export interface Tag {
   id: string;
   name: string;
   color: string;
+  target_workflow_id: string | null;
   created_at: string;
 }
 
@@ -116,6 +117,20 @@ export interface PersonEvent {
   created_at: string;
 }
 
+export interface ConnectForm {
+  id: string;
+  church_id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  target_workflow_id: string | null;
+  target_tag_id: string | null;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Workflow {
   id: string;
   name: string;
@@ -129,6 +144,7 @@ export interface WorkflowStep {
   workflow_id: string;
   name: string;
   position: number;
+  default_days_to_complete: number | null;
   created_at: string;
 }
 
@@ -141,6 +157,17 @@ export interface WorkflowCard {
   notes: string | null;
   due_date: string | null;
   completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkflowPulseConfig {
+  id: string;
+  church_id: string;
+  workflow_id: string;
+  days_inactive: number;
+  target_person_status: string;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -162,7 +189,7 @@ export interface WorkflowBoardCard extends WorkflowCard {
 
 export interface WorkflowAdminUser {
   user_id: string;
-  role: 'owner' | 'admin' | 'member';
+  role: 'owner' | 'admin' | 'workflow_manager' | 'member';
 }
 
 export interface WorkflowSummary extends Workflow {
@@ -258,6 +285,7 @@ export interface Event {
   payment_link: string | null;
   payment_instructions: string | null;
   status: EventStatus;
+  target_workflow_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

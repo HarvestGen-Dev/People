@@ -36,6 +36,7 @@ export async function POST(request: Request) {
         church_id: churchId,
         name: body.name,
         color: body.color,
+        target_workflow_id: body.target_workflow_id || null,
       })
       .select()
       .single();

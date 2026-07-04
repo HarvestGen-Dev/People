@@ -8,7 +8,7 @@ import {
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { churchId } = await requireTenantContext({ requireManager: true });
+    const { churchId } = await requireTenantContext({ requireWorkflowManager: true });
     const supabase = createServiceClient();
 
     const { id } = await params;
