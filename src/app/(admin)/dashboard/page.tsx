@@ -239,7 +239,7 @@ export default async function DashboardPage() {
             <div className="px-6 py-12 text-center border-b border-slate-100">
               <CheckCircle2 className="mx-auto h-8 w-8 text-slate-300" />
               <p className="mt-3 text-sm font-semibold text-slate-700">
-                You're all caught up!
+                You&apos;re all caught up!
               </p>
               <p className="mt-1 text-xs text-slate-400">
                 There are no overdue workflow follow-ups.

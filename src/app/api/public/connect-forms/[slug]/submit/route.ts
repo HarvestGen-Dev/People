@@ -98,7 +98,7 @@ export async function POST(
     import('@/lib/webhooks').then(m => m.dispatchWebhook(churchId, 'person.created', { id: personId }));
 
     return NextResponse.json({ success: true, person_id: personId });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Connect form error:', error);
     return NextResponse.json(
       { error: 'An error occurred submitting the form' },

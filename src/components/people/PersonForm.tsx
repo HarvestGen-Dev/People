@@ -38,7 +38,6 @@ export function PersonForm({ person, tags, fieldDefinitions, households }: Perso
     setHouseholdSearchOpen,
     photoUrl,
     setPhotoUrl,
-    photoFile,
     setPhotoFile,
     handlePhotoSelect,
     onSubmit,

@@ -24,12 +24,8 @@ export function EventForm({ event, workflows }: EventFormProps) {
     isSubmitting,
     coverUrl,
     setCoverUrl,
-    coverFile,
     setCoverFile,
     qrUrl,
-    setQrUrl,
-    qrFile,
-    setQrFile,
     handleFileSelect,
     onSubmit,
   } = useEventForm(event);

@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { PersonWithRelations, Tag, FieldDefinition } from '@/lib/types';
+import { PersonWithRelations, FieldDefinition } from '@/lib/types';
 
 export const personSchema = z.object({
   first_name: z.string().min(1, 'First name is required'),
