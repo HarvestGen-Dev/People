@@ -17,25 +17,26 @@ type TagData = {
   id: string;
   name: string;
   color: string;
+  target_workflow_id: string | null;
   people_count: number;
 };
 
-export function TagsManager({ initialTags }: { initialTags: TagData[] }) {
+export function TagsManager({ initialTags, workflows }: { initialTags: TagData[]; workflows: { id: string; name: string }[] }) {
   const [tags, setTags] = useState<TagData[]>(initialTags);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null); // null = create mode
   
-  const [formData, setFormData] = useState({ name: '', color: PRESET_COLORS[0] });
+  const [formData, setFormData] = useState({ name: '', color: PRESET_COLORS[0], target_workflow_id: 'none' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const openCreate = () => {
-    setFormData({ name: '', color: PRESET_COLORS[0] });
+    setFormData({ name: '', color: PRESET_COLORS[0], target_workflow_id: 'none' });
     setEditingId(null);
     setIsDialogOpen(true);
   };
 
   const openEdit = (tag: TagData) => {
-    setFormData({ name: tag.name, color: tag.color });
+    setFormData({ name: tag.name, color: tag.color, target_workflow_id: tag.target_workflow_id || 'none' });
     setEditingId(tag.id);
     setIsDialogOpen(true);
   };
@@ -49,10 +50,15 @@ export function TagsManager({ initialTags }: { initialTags: TagData[] }) {
       const url = editingId ? `/api/admin/tags/${editingId}` : '/api/admin/tags';
       const method = editingId ? 'PATCH' : 'POST';
 
+      const payload = {
+        ...formData,
+        target_workflow_id: formData.target_workflow_id === 'none' ? null : formData.target_workflow_id
+      };
+
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) throw new Error('Failed to save tag');
@@ -121,6 +127,7 @@ export function TagsManager({ initialTags }: { initialTags: TagData[] }) {
             <tr>
               <th className="px-6 py-3 w-16 text-center">Color</th>
               <th className="px-6 py-3">Name</th>
+              <th className="px-6 py-3">Automation</th>
               <th className="px-6 py-3">People count</th>
               <th className="px-6 py-3 w-24 text-right">Actions</th>
             </tr>
@@ -139,6 +146,14 @@ export function TagsManager({ initialTags }: { initialTags: TagData[] }) {
                     <div className="w-4 h-4 rounded-full mx-auto shadow-sm" style={{ backgroundColor: tag.color }} />
                   </td>
                   <td className="px-6 py-3 font-medium text-slate-900">{tag.name}</td>
+                  <td className="px-6 py-3 text-slate-500 text-xs">
+                    {tag.target_workflow_id 
+                      ? <span className="inline-flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          {workflows.find(w => w.id === tag.target_workflow_id)?.name || 'Workflow'}
+                        </span>
+                      : 'None'
+                    }
+                  </td>
                   <td className="px-6 py-3 text-slate-500">{tag.people_count}</td>
                   <td className="px-6 py-3 text-right">
                     <div className="flex justify-end gap-1 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
@@ -190,6 +205,23 @@ export function TagsManager({ initialTags }: { initialTags: TagData[] }) {
                   />
                 ))}
               </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Automations (Optional)</label>
+              <select
+                className="flex h-11 w-full items-center justify-between rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={formData.target_workflow_id}
+                onChange={e => setFormData({ ...formData, target_workflow_id: e.target.value })}
+              >
+                <option value="none">No workflow</option>
+                {workflows.map(w => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
+              </select>
+              <p className="mt-1.5 text-xs text-slate-500">
+                When this tag is added to a person, automatically add them to this workflow.
+              </p>
             </div>
 
             <DialogFooter>

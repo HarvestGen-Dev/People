@@ -42,8 +42,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Church not found' }, { status: 404 });
     }
 
-    const appUrl =
-      process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin;
+    const host = request.headers.get('x-forwarded-host') || request.headers.get('host');
+    const proto = request.headers.get('x-forwarded-proto') || 'http';
+    const appUrl = host ? `${proto}://${host}` : (process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin);
     const result = await createChurchInvitation({
       churchId: church.id,
       churchName: church.name,
@@ -77,9 +78,13 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     if (
       error instanceof Error &&
-      error.message === 'A valid pending invitation already exists for this email'
+      (error as Error & { code?: string }).code === 'ALREADY_INVITED'
     ) {
-      return NextResponse.json({ error: error.message }, { status: 409 });
+      return NextResponse.json({ 
+        error: error.message, 
+        code: 'ALREADY_INVITED', 
+        existingId: (error as Error & { existingId?: string }).existingId 
+      }, { status: 409 });
     }
     return adminApiError(error);
   }

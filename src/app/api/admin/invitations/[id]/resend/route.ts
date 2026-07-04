@@ -45,8 +45,9 @@ export async function POST(
       .eq('id', existing.id);
     if (revokeError) throw revokeError;
 
-    const appUrl =
-      process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin;
+    const host = request.headers.get('x-forwarded-host') || request.headers.get('host');
+    const proto = request.headers.get('x-forwarded-proto') || 'http';
+    const appUrl = host ? `${proto}://${host}` : (process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin);
     const result = await createChurchInvitation({
       churchId: tenant.churchId,
       churchName: tenant.churchName,

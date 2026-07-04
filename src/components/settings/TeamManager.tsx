@@ -1,51 +1,21 @@
 'use client';
 
 // <!-- AGENT: FRONTEND -->
-import { useState } from 'react';
-import {
-  Clock3,
-  Crown,
-  Loader2,
-  Mail,
-  ShieldCheck,
-  UserPlus,
-  Users,
-} from 'lucide-react';
-import { format, formatDistanceToNow } from 'date-fns';
-import { toast } from 'sonner';
+import { Users, Mail, ShieldCheck, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import type { TenantRole } from '@/lib/tenant-context';
 import type {
   ClaimRequestSummary,
   InvitationSummary,
   TeamMemberSummary,
 } from '@/lib/team';
-import {
-  InvitationResultDialog,
-  type InvitationResult,
-} from '@/components/settings/InvitationResultDialog';
 
-const roleStyles: Record<TenantRole, string> = {
-  owner: 'border-amber-200 bg-amber-100 text-amber-800',
-  admin: 'border-emerald-200 bg-emerald-100 text-emerald-700',
-  member: 'border-slate-200 bg-slate-100 text-slate-600',
-};
+import { useTeamManager } from '@/hooks/useTeamManager';
+import { TeamMembersList } from './team-manager/TeamMembersList';
+import { PendingInvitations } from './team-manager/PendingInvitations';
+import { ClaimRequestsList } from './team-manager/ClaimRequestsList';
+import { InvitationHistory } from './team-manager/InvitationHistory';
+import { TeamManagerDialogs } from './team-manager/TeamManagerDialogs';
 
 export function TeamManager({
   churchName,
@@ -64,177 +34,30 @@ export function TeamManager({
   initialClaimRequests: ClaimRequestSummary[];
   now: string;
 }) {
-  const [members] = useState(initialMembers);
-  const [invitations, setInvitations] = useState(initialInvitations);
-  const [claimRequests, setClaimRequests] = useState(initialClaimRequests);
-  const [isInviteOpen, setIsInviteOpen] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [busyInvitationId, setBusyInvitationId] = useState<string | null>(null);
-  const [busyClaimId, setBusyClaimId] = useState<string | null>(null);
-  const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'admin' | 'member'>('member');
-  const [expiresInDays, setExpiresInDays] = useState('7');
-  const [createdInvitation, setCreatedInvitation] =
-    useState<InvitationResult | null>(null);
-
-  const pendingInvitations = invitations.filter(
-    (invitation) =>
-      !invitation.acceptedAt &&
-      !invitation.revokedAt &&
-      new Date(invitation.expiresAt).getTime() > new Date(now).getTime()
-  );
-  const historyInvitations = invitations.filter(
-    (invitation) => !pendingInvitations.some((item) => item.id === invitation.id)
-  );
-
-  const handleInvite = async () => {
-    if (!email.trim()) return;
-    setIsSaving(true);
-    try {
-      const response = await fetch('/api/admin/invitations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          role,
-          expires_in_days: Number(expiresInDays),
-        }),
-      });
-      const body = await response.json();
-      if (!response.ok) {
-        throw new Error(body.error || 'Failed to create invitation');
-      }
-
-      const invitation: InvitationSummary = {
-        id: body.data.invitation.id,
-        email: body.data.invitation.email,
-        role: body.data.invitation.role,
-        expiresAt: body.data.invitation.expires_at,
-        acceptedAt: null,
-        revokedAt: null,
-        sentAt: body.data.email_sent ? new Date().toISOString() : null,
-        createdAt: body.data.invitation.created_at,
-      };
-      setInvitations((current) => [invitation, ...current]);
-      setCreatedInvitation({
-        email: invitation.email,
-        inviteUrl: body.data.invite_url,
-        emailSent: body.data.email_sent,
-        emailError: body.data.email_error,
-      });
-      setIsInviteOpen(false);
-      setEmail('');
-      setRole('member');
-      setExpiresInDays('7');
-      toast.success('Invitation created');
-    } catch (error: unknown) {
-      toast.error(
-        error instanceof Error ? error.message : 'Failed to create invitation'
-      );
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const revokeInvitation = async (id: string) => {
-    setBusyInvitationId(id);
-    try {
-      const response = await fetch(`/api/admin/invitations/${id}`, {
-        method: 'DELETE',
-      });
-      const body = await response.json();
-      if (!response.ok) {
-        throw new Error(body.error || 'Unable to revoke invitation');
-      }
-      setInvitations((current) =>
-        current.map((invitation) =>
-          invitation.id === id
-            ? { ...invitation, revokedAt: new Date().toISOString() }
-            : invitation
-        )
-      );
-      toast.success('Invitation revoked');
-    } catch (error: unknown) {
-      toast.error(
-        error instanceof Error ? error.message : 'Unable to revoke invitation'
-      );
-    } finally {
-      setBusyInvitationId(null);
-    }
-  };
-
-  const resendInvitation = async (id: string) => {
-    setBusyInvitationId(id);
-    try {
-      const response = await fetch(`/api/admin/invitations/${id}/resend`, {
-        method: 'POST',
-      });
-      const body = await response.json();
-      if (!response.ok) {
-        throw new Error(body.error || 'Unable to resend invitation');
-      }
-
-      const replacement: InvitationSummary = {
-        id: body.data.invitation.id,
-        email: body.data.invitation.email,
-        role: body.data.invitation.role,
-        expiresAt: body.data.invitation.expires_at,
-        acceptedAt: null,
-        revokedAt: null,
-        sentAt: body.data.email_sent ? new Date().toISOString() : null,
-        createdAt: body.data.invitation.created_at,
-      };
-      setInvitations((current) => [
-        replacement,
-        ...current.map((invitation) =>
-          invitation.id === id
-            ? { ...invitation, revokedAt: new Date().toISOString() }
-            : invitation
-        ),
-      ]);
-      setCreatedInvitation({
-        email: replacement.email,
-        inviteUrl: body.data.invite_url,
-        emailSent: body.data.email_sent,
-        emailError: body.data.email_error,
-      });
-      toast.success('Invitation rotated');
-    } catch (error: unknown) {
-      toast.error(
-        error instanceof Error ? error.message : 'Unable to resend invitation'
-      );
-    } finally {
-      setBusyInvitationId(null);
-    }
-  };
-
-  const reviewClaim = async (
-    requestId: string,
-    decision: 'approve' | 'reject'
-  ) => {
-    setBusyClaimId(requestId);
-    try {
-      const response = await fetch('/api/admin/claims', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ request_id: requestId, decision }),
-      });
-      const body = await response.json();
-      if (!response.ok) {
-        throw new Error(body.error || 'Unable to review claim');
-      }
-      setClaimRequests((current) =>
-        current.filter((request) => request.id !== requestId)
-      );
-      toast.success(decision === 'approve' ? 'Profile access approved' : 'Claim rejected');
-    } catch (error: unknown) {
-      toast.error(
-        error instanceof Error ? error.message : 'Unable to review claim'
-      );
-    } finally {
-      setBusyClaimId(null);
-    }
-  };
+  const {
+    claimRequests,
+    isInviteOpen,
+    setIsInviteOpen,
+    resendPromptId,
+    setResendPromptId,
+    isSaving,
+    busyInvitationId,
+    busyClaimId,
+    email,
+    setEmail,
+    role,
+    setRole,
+    expiresInDays,
+    setExpiresInDays,
+    createdInvitation,
+    setCreatedInvitation,
+    pendingInvitations,
+    historyInvitations,
+    handleInvite,
+    revokeInvitation,
+    resendInvitation,
+    reviewClaim,
+  } = useTeamManager(initialInvitations, initialClaimRequests, now);
 
   return (
     <div className="space-y-8">
@@ -262,19 +85,9 @@ export function TeamManager({
 
       <section className="grid gap-4 sm:grid-cols-3">
         {[
-          ['Team members', members.length, Users, 'bg-emerald-100 text-emerald-700'],
-          [
-            'Pending invites',
-            pendingInvitations.length,
-            Mail,
-            'bg-sky-100 text-sky-700',
-          ],
-          [
-            'Your role',
-            currentRole,
-            ShieldCheck,
-            'bg-amber-100 text-amber-700',
-          ],
+          ['Team members', initialMembers.length, Users, 'bg-emerald-100 text-emerald-700'],
+          ['Pending invites', pendingInvitations.length, Mail, 'bg-sky-100 text-sky-700'],
+          ['Your role', currentRole, ShieldCheck, 'bg-amber-100 text-amber-700'],
         ].map(([label, value, StatIcon, color]) => {
           const Icon = StatIcon as typeof Users;
           return (
@@ -296,302 +109,41 @@ export function TeamManager({
         })}
       </section>
 
-      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
-        <div className="border-b border-slate-100 px-5 py-5 sm:px-6">
-          <h2 className="font-bold text-slate-950">Current team</h2>
-          <p className="mt-1 text-xs text-slate-500">
-            Owners and administrators can manage church data. Members have
-            read-only access.
-          </p>
-        </div>
-        <div className="divide-y divide-slate-100">
-          {members.map((member) => (
-            <div
-              key={member.id}
-              className="flex flex-col justify-between gap-3 px-5 py-4 sm:flex-row sm:items-center sm:px-6"
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-100 text-xs font-bold uppercase text-emerald-700">
-                  {member.email.charAt(0)}
-                </div>
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-bold text-slate-900">
-                    {member.email}
-                  </div>
-                  <div className="mt-0.5 text-xs text-slate-400">
-                    Joined {format(new Date(member.joinedAt), 'd MMM yyyy')}
-                  </div>
-                </div>
-              </div>
-              <Badge
-                variant="outline"
-                className={`w-fit capitalize shadow-none ${roleStyles[member.role]}`}
-              >
-                {member.role === 'owner' && <Crown className="mr-1 h-3 w-3" />}
-                {member.role}
-              </Badge>
-            </div>
-          ))}
-        </div>
-      </section>
+      <TeamMembersList members={initialMembers} />
 
-      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
-        <div className="border-b border-slate-100 px-5 py-5 sm:px-6">
-          <h2 className="font-bold text-slate-950">Pending invitations</h2>
-          <p className="mt-1 text-xs text-slate-500">
-            Raw invitation links are shown only when first created.
-          </p>
-        </div>
-        {pendingInvitations.length === 0 ? (
-          <div className="px-6 py-12 text-center text-sm text-slate-400">
-            No invitations are waiting to be accepted.
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {pendingInvitations.map((invitation) => (
-              <div
-                key={invitation.id}
-                className="flex flex-col justify-between gap-3 px-5 py-4 sm:flex-row sm:items-center sm:px-6"
-              >
-                <div>
-                  <div className="text-sm font-bold text-slate-900">
-                    {invitation.email}
-                  </div>
-                  <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-400">
-                    <Clock3 className="h-3 w-3" />
-                    Expires{' '}
-                    {formatDistanceToNow(new Date(invitation.expiresAt), {
-                      addSuffix: true,
-                    })}
-                  </div>
-                </div>
-                <Badge
-                  variant="outline"
-                  className="w-fit border-sky-200 bg-sky-100 capitalize text-sky-700"
-                >
-                  {invitation.role}
-                </Badge>
-                {(invitation.role !== 'owner' || currentIsPlatformAdmin) && (
-                <div className="flex gap-1">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => resendInvitation(invitation.id)}
-                    disabled={busyInvitationId === invitation.id}
-                    className="w-fit rounded-xl"
-                  >
-                    Resend
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => revokeInvitation(invitation.id)}
-                    disabled={busyInvitationId === invitation.id}
-                    className="w-fit rounded-xl text-red-600 hover:bg-red-50 hover:text-red-700"
-                  >
-                    Revoke
-                  </Button>
-                </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+      <PendingInvitations
+        pendingInvitations={pendingInvitations}
+        currentIsPlatformAdmin={currentIsPlatformAdmin}
+        busyInvitationId={busyInvitationId}
+        resendInvitation={resendInvitation}
+        revokeInvitation={revokeInvitation}
+      />
 
-      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
-        <div className="border-b border-slate-100 px-5 py-5 sm:px-6">
-          <h2 className="font-bold text-slate-950">Profile claim requests</h2>
-          <p className="mt-1 text-xs text-slate-500">
-            Review verified accounts whose imported profiles were not eligible for automatic claiming.
-          </p>
-        </div>
-        {claimRequests.length === 0 ? (
-          <div className="px-6 py-10 text-center text-sm text-slate-400">
-            No profile claims require review.
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {claimRequests.map((request) => (
-              <div
-                key={request.id}
-                className="flex flex-col justify-between gap-3 px-5 py-4 sm:flex-row sm:items-center sm:px-6"
-              >
-                <div>
-                  <div className="font-bold text-slate-900">{request.personName}</div>
-                  <div className="mt-1 text-xs text-slate-500">{request.email}</div>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => reviewClaim(request.id, 'reject')}
-                    disabled={busyClaimId === request.id}
-                    className="rounded-xl"
-                  >
-                    Reject
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => reviewClaim(request.id, 'approve')}
-                    disabled={busyClaimId === request.id}
-                    className="rounded-xl bg-emerald-700 hover:bg-emerald-800"
-                  >
-                    Approve
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+      <ClaimRequestsList
+        claimRequests={claimRequests}
+        busyClaimId={busyClaimId}
+        reviewClaim={reviewClaim}
+      />
 
-      {historyInvitations.length > 0 && (
-        <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
-          <div className="border-b border-slate-100 px-5 py-5 sm:px-6">
-            <h2 className="font-bold text-slate-950">Invitation history</h2>
-          </div>
-          <div className="divide-y divide-slate-100">
-            {historyInvitations.slice(0, 10).map((invitation) => {
-              const accepted = !!invitation.acceptedAt;
-              return (
-                <div
-                  key={invitation.id}
-                  className="flex items-center justify-between gap-4 px-5 py-4 sm:px-6"
-                >
-                  <div>
-                    <div className="text-sm font-semibold text-slate-700">
-                      {invitation.email}
-                    </div>
-                    <div className="mt-1 text-xs text-slate-400">
-                      Invited {format(new Date(invitation.createdAt), 'd MMM yyyy')}
-                    </div>
-                  </div>
-                  <Badge
-                    variant="outline"
-                    className={
-                      accepted
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                        : 'border-slate-200 bg-slate-100 text-slate-500'
-                    }
-                  >
-                    {accepted ? 'Accepted' : 'Expired'}
-                  </Badge>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
+      <InvitationHistory historyInvitations={historyInvitations} />
 
-      <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
-        <DialogContent className="rounded-3xl sm:max-w-lg">
-          <form
-            className="contents"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void handleInvite();
-            }}
-          >
-            <DialogHeader>
-              <DialogTitle className="text-2xl font-bold">
-                Invite a teammate
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-3">
-              <div>
-                <label htmlFor="invite-email" className="mb-2 block text-sm font-semibold text-slate-700">
-                  Email address
-                </label>
-                <Input
-                  id="invite-email"
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="teammate@example.com"
-                  className="h-11 rounded-xl"
-                  autoFocus
-                  required
-                />
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="invite-role" className="mb-2 block text-sm font-semibold text-slate-700">
-                    Role
-                  </label>
-                  <Select
-                    value={role}
-                    onValueChange={(value) =>
-                      setRole(value === 'admin' ? 'admin' : 'member')
-                    }
-                  >
-                    <SelectTrigger id="invite-role" className="h-11 rounded-xl">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="member">Member</SelectItem>
-                      {currentRole === 'owner' && (
-                        <SelectItem value="admin">Administrator</SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label htmlFor="invite-expiry" className="mb-2 block text-sm font-semibold text-slate-700">
-                    Link expires
-                  </label>
-                  <Select
-                    value={expiresInDays}
-                    onValueChange={(value) => setExpiresInDays(value || '7')}
-                  >
-                    <SelectTrigger id="invite-expiry" className="h-11 rounded-xl">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">In 1 day</SelectItem>
-                      <SelectItem value="7">In 7 days</SelectItem>
-                      <SelectItem value="14">In 14 days</SelectItem>
-                      <SelectItem value="30">In 30 days</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="rounded-2xl bg-emerald-50 p-4 text-xs leading-5 text-emerald-800">
-                The link is single-use and bound to this exact email address.
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setIsInviteOpen(false)}
-                disabled={isSaving}
-                className="rounded-xl"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={!email.trim() || isSaving}
-                className="rounded-xl bg-emerald-700 font-bold hover:bg-emerald-800"
-              >
-                {isSaving ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <UserPlus className="mr-2 h-4 w-4" />
-                )}
-                Create invitation
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <InvitationResultDialog
-        invitation={createdInvitation}
-        onClose={() => setCreatedInvitation(null)}
+      <TeamManagerDialogs
+        isInviteOpen={isInviteOpen}
+        setIsInviteOpen={setIsInviteOpen}
+        resendPromptId={resendPromptId}
+        setResendPromptId={setResendPromptId}
+        isSaving={isSaving}
+        email={email}
+        setEmail={setEmail}
+        role={role}
+        setRole={setRole}
+        expiresInDays={expiresInDays}
+        setExpiresInDays={setExpiresInDays}
+        createdInvitation={createdInvitation}
+        setCreatedInvitation={setCreatedInvitation}
+        currentRole={currentRole}
+        handleInvite={handleInvite}
+        resendInvitation={resendInvitation}
       />
     </div>
   );

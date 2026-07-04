@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { getPeople, PeopleFilters as QueryFilters } from '@/lib/queries/people';
 import { Tag } from '@/lib/types';
 import { requireTenantContext } from '@/lib/tenant-context';
+import { redirect } from 'next/navigation';
 
 export const metadata = {
   title: 'People | HarvestGen',
@@ -19,6 +20,11 @@ export default async function PeoplePage({
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
   const { churchId, role, isPlatformAdmin } = await requireTenantContext();
+  
+  if (role === 'workflow_manager') {
+    redirect('/workflows');
+  }
+
   const canManage =
     isPlatformAdmin || role === 'owner' || role === 'admin';
   const supabase = await createClient();

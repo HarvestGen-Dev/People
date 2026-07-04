@@ -12,7 +12,7 @@ import {
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { churchId } = await requireTenantContext({ requireManager: true });
+    const { churchId } = await requireTenantContext({ requireWorkflowManager: true });
     const supabase = createServiceClient();
 
     const { id } = await params;
@@ -45,6 +45,27 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         : Promise.resolve(),
     ]);
 
+    let dueDate = body.due_date;
+    if (
+      dueDate === undefined &&
+      body.current_step_id !== undefined &&
+      body.current_step_id !== oldCard.current_step_id
+    ) {
+      const { data: step } = await supabase
+        .from('workflow_steps')
+        .select('default_days_to_complete')
+        .eq('id', body.current_step_id)
+        .single();
+
+      if (step?.default_days_to_complete) {
+        const d = new Date();
+        d.setDate(d.getDate() + step.default_days_to_complete);
+        dueDate = d.toISOString().split('T')[0];
+      } else {
+        dueDate = null;
+      }
+    }
+
     const updates = {
       ...(body.current_step_id !== undefined
         ? { current_step_id: body.current_step_id }
@@ -52,8 +73,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       ...(body.assigned_to !== undefined
         ? { assigned_to: body.assigned_to || null }
         : {}),
-      ...(body.due_date !== undefined
-        ? { due_date: body.due_date || null }
+      ...(dueDate !== undefined
+        ? { due_date: dueDate || null }
         : {}),
       ...(body.notes !== undefined ? { notes: body.notes || null } : {}),
       updated_at: new Date().toISOString(),
@@ -87,7 +108,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { churchId } = await requireTenantContext({ requireManager: true });
+    const { churchId } = await requireTenantContext({ requireWorkflowManager: true });
     const supabase = createServiceClient();
 
     const { id } = await params;

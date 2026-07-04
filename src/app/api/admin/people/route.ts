@@ -5,6 +5,7 @@ import {
   requireTenantContext,
 } from '@/lib/tenant-context';
 import { assertTenantRecords } from '@/lib/tenant-references';
+import { triggerWorkflowsForTags } from '@/lib/workflows/trigger-tags';
 
 export async function POST(request: Request) {
   try {
@@ -75,6 +76,11 @@ export async function POST(request: Request) {
       }));
       const { error: tagsError } = await supabase.from('person_tags').insert(tagInserts);
       if (tagsError) throw tagsError;
+
+      // Trigger workflow automations async
+      triggerWorkflowsForTags(church_id, person_id, tags).catch((err) => {
+        console.error('Failed to trigger tag workflows:', err);
+      });
     }
 
     // 4. Insert custom fields

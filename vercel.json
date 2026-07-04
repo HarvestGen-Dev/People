@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/missing-persons-pulse",
+      "schedule": "0 0 * * *"
+    }
+  ]
+}

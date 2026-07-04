@@ -5,6 +5,7 @@ import {
   requireTenantContext,
 } from '@/lib/tenant-context';
 import { assertTenantRecords } from '@/lib/tenant-references';
+import { triggerWorkflowsForTags } from '@/lib/workflows/trigger-tags';
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -97,6 +98,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         }));
         const { error: tagsError } = await supabase.from('person_tags').insert(tagInserts);
         if (tagsError) throw tagsError;
+
+        // Trigger workflow automations async (don't block the request)
+        triggerWorkflowsForTags(churchId, id, tags).catch((err) => {
+          console.error('Failed to trigger tag workflows:', err);
+        });
       }
     }
 
