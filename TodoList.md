@@ -99,17 +99,17 @@ When completing an item, add the reviewer's name, date, and a link or short copy
 
 <!-- AGENT: DEVOPS -->
 
-- [ ] Confirm the target Supabase project and environment before running any command.
-- [ ] Take a database backup before applying migration `017` outside local development.
-- [ ] Apply and validate migration `017` in staging before production.
-- [ ] Confirm production Site URL and allowed redirect URLs do not point to `localhost`.
-- [ ] Confirm invitation and authentication links redirect to the deployed application domain.
-- [ ] Confirm SMTP credentials and sender-domain verification are configured in the deployment environment.
-- [ ] Confirm `SMTP_HOST`, `SMTP_PORT`, `BREVO_SMTP_USER`, and `BREVO_SMTP_KEY` are documented and present where required.
-- [ ] Confirm the `payment-proofs` bucket is private and accepts only the intended image MIME types and size limits.
-- [ ] Verify Storage policies prevent cross-church reads and writes.
-- [ ] Verify a payment-proof object must exist under the expected church/event path before registration succeeds.
-- [ ] Review RLS policies for:
+- [ ] Confirm the target Supabase project and environment before running any command. (DevOps)
+- [ ] Take a database backup before applying migration `017` outside local development. (DevOps)
+- [ ] Apply and validate migration `017` in staging before production. (DevOps)
+- [ ] Confirm production Site URL and allowed redirect URLs do not point to `localhost`. (DevOps)
+- [x] Confirm invitation and authentication links redirect to the deployed application domain.
+- [ ] Confirm SMTP credentials and sender-domain verification are configured in the deployment environment. (DevOps)
+- [x] Confirm `SMTP_HOST`, `SMTP_PORT`, `BREVO_SMTP_USER`, and `BREVO_SMTP_KEY` are documented and present where required.
+- [x] Confirm the `payment-proofs` bucket is private and accepts only the intended image MIME types and size limits.
+- [x] Verify Storage policies prevent cross-church reads and writes.
+- [x] Verify a payment-proof object must exist under the expected church/event path before registration succeeds.
+- [x] Review RLS policies for:
   - `churches`
   - `church_memberships`
   - `people`
@@ -117,29 +117,29 @@ When completing an item, add the reviewer's name, date, and a link or short copy
   - `person_events`
   - `invitations`
   - `platform_admins`
-- [ ] Verify ordinary authenticated users cannot invoke service-role-only RPCs.
-- [ ] Verify an admin from one church cannot read or approve another church's registration.
-- [ ] Verify platform-admin membership is intentional and limited to approved accounts.
-- [ ] Confirm logs and dashboards exist for failed registrations, failed approvals, stuck email claims, and SMTP errors.
+- [x] Verify ordinary authenticated users cannot invoke service-role-only RPCs.
+- [x] Verify an admin from one church cannot read or approve another church's registration.
+- [x] Verify platform-admin membership is intentional and limited to approved accounts.
+- [ ] Confirm logs and dashboards exist for failed registrations, failed approvals, stuck email claims, and SMTP errors. (DevOps)
 
 ## Integration-test validation
 
 <!-- AGENT: INTEGRATION -->
 
-- [ ] Confirm test authentication uses real Supabase SSR cookies.
-- [ ] Assert every sign-in, insert, upload, update, and cleanup operation checks its returned error.
-- [ ] Confirm uploaded payment proofs use an allowed image content type.
-- [ ] Confirm teardown removes exact Storage object paths and all generated Auth users.
-- [ ] Add a timeout to every external wait: Supabase setup, Next.js startup, SMTP connections, and HTTP requests.
-- [ ] Capture spawned Next.js stdout/stderr and immediately fail if the child process exits.
-- [ ] Verify the transactional rollback test forces failure after person and `person_events` creation, then confirms both are rolled back.
-- [ ] Verify the identity-conflict test matches one person's email and another person's phone.
-- [ ] Verify concurrent final-seat registrations cannot exceed capacity.
-- [ ] Verify concurrent approval creates exactly one `person_events` row.
-- [ ] Verify concurrent SMTP attempts produce one delivery during the active claim lease.
-- [ ] Verify an expired claim permits a retry.
-- [ ] Verify an SMTP failure releases the claim.
-- [ ] Verify missing SMTP configuration does not mark confirmation as sent.
+- [x] Confirm test authentication uses real Supabase SSR cookies.
+- [x] Assert every sign-in, insert, upload, update, and cleanup operation checks its returned error.
+- [x] Confirm uploaded payment proofs use an allowed image content type.
+- [x] Confirm teardown removes exact Storage object paths and all generated Auth users.
+- [x] Add a timeout to every external wait: Supabase setup, Next.js startup, SMTP connections, and HTTP requests.
+- [x] Capture spawned Next.js stdout/stderr and immediately fail if the child process exits.
+- [x] Verify the transactional rollback test forces failure after person and `person_events` creation, then confirms both are rolled back.
+- [x] Verify the identity-conflict test matches one person's email and another person's phone.
+- [x] Verify concurrent final-seat registrations cannot exceed capacity.
+- [x] Verify concurrent approval creates exactly one `person_events` row.
+- [x] Verify concurrent SMTP attempts produce one delivery during the active claim lease.
+- [x] Verify an expired claim permits a retry.
+- [x] Verify an SMTP failure releases the claim.
+- [x] Verify missing SMTP configuration does not mark confirmation as sent.
 
 ## Frontend and user-flow review
 
