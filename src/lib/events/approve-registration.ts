@@ -16,23 +16,30 @@ export async function approveRegistration(
   });
 
   if (rpcError) {
+    console.error('RPC approval error:', rpcError.message);
     return { success: false, error: 'Failed to approve registration' };
   }
 
   // The RPC returns a JSON object with success/error
   const result = rpcResult as unknown as { success: boolean; error?: string; already_approved?: boolean };
   if (!result.success) {
-    return { success: false, error: result.error };
+    return { success: false, error: result.error || 'Approval failed' };
   }
 
   // 2. Fetch the registration to process emails
-  const { data: registration } = await supabase
+  const { data: registration, error: fetchError } = await supabase
     .from('event_registrations')
     .select('*, event:events(*)')
     .eq('id', registrationId)
+    .eq('church_id', churchId)
     .single();
 
-  if (!registration || registration.confirmation_email_sent_at) {
+  if (fetchError || !registration) {
+    console.error('Fetch registration error:', fetchError?.message);
+    return { success: false, error: 'Failed to fetch registration for email dispatch' };
+  }
+
+  if (registration.confirmation_email_sent_at) {
     return { success: true };
   }
 
@@ -87,12 +94,14 @@ export async function approveRegistration(
     .from('event_registrations')
     .update({ confirmation_email_claimed_at: new Date().toISOString() })
     .eq('id', registrationId)
+    .eq('church_id', churchId)
     .is('confirmation_email_sent_at', null)
     .or(`confirmation_email_claimed_at.is.null,confirmation_email_claimed_at.lt.${fiveMinutesAgo}`)
     .select('id')
     .maybeSingle();
 
   if (claimError) {
+    console.error('Email claim error:', claimError.message);
     return { success: false, error: 'Database error while claiming email outbox' };
   }
 
@@ -109,11 +118,12 @@ export async function approveRegistration(
     const { error: sentError } = await supabase
       .from('event_registrations')
       .update({ confirmation_email_sent_at: new Date().toISOString() })
-      .eq('id', registrationId);
+      .eq('id', registrationId)
+      .eq('church_id', churchId);
       
     if (sentError) {
       // It was sent but not marked. It will be sent again (at-least-once).
-      console.error('Failed to mark email as sent', sentError);
+      console.error('Failed to mark email as sent:', sentError.message);
       return { success: false, error: 'Failed to record email sent status' };
     }
   } else {
@@ -121,10 +131,11 @@ export async function approveRegistration(
     const { error: releaseError } = await supabase
       .from('event_registrations')
       .update({ confirmation_email_claimed_at: null })
-      .eq('id', registrationId);
+      .eq('id', registrationId)
+      .eq('church_id', churchId);
       
     if (releaseError) {
-      console.error('Failed to release email claim', releaseError);
+      console.error('Failed to release email claim:', releaseError.message);
       return { success: false, error: 'Failed to release email outbox claim' };
     }
     return { success: false, error: 'Failed to dispatch email via SMTP' };

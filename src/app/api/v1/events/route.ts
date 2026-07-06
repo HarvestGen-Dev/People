@@ -61,8 +61,8 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error;
 
-    // Fire and forget webhook dispatch
-    dispatchWebhook(churchId, 'event.logged', {
+    // Await webhook dispatch to ensure delivery before Vercel terminates the function
+    await dispatchWebhook(churchId, 'event.logged', {
       event_id: event.id,
       person_id: body.person_id,
       source: body.source,

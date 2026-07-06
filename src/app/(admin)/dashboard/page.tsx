@@ -45,7 +45,15 @@ export default async function DashboardPage() {
     isPlatformAdmin || role === 'owner' || role === 'admin';
   const supabase = await createClient();
 
-  const [activeRes, visitorRes, newRes, eventsRes] = await Promise.all([
+  const [
+    activeRes, 
+    visitorRes, 
+    newRes, 
+    eventsRes,
+    recentActivityRes,
+    newVisitorsRes,
+    overdueCardsRes
+  ] = await Promise.all([
     supabase
       .from('people')
       .select('id', { count: 'exact' })
@@ -66,61 +74,62 @@ export default async function DashboardPage() {
       .select('id', { count: 'exact' })
       .eq('church_id', churchId)
       .gte('occurred_at', startOfWeek(new Date()).toISOString()),
+    supabase
+      .from('person_events')
+      .select('*, people(id, first_name, last_name)')
+      .eq('church_id', churchId)
+      .order('occurred_at', { ascending: false })
+      .limit(8),
+    supabase
+      .from('people')
+      .select(`
+        id,
+        first_name,
+        last_name,
+        email,
+        created_at,
+        status,
+        person_events(source),
+        workflow_cards!left(
+          id,
+          workflow_steps(name)
+        )
+      `)
+      .eq('church_id', churchId)
+      .eq('status', 'visitor')
+      .gte('created_at', startOfMonth(new Date()).toISOString())
+      .order('created_at', { ascending: false })
+      .limit(8),
+    supabase
+      .from('workflow_cards')
+      .select(`
+        id,
+        due_date,
+        person_id,
+        people!inner(first_name, last_name, id),
+        workflow_steps(name),
+        workflows!inner(name, church_id)
+      `)
+      .eq('church_id', churchId)
+      .eq('workflows.church_id', churchId)
+      .is('completed_at', null)
+      .not('due_date', 'is', null)
+      .lt('due_date', new Date().toISOString())
+      .order('due_date', { ascending: true })
+      .limit(5)
   ]);
 
-  const { data: recentActivity } = await supabase
-    .from('person_events')
-    .select('*, people(id, first_name, last_name)')
-    .eq('church_id', churchId)
-    .order('occurred_at', { ascending: false })
-    .limit(8);
+  const recentActivity = recentActivityRes.data;
+  const newVisitors = newVisitorsRes.data;
+  const overdueCards = overdueCardsRes.data as unknown as { 
+      id: string; 
+      due_date: string; 
+      person_id: string; 
+      people: { first_name: string; last_name: string; id: string }; 
+      workflow_steps: { name: string } | null; 
+      workflows: { name: string }; 
+    }[] | null;
 
-  const { data: newVisitors } = await supabase
-    .from('people')
-    .select(`
-      id,
-      first_name,
-      last_name,
-      email,
-      created_at,
-      status,
-      person_events(source),
-      workflow_cards!left(
-        id,
-        workflow_steps(name)
-      )
-    `)
-    .eq('church_id', churchId)
-    .eq('status', 'visitor')
-    .gte('created_at', startOfMonth(new Date()).toISOString())
-    .order('created_at', { ascending: false })
-    .limit(8);
-
-  const { data: overdueCards } = await supabase
-    .from('workflow_cards')
-    .select(`
-      id,
-      due_date,
-      person_id,
-      people!inner(first_name, last_name, id),
-      workflow_steps(name),
-      workflows!inner(name, church_id)
-    `)
-    .eq('workflows.church_id', churchId)
-    .is('completed_at', null)
-    .not('due_date', 'is', null)
-    .lt('due_date', new Date().toISOString())
-    .order('due_date', { ascending: true })
-    .limit(5) as unknown as { 
-      data: { 
-        id: string; 
-        due_date: string; 
-        person_id: string; 
-        people: { first_name: string; last_name: string; id: string }; 
-        workflow_steps: { name: string } | null; 
-        workflows: { name: string }; 
-      }[] | null 
-    };
 
   const statValues = [
     activeRes.count || 0,

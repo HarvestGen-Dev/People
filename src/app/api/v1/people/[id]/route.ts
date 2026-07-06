@@ -3,6 +3,7 @@ import { validateApiKey } from '@/lib/api-auth';
 import { createServiceClient } from '@/lib/supabase/server';
 import { adminApiError } from '@/lib/tenant-context';
 import { assertTenantRecords } from '@/lib/tenant-references';
+import { dispatchWebhook } from '@/lib/webhooks';
 import { triggerWorkflowsForTags } from '@/lib/workflows/trigger-tags';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -163,8 +164,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       metadata: { fields_updated: Object.keys(body) }
     });
 
-    // Fire webhook asynchronously
-    import('@/lib/webhooks').then(m => m.dispatchWebhook(churchId, 'person.updated', { id, updates: body }));
+    // Await webhook to prevent termination
+    await dispatchWebhook(churchId, 'person.updated', { id, updates: body });
 
     return NextResponse.json({ data: { id, updated: true } });
 

@@ -28,7 +28,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     // Webhook dispatch
     if (data) {
-      dispatchWebhook(churchId, 'person.status_changed', {
+      await dispatchWebhook(churchId, 'person.status_changed', {
         person_id: data.person_id,
         workflow: data.workflows.name,
         step: data.workflow_steps?.name || 'Completed',

@@ -4,6 +4,7 @@ import { triggerWorkflowsForTags } from '@/lib/workflows/trigger-tags';
 import { createServiceClient } from '@/lib/supabase/server';
 import { adminApiError } from '@/lib/tenant-context';
 import { assertTenantRecords } from '@/lib/tenant-references';
+import { dispatchWebhook } from '@/lib/webhooks';
 
 export async function GET(request: NextRequest) {
   const auth = await validateApiKey(request, 'people:read');
@@ -162,8 +163,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Fire webhook asynchronously
-    import('@/lib/webhooks').then(m => m.dispatchWebhook(churchId, 'person.created', { id: person.id, first_name: body.first_name, last_name: body.last_name, email: body.email }));
+    // Await webhook to prevent termination
+    await dispatchWebhook(churchId, 'person.created', { id: person.id, first_name: body.first_name, last_name: body.last_name, email: body.email });
 
     return NextResponse.json({ data: { id: person.id } }, { status: 201 });
 

@@ -92,7 +92,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     // Check if step changed for webhook
     if (body.current_step_id && oldCard.current_step_id !== body.current_step_id && updatedCard) {
-      dispatchWebhook(churchId, 'person.status_changed', {
+      await dispatchWebhook(churchId, 'person.status_changed', {
         person_id: updatedCard.person_id,
         workflow: updatedCard.workflows.name,
         step: updatedCard.workflow_steps?.name,
