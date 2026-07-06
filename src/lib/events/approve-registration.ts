@@ -94,6 +94,7 @@ export async function approveRegistration(
     .from('event_registrations')
     .update({ confirmation_email_claimed_at: new Date().toISOString() })
     .eq('id', registrationId)
+    .eq('church_id', churchId)
     .is('confirmation_email_sent_at', null)
     .or(`confirmation_email_claimed_at.is.null,confirmation_email_claimed_at.lt.${fiveMinutesAgo}`)
     .select('id')
@@ -117,7 +118,8 @@ export async function approveRegistration(
     const { error: sentError } = await supabase
       .from('event_registrations')
       .update({ confirmation_email_sent_at: new Date().toISOString() })
-      .eq('id', registrationId);
+      .eq('id', registrationId)
+      .eq('church_id', churchId);
       
     if (sentError) {
       // It was sent but not marked. It will be sent again (at-least-once).
@@ -129,7 +131,8 @@ export async function approveRegistration(
     const { error: releaseError } = await supabase
       .from('event_registrations')
       .update({ confirmation_email_claimed_at: null })
-      .eq('id', registrationId);
+      .eq('id', registrationId)
+      .eq('church_id', churchId);
       
     if (releaseError) {
       console.error('Failed to release email claim:', releaseError.message);
