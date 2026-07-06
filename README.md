@@ -8,7 +8,7 @@ People is a comprehensive, multi-tenant church member relationship management sy
 
 ## 🏛️ System Architecture
 
-HarvestGen People operates on a decoupled client-server model wrapped in a full-stack Next.js application, utilizing Supabase for a heavily secured Backend-as-a-Service architecture.
+HarvestGen People operates on a decoupled client-server model wrapped in a full-stack Next.js application, utilising Supabase for a heavily secured Backend-as-a-Service architecture.
 
 ### High-Level System Context
 
