@@ -45,8 +45,8 @@ export async function sendEventConfirmationEmail(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     if (!process.env.BREVO_SMTP_USER || !process.env.BREVO_SMTP_KEY) {
-      console.warn('BREVO_SMTP_USER or BREVO_SMTP_KEY not set. Skipping email send.');
-      return { success: true };
+      console.error('BREVO_SMTP_USER or BREVO_SMTP_KEY not set.');
+      return { success: false, error: 'SMTP credentials missing' };
     }
 
     await transporter.sendMail({

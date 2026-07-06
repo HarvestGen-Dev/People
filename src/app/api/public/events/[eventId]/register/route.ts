@@ -130,11 +130,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
     });
 
   } catch (error: unknown) {
+    console.error('Registration error:', error instanceof Error ? error.message : String(error));
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error ? error.message : 'Unable to register for event',
-      },
+      { error: 'Unable to register for event. Please try again later.' },
       { status: 500 }
     );
   }
