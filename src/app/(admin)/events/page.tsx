@@ -1,5 +1,6 @@
 // <!-- AGENT: FRONTEND -->
 import Link from 'next/link';
+import { headers } from 'next/headers';
 import {
   ArrowRight,
   CalendarDays,
@@ -93,8 +94,10 @@ export default async function EventsPage() {
     (sum, event) => sum + event.pending_count,
     0
   );
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL || 'https://people.harvestgen.org';
+  const reqHeaders = await headers();
+  const host = reqHeaders.get('x-forwarded-host') || reqHeaders.get('host');
+  const proto = reqHeaders.get('x-forwarded-proto') || (process.env.NODE_ENV === 'development' ? 'http' : 'https');
+  const appUrl = host ? `${proto}://${host}` : (process.env.NEXT_PUBLIC_APP_URL || 'https://people.harvestgen.org');
 
   return (
     <div className="mx-auto max-w-[1440px] space-y-8 p-5 animate-in fade-in-50 duration-300 sm:p-8 lg:p-10">

@@ -4,13 +4,22 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { requireTenantContext } from '@/lib/tenant-context';
+import { createServiceClient } from '@/lib/supabase/server';
 
 export const metadata = {
   title: 'New Event | HarvestGen',
 };
 
 export default async function NewEventPage() {
-  await requireTenantContext({ requireManager: true });
+  const { churchId } = await requireTenantContext({ requireManager: true });
+  const supabase = createServiceClient();
+
+  const { data: workflows } = await supabase
+    .from('workflows')
+    .select('id, name')
+    .eq('church_id', churchId)
+    .eq('is_active', true)
+    .order('name');
 
   return (
     <>
@@ -23,7 +32,7 @@ export default async function NewEventPage() {
       </Topbar>
 
       <div className="mx-auto max-w-6xl p-5 animate-in fade-in-50 duration-300 sm:p-8 lg:p-10">
-        <EventForm />
+        <EventForm workflows={workflows || undefined} />
       </div>
     </>
   );

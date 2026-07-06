@@ -6,7 +6,7 @@ import { NextResponse } from 'next/server';
 import type { User } from '@supabase/supabase-js';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 
-export type TenantRole = 'owner' | 'admin' | 'member';
+export type TenantRole = 'owner' | 'admin' | 'workflow_manager' | 'member';
 
 export type TenantContext = {
   user: User;
@@ -20,6 +20,7 @@ export type TenantContext = {
 type TenantContextOptions = {
   churchId?: string;
   requireManager?: boolean;
+  requireWorkflowManager?: boolean;
   requireOwner?: boolean;
 };
 
@@ -154,6 +155,18 @@ export async function requireTenantContext(
   ) {
     throw new TenantContextError(
       'Church administrator access is required',
+      403
+    );
+  }
+
+  if (
+    options.requireWorkflowManager &&
+    membership.role !== 'owner' &&
+    membership.role !== 'admin' &&
+    membership.role !== 'workflow_manager'
+  ) {
+    throw new TenantContextError(
+      'Workflow manager access is required',
       403
     );
   }

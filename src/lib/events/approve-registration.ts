@@ -42,6 +42,46 @@ export async function approveRegistration(
     return { success: true };
   }
 
+  // 2.5 Automation: Add person to target workflow if defined
+  if (registration.event?.target_workflow_id && registration.person_id) {
+    // Check if they are already in the workflow (to prevent duplicates if re-registered or bug)
+    const { count: existingCardCount } = await supabase
+      .from('workflow_cards')
+      .select('*', { count: 'exact', head: true })
+      .eq('workflow_id', registration.event.target_workflow_id)
+      .eq('person_id', registration.person_id);
+
+    if (existingCardCount === 0) {
+      // Find the first step of this workflow
+      const { data: steps } = await supabase
+        .from('workflow_steps')
+        .select('id, default_days_to_complete')
+        .eq('workflow_id', registration.event.target_workflow_id)
+        .order('order_index', { ascending: true })
+        .limit(1);
+
+      if (steps && steps.length > 0) {
+        const firstStep = steps[0];
+        
+        let dueDate = null;
+        if (firstStep.default_days_to_complete) {
+          const d = new Date();
+          d.setDate(d.getDate() + firstStep.default_days_to_complete);
+          dueDate = d.toISOString().split('T')[0];
+        }
+
+        await supabase.from('workflow_cards').insert({
+          church_id: churchId,
+          workflow_id: registration.event.target_workflow_id,
+          current_step_id: firstStep.id,
+          person_id: registration.person_id,
+          due_date: dueDate,
+          notes: `Added automatically via event registration: ${registration.event.name}`,
+        });
+      }
+    }
+  }
+
   // 3. Atomic Outbox Claim for at-least-once email delivery
   // Prevent concurrent workers from sending duplicates.
   // Note: SMTP delivery is not transactional with the database. If SMTP accepts the 

@@ -1,19 +1,19 @@
-# People HG — Verification Todo List
+  # People HG — Verification Todo List
 
-Use this document to coordinate the final review before deploying migration `017` or releasing the event-registration changes.
+  Use this document to coordinate the final review before deploying migration `017` or releasing the event-registration changes.
 
-## Status legend
+  ## Status legend
 
-- `[ ]` Not started
-- `[~]` In progress
-- `[x]` Completed with evidence
-- `[!]` Blocked
+  - `[ ]` Not started
+  - `[~]` In progress
+  - `[x]` Completed with evidence
+  - `[!]` Blocked
 
-When completing an item, add the reviewer's name, date, and a link or short copy of the relevant test output. Do not mark an item complete based only on reading the code.
+  When completing an item, add the reviewer's name, date, and a link or short copy of the relevant test output. Do not mark an item complete based only on reading the code.
 
-## Current release blocker
+  ## Current release blocker
 
-<!-- AGENT: INTEGRATION -->
+  <!-- AGENT: INTEGRATION -->
 
 - [x] **Fix the mock SMTP server's TCP parser.**
   - Owner: Integration/backend reviewer
@@ -30,8 +30,7 @@ When completing an item, add the reviewer's name, date, and a link or short copy
   - Run:
 
     ```bash
-    supabase status
-    npm run test:integration:events
+    supabase db reset
     ```
 
   - Expected result: all eight event-registration tests pass.

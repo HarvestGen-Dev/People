@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { requireTenantContext } from '@/lib/tenant-context';
+import { redirect } from 'next/navigation';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -20,6 +21,11 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 export default async function PersonProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { churchId, role, isPlatformAdmin } = await requireTenantContext();
+
+  if (role === 'workflow_manager') {
+    redirect('/workflows');
+  }
+
   const canManage =
     isPlatformAdmin || role === 'owner' || role === 'admin';
 

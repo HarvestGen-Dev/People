@@ -1,10 +1,5 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useForm, Controller } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { PersonWithRelations, Tag, FieldDefinition, Household } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -16,7 +11,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Check, ChevronsUpDown, X, Upload, Loader2, Camera } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
+import { Controller } from 'react-hook-form';
+import { usePersonForm } from '@/hooks/people/usePersonForm';
 
 interface PersonFormProps {
   person?: PersonWithRelations;
@@ -25,151 +21,31 @@ interface PersonFormProps {
   households: Household[];
 }
 
-const personSchema = z.object({
-  first_name: z.string().min(1, 'First name is required'),
-  last_name: z.string().min(1, 'Last name is required'),
-  email: z.string().email('Invalid email').or(z.literal('')),
-  phone: z.string().optional(),
-  gender: z.string().optional(),
-  status: z.string().min(1, 'Status is required'),
-  birthdate: z.string().optional(),
-  marital_status: z.string().optional(),
-  anniversary: z.string().optional(),
-  campus: z.string().optional(),
-  household_id: z.string().optional().nullable(),
-});
-
-type PersonFormData = z.infer<typeof personSchema>;
-
 export function PersonForm({ person, tags, fieldDefinitions, households }: PersonFormProps) {
-  const router = useRouter();
-  const isEdit = !!person;
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedTags, setSelectedTags] = useState<string[]>(
-    person?.person_tags?.map(pt => pt.tag_id) || []
-  );
-  
-  // Custom fields state
-  const initialCustomFields = fieldDefinitions.map(def => {
-    const existing = person?.person_field_values?.find(val => val.field_definition_id === def.id);
-    return { field_definition_id: def.id, value: existing?.value || '' };
-  });
-  const [customFields, setCustomFields] = useState(initialCustomFields);
+  const {
+    form,
+    isEdit,
+    isSubmitting,
+    selectedTags,
+    toggleTag,
+    customFields,
+    handleCustomFieldChange,
+    householdName,
+    setHouseholdName,
+    isCreatingHousehold,
+    setIsCreatingHousehold,
+    householdSearchOpen,
+    setHouseholdSearchOpen,
+    photoUrl,
+    setPhotoUrl,
+    setPhotoFile,
+    handlePhotoSelect,
+    onSubmit,
+  } = usePersonForm(person, fieldDefinitions);
 
-  // Household inline creation state
-  const [householdName, setHouseholdName] = useState('');
-  const [isCreatingHousehold, setIsCreatingHousehold] = useState(false);
-  const [householdSearchOpen, setHouseholdSearchOpen] = useState(false);
-  
-  // Photo state
-  const [photoUrl, setPhotoUrl] = useState(person?.photo_url || null);
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-
-  const { register, handleSubmit, formState: { errors }, watch, control, setValue } = useForm<PersonFormData>({
-    resolver: zodResolver(personSchema),
-    defaultValues: {
-      first_name: person?.first_name || '',
-      last_name: person?.last_name || '',
-      email: person?.email || '',
-      phone: person?.phone || '',
-      gender: person?.gender || '',
-      status: person?.status || 'visitor',
-      birthdate: person?.birthdate || '',
-      marital_status: person?.marital_status || '',
-      anniversary: person?.anniversary || '',
-      campus: person?.campus || 'Bandar Sunway',
-      household_id: person?.household_id || null,
-    }
-  });
-
+  const { register, handleSubmit, formState: { errors }, watch, control, setValue } = form;
   const maritalStatus = watch('marital_status');
   const selectedHouseholdId = watch('household_id');
-
-  const toggleTag = (tagId: string) => {
-    setSelectedTags(prev => 
-      prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]
-    );
-  };
-
-  const handleCustomFieldChange = (id: string, value: string) => {
-    setCustomFields(prev => prev.map(f => f.field_definition_id === id ? { ...f, value } : f));
-  };
-
-  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (file.size > 2 * 1024 * 1024) {
-        toast.error('File size must be less than 2MB');
-        return;
-      }
-      setPhotoFile(file);
-      setPhotoUrl(URL.createObjectURL(file));
-    }
-  };
-
-  const uploadPhoto = async (personId: string) => {
-    if (!photoFile) return photoUrl;
-    const formData = new FormData();
-    formData.append('file', photoFile);
-    
-    const res = await fetch(`/api/admin/people/${personId}/photo`, {
-      method: 'POST',
-      body: formData,
-    });
-    
-    if (!res.ok) throw new Error('Failed to upload photo');
-    const { data } = await res.json();
-    return data.photo_url;
-  };
-
-  const onSubmit = async (data: PersonFormData) => {
-    setIsSubmitting(true);
-    try {
-      // Clean up empty strings
-      const cleanedPerson = Object.fromEntries(
-        Object.entries(data).map(([key, value]) => [
-          key,
-          value === '' ? null : value,
-        ])
-      );
-
-      const payload = {
-        person: cleanedPerson,
-        tags: selectedTags,
-        customFields,
-        household_name: householdName ? householdName : undefined,
-      };
-
-      const url = isEdit ? `/api/admin/people/${person.id}` : '/api/admin/people';
-      const method = isEdit ? 'PATCH' : 'POST';
-
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to save person');
-      }
-
-      const { data: responseData } = await res.json();
-      const personId = responseData.id;
-
-      if (photoFile) {
-        await uploadPhoto(personId);
-      }
-
-      toast.success(isEdit ? 'Person updated successfully' : 'Person created successfully');
-      router.push(`/people/${personId}`);
-      router.refresh();
-    } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : 'Failed to save person');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 [&_[data-slot=input]]:h-11 [&_[data-slot=input]]:rounded-xl [&_[data-slot=select-trigger]]:h-11 [&_[data-slot=select-trigger]]:rounded-xl">
@@ -442,7 +318,7 @@ export function PersonForm({ person, tags, fieldDefinitions, households }: Perso
       </div>
 
       <div className="sticky bottom-3 z-20 flex flex-col-reverse justify-end gap-3 rounded-2xl border border-slate-200 bg-white/92 p-3 shadow-[0_20px_55px_-30px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:flex-row">
-        <Button variant="outline" type="button" onClick={() => router.back()} disabled={isSubmitting} className="h-10 rounded-xl px-5">
+        <Button variant="outline" type="button" onClick={() => window.history.back()} disabled={isSubmitting} className="h-10 rounded-xl px-5">
           Cancel
         </Button>
         <Button type="submit" disabled={isSubmitting} className="h-10 rounded-xl bg-emerald-700 px-8 font-bold shadow-sm hover:bg-emerald-800">

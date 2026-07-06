@@ -12,7 +12,7 @@ import {
 
 export async function POST(request: Request) {
   try {
-    const { churchId } = await requireTenantContext({ requireManager: true });
+    const { churchId } = await requireTenantContext({ requireWorkflowManager: true });
     const supabase = createServiceClient();
 
     const body = await request.json();
@@ -37,6 +37,21 @@ export async function POST(request: Request) {
       assertTenantAssignee(body.assigned_to, churchId),
     ]);
 
+    let dueDate = body.due_date || null;
+    if (!dueDate && body.current_step_id) {
+      const { data: step } = await supabase
+        .from('workflow_steps')
+        .select('default_days_to_complete')
+        .eq('id', body.current_step_id)
+        .single();
+      
+      if (step?.default_days_to_complete) {
+        const d = new Date();
+        d.setDate(d.getDate() + step.default_days_to_complete);
+        dueDate = d.toISOString().split('T')[0];
+      }
+    }
+
     const { data, error } = await supabase
       .from('workflow_cards')
       .insert({
@@ -45,7 +60,7 @@ export async function POST(request: Request) {
         current_step_id: body.current_step_id,
         person_id: body.person_id,
         assigned_to: body.assigned_to || null,
-        due_date: body.due_date || null,
+        due_date: dueDate,
         notes: body.notes || null
       })
       .select('id')

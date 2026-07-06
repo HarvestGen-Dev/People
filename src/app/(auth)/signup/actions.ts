@@ -23,16 +23,16 @@ type SelfSignUpResult =
   | { error: string }
 
 async function getAppUrl(): Promise<string> {
-  const configuredUrl = process.env.NEXT_PUBLIC_APP_URL?.trim()
-  if (configuredUrl) return configuredUrl.replace(/\/$/, '')
-
   const requestHeaders = await headers()
   const host = (
     requestHeaders.get('x-forwarded-host') ??
     requestHeaders.get('host')
   )?.split(',')[0]?.trim()
 
-  if (!host) return 'http://localhost:3000'
+  if (!host) {
+    const configuredUrl = process.env.NEXT_PUBLIC_APP_URL?.trim()
+    return configuredUrl ? configuredUrl.replace(/\/$/, '') : 'http://localhost:3000'
+  }
 
   const forwardedProtocol = requestHeaders
     .get('x-forwarded-proto')

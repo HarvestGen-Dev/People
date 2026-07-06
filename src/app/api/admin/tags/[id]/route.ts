@@ -15,7 +15,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const { data, error } = await supabase
       .from('tags')
-      .update({ name: body.name, color: body.color })
+      .update({ 
+        name: body.name, 
+        color: body.color,
+        target_workflow_id: body.target_workflow_id !== undefined ? body.target_workflow_id : undefined,
+      })
       .eq('id', id)
       .eq('church_id', churchId)
       .select()
