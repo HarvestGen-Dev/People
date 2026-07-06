@@ -31,6 +31,7 @@ export async function approveRegistration(
     .from('event_registrations')
     .select('*, event:events(*)')
     .eq('id', registrationId)
+    .eq('church_id', churchId)
     .single();
 
   if (fetchError || !registration) {
