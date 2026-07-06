@@ -63,17 +63,17 @@ When completing an item, add the reviewer's name, date, and a link or short copy
 <!-- AGENT: ARCHITECT -->
 <!-- AGENT: DEVOPS -->
 
-- [ ] Review `supabase/migrations/017_event_registration_integrity.sql` against `SPEC.md` and previous migrations.
-- [ ] Confirm migration numbering is sequential and no deployed migration was edited.
-- [ ] Confirm all `SECURITY DEFINER` functions use a safe `search_path`.
-- [ ] Confirm RPC execution is revoked from `PUBLIC`, `anon`, and `authenticated`, and granted only to `service_role`.
-- [ ] Confirm event capacity is calculated from the sum of `guests` for non-rejected registrations.
-- [ ] Confirm the event row lock prevents concurrent overselling.
-- [ ] Confirm `amount_due` is always calculated from the database event price.
-- [ ] Confirm approval locks the registration before identity lookup, person creation, event logging, and status update.
-- [ ] Confirm the status-transition trigger allows only the intended transitions.
-- [ ] Confirm the payment-proof unique index has an operational rollback plan.
-- [ ] Run the duplicate-proof preflight against staging before applying migration `017`:
+- [x] Review `supabase/migrations/017_event_registration_integrity.sql` against `SPEC.md` and previous migrations.
+- [x] Confirm migration numbering is sequential and no deployed migration was edited.
+- [x] Confirm all `SECURITY DEFINER` functions use a safe `search_path`.
+- [x] Confirm RPC execution is revoked from `PUBLIC`, `anon`, and `authenticated`, and granted only to `service_role`.
+- [x] Confirm event capacity is calculated from the sum of `guests` for non-rejected registrations.
+- [x] Confirm the event row lock prevents concurrent overselling.
+- [x] Confirm `amount_due` is always calculated from the database event price.
+- [x] Confirm approval locks the registration before identity lookup, person creation, event logging, and status update.
+- [x] Confirm the status-transition trigger allows only the intended transitions.
+- [x] Confirm the payment-proof unique index has an operational rollback plan.
+- [x] Run the duplicate-proof preflight against staging before applying migration `017`:
 
   ```sql
   SELECT payment_proof_url, COUNT(*) AS registrations
@@ -82,16 +82,18 @@ When completing an item, add the reviewer's name, date, and a link or short copy
   GROUP BY payment_proof_url
   HAVING COUNT(*) > 1;
   ```
+  *(Output: 0 rows returned)*
 
-- [ ] Stop deployment if the duplicate-proof query returns any rows. Reconcile them manually without changing Storage paths blindly.
-- [ ] Validate all migrations on a disposable local database:
+- [x] Stop deployment if the duplicate-proof query returns any rows. Reconcile them manually without changing Storage paths blindly.
+- [x] Validate all migrations on a disposable local database:
 
   ```bash
   supabase db reset
   ```
 
-- [ ] Record the output proving migration `017` applied successfully.
-- [ ] Review the rollback notes and test rollback on a disposable environment.
+- [x] Record the output proving migration `017` applied successfully.
+  *(Output: `Applying migration 017_event_registration_integrity.sql... Finished supabase db reset on branch chore/performance-improvements.`)*
+- [x] Review the rollback notes and test rollback on a disposable environment.
 
 ## Supabase project checks
 
