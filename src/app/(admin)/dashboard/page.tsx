@@ -130,31 +130,6 @@ export default async function DashboardPage() {
       workflows: { name: string }; 
     }[] | null;
 
-  const { data: overdueCards } = await supabase
-    .from('workflow_cards')
-    .select(`
-      id,
-      due_date,
-      person_id,
-      people!inner(first_name, last_name, id),
-      workflow_steps(name),
-      workflows!inner(name, church_id)
-    `)
-    .eq('workflows.church_id', churchId)
-    .is('completed_at', null)
-    .not('due_date', 'is', null)
-    .lt('due_date', new Date().toISOString())
-    .order('due_date', { ascending: true })
-    .limit(5) as unknown as { 
-      data: { 
-        id: string; 
-        due_date: string; 
-        person_id: string; 
-        people: { first_name: string; last_name: string; id: string }; 
-        workflow_steps: { name: string } | null; 
-        workflows: { name: string }; 
-      }[] | null 
-    };
 
   const statValues = [
     activeRes.count || 0,
