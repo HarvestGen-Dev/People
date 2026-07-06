@@ -14,31 +14,31 @@ HarvestGen People operates on a decoupled client-server model wrapped in a full-
 
 ```mermaid
 flowchart TD
-    subgraph External Systems
-        LMS[Shepherd LMS]
-        POS[Drip & Brew Café POS]
+    subgraph EXT["External Systems"]
+        LMS["Shepherd LMS"]
+        POS["Drip & Brew Café POS"]
     end
 
-    subgraph "HarvestGen People (Church OS)"
-        UI[Next.js App Router (Frontend)]
-        API[Next.js Route Handlers (API v1)]
+    subgraph HGP["HarvestGen People - Church OS"]
+        UI["Next.js App Router - Frontend"]
+        API["Next.js Route Handlers - API v1"]
     end
 
-    subgraph "Supabase Backend Infrastructure"
-        DB[(Postgres SQL)]
-        Auth[GoTrue Auth]
-        Storage[Supabase Storage]
+    subgraph SUPA["Supabase Backend Infrastructure"]
+        DB[("Supabase PostgreSQL Database")]
+        Auth["Supabase Auth"]
+        Storage["Supabase Storage"]
     end
     
-    Email[Brevo SMTP Relay]
+    Email["Brevo SMTP Relay"]
 
-    LMS -- API Keys --> API
-    POS -- API Keys --> API
-    UI -- SSR / Server Actions --> DB
-    UI -- Auth Tokens --> Auth
-    API -- Server Client --> DB
-    API -- Triggers Emails --> Email
-    UI -- Uploads Proofs --> Storage
+    LMS -- "API Keys" --> API
+    POS -- "API Keys" --> API
+    UI -- "SSR / Server Actions" --> DB
+    UI -- "Auth Tokens" --> Auth
+    API -- "Supabase Server Client" --> DB
+    API -- "Triggers Emails" --> Email
+    UI -- "Uploads Proofs" --> Storage
 ```
 
 ### Authentication & Invitation Flow
