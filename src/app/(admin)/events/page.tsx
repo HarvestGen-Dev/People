@@ -33,18 +33,23 @@ export default async function EventsPage() {
     isPlatformAdmin || role === 'owner' || role === 'admin';
   const supabase = createServiceClient();
 
-  const { data: eventsData } = await supabase
-    .from('events')
-    .select('*')
-    .eq('church_id', churchId)
-    .order('start_at', { ascending: false });
-
-  let events: EventWithStats[] = [];
-  if (eventsData?.length) {
-    const { data: registrations } = await supabase
+  const [eventsRes, registrationsRes] = await Promise.all([
+    supabase
+      .from('events')
+      .select('*')
+      .eq('church_id', churchId)
+      .order('start_at', { ascending: false }),
+    supabase
       .from('event_registrations')
       .select('event_id, status')
-      .eq('church_id', churchId);
+      .eq('church_id', churchId)
+  ]);
+
+  const { data: eventsData } = eventsRes;
+  
+  let events: EventWithStats[] = [];
+  if (eventsData?.length) {
+    const { data: registrations } = registrationsRes;
 
     const registrationsByEvent = (registrations || []).reduce<
       Record<string, { total: number; pending: number; approved: number }>

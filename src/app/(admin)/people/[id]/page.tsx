@@ -23,14 +23,14 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
   const canManage =
     isPlatformAdmin || role === 'owner' || role === 'admin';
 
-  const person = await getPersonById(id, churchId);
-  if (!person) notFound();
-
-  const [notes, events, workflowCards] = await Promise.all([
-    getPersonNotes(person.id, churchId),
-    getPersonEvents(person.id, churchId),
-    getPersonWorkflowCards(person.id, churchId)
+  const [person, notes, events, workflowCards] = await Promise.all([
+    getPersonById(id, churchId),
+    getPersonNotes(id, churchId),
+    getPersonEvents(id, churchId),
+    getPersonWorkflowCards(id, churchId)
   ]);
+
+  if (!person) notFound();
 
   const getStatusColor = (status: string) => {
     switch (status) {

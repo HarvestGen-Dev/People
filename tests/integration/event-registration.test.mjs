@@ -87,48 +87,53 @@ async function uploadProof(path) {
 before(async () => {
   // Start Mock TCP SMTP Server for Nodemailer
   mockSmtpServer = net.createServer((socket) => {
+    socket.setTimeout(2000, () => socket.destroy());
+    socket.on('error', () => {}); // Ignore errors
+
     let receivingData = false;
     let buffer = '';
     socket.write('220 mock ESMTP\r\n');
+    
     socket.on('data', (data) => {
       buffer += data.toString();
       
-      if (receivingData) {
-        if (buffer.includes('\r\n.\r\n')) {
-          receivingData = false;
-          sentEmailsCount++;
-          socket.write('250 OK\r\n');
-          buffer = ''; // Clear buffer after DATA completion
-        }
-        return;
-      }
-      
-      // Process commands line by line
-      let newlineIdx;
-      while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
-        const line = buffer.substring(0, newlineIdx).trim().toUpperCase();
-        buffer = buffer.substring(newlineIdx + 1);
-        
-        if (!line) continue;
-        
-        if (line.startsWith('EHLO') || line.startsWith('HELO')) {
-          socket.write('250-mock\r\n250-AUTH LOGIN PLAIN\r\n250 OK\r\n');
-        } else if (line.startsWith('AUTH')) {
-          socket.write('235 OK\r\n');
-        } else if (line.startsWith('MAIL')) {
-          socket.write('250 OK\r\n');
-        } else if (line.startsWith('RCPT')) {
-          socket.write('250 OK\r\n');
-        } else if (line.startsWith('DATA')) {
-          receivingData = true;
-          socket.write('354 Go ahead\r\n');
-          break; // Stop parsing lines, wait for \r\n.\r\n
-        } else if (line.startsWith('QUIT')) {
-          socket.write('221 OK\r\n');
-          socket.end();
+      while (buffer.length > 0) {
+        if (receivingData) {
+          const endIdx = buffer.indexOf('\r\n.\r\n');
+          if (endIdx !== -1) {
+            receivingData = false;
+            sentEmailsCount++;
+            socket.write('250 OK\r\n');
+            buffer = buffer.substring(endIdx + 5);
+            continue;
+          }
+          break; // Wait for more data
         } else {
-          // Fallback for AUTH challenges like base64 payloads
-          socket.write('235 OK\r\n');
+          const newlineIdx = buffer.indexOf('\n');
+          if (newlineIdx === -1) break; // Wait for full line
+          
+          const line = buffer.substring(0, newlineIdx).trim().toUpperCase();
+          buffer = buffer.substring(newlineIdx + 1);
+          
+          if (!line) continue;
+          
+          if (line.startsWith('EHLO') || line.startsWith('HELO')) {
+            socket.write('250-mock\r\n250-AUTH LOGIN PLAIN\r\n250 OK\r\n');
+          } else if (line.startsWith('AUTH')) {
+            socket.write('235 OK\r\n');
+          } else if (line.startsWith('MAIL')) {
+            socket.write('250 OK\r\n');
+          } else if (line.startsWith('RCPT')) {
+            socket.write('250 OK\r\n');
+          } else if (line.startsWith('DATA')) {
+            receivingData = true;
+            socket.write('354 Go ahead\r\n');
+          } else if (line.startsWith('QUIT')) {
+            socket.write('221 OK\r\n');
+            socket.end();
+          } else {
+            socket.write('235 OK\r\n');
+          }
         }
       }
     });

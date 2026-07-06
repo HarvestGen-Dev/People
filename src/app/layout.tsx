@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Outfit } from "next/font/google";
+import "@fontsource/outfit/400.css";
+import "@fontsource/outfit/500.css";
+import "@fontsource/outfit/600.css";
+import "@fontsource/outfit/700.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
-
-const outfit = Outfit({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: {
@@ -26,7 +27,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={outfit.className} suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <TooltipProvider>{children}</TooltipProvider>
         <Toaster richColors position="top-right" closeButton />
       </body>

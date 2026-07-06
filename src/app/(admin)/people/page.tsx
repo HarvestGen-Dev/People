@@ -38,14 +38,17 @@ export default async function PeoplePage({
     tag,
   };
 
-  const { people, total } = await getPeople(filters);
+  const [peopleRes, tagsRes] = await Promise.all([
+    getPeople(filters),
+    supabase
+      .from('tags')
+      .select('*')
+      .eq('church_id', churchId)
+      .order('name')
+  ]);
 
-  // Fetch all available tags for this church for the filter dropdown
-  const { data: tagsData } = await supabase
-    .from('tags')
-    .select('*')
-    .eq('church_id', churchId)
-    .order('name');
+  const { people, total } = peopleRes;
+  const { data: tagsData } = tagsRes;
     
   const tags = (tagsData as Tag[]) || [];
 

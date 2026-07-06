@@ -4,11 +4,13 @@ import {
   Activity,
   ArrowRight,
   CalendarDays,
+  CheckCircle2,
   GitBranch,
   LayoutList,
   Plus,
   UserRoundCheck,
   Users,
+  AlertCircle,
 } from 'lucide-react';
 import { format, formatDistanceToNow, startOfMonth, startOfWeek } from 'date-fns';
 import { createClient } from '@/lib/supabase/server';
@@ -43,7 +45,15 @@ export default async function DashboardPage() {
     isPlatformAdmin || role === 'owner' || role === 'admin';
   const supabase = await createClient();
 
-  const [activeRes, visitorRes, newRes, eventsRes] = await Promise.all([
+  const [
+    activeRes, 
+    visitorRes, 
+    newRes, 
+    eventsRes,
+    recentActivityRes,
+    newVisitorsRes,
+    overdueCardsRes
+  ] = await Promise.all([
     supabase
       .from('people')
       .select('id', { count: 'exact' })
@@ -64,35 +74,61 @@ export default async function DashboardPage() {
       .select('id', { count: 'exact' })
       .eq('church_id', churchId)
       .gte('occurred_at', startOfWeek(new Date()).toISOString()),
+    supabase
+      .from('person_events')
+      .select('*, people(id, first_name, last_name)')
+      .eq('church_id', churchId)
+      .order('occurred_at', { ascending: false })
+      .limit(8),
+    supabase
+      .from('people')
+      .select(`
+        id,
+        first_name,
+        last_name,
+        email,
+        created_at,
+        status,
+        person_events(source),
+        workflow_cards!left(
+          id,
+          workflow_steps(name)
+        )
+      `)
+      .eq('church_id', churchId)
+      .eq('status', 'visitor')
+      .gte('created_at', startOfMonth(new Date()).toISOString())
+      .order('created_at', { ascending: false })
+      .limit(8),
+    supabase
+      .from('workflow_cards')
+      .select(`
+        id,
+        due_date,
+        person_id,
+        people!inner(first_name, last_name, id),
+        workflow_steps(name),
+        workflows!inner(name, church_id)
+      `)
+      .eq('church_id', churchId)
+      .eq('workflows.church_id', churchId)
+      .is('completed_at', null)
+      .not('due_date', 'is', null)
+      .lt('due_date', new Date().toISOString())
+      .order('due_date', { ascending: true })
+      .limit(5)
   ]);
 
-  const { data: recentActivity } = await supabase
-    .from('person_events')
-    .select('*, people(id, first_name, last_name)')
-    .eq('church_id', churchId)
-    .order('occurred_at', { ascending: false })
-    .limit(8);
-
-  const { data: newVisitors } = await supabase
-    .from('people')
-    .select(`
-      id,
-      first_name,
-      last_name,
-      email,
-      created_at,
-      status,
-      person_events(source),
-      workflow_cards!left(
-        id,
-        workflow_steps(name)
-      )
-    `)
-    .eq('church_id', churchId)
-    .eq('status', 'visitor')
-    .gte('created_at', startOfMonth(new Date()).toISOString())
-    .order('created_at', { ascending: false })
-    .limit(8);
+  const recentActivity = recentActivityRes.data;
+  const newVisitors = newVisitorsRes.data;
+  const overdueCards = overdueCardsRes.data as unknown as { 
+      id: string; 
+      due_date: string; 
+      person_id: string; 
+      people: { first_name: string; last_name: string; id: string }; 
+      workflow_steps: { name: string } | null; 
+      workflows: { name: string }; 
+    }[] | null;
 
   const statValues = [
     activeRes.count || 0,
@@ -193,6 +229,71 @@ export default async function DashboardPage() {
       <div className="grid gap-6 xl:grid-cols-[1.55fr_0.85fr]">
         <section className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white">
           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-5 sm:px-6">
+            <div>
+              <h2 className="font-bold text-slate-950">New visitors</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Added during {format(new Date(), 'MMMM')}
+              </p>
+            </div>
+            <Link
+              href="/people?status=visitor"
+              className="text-xs font-bold text-emerald-700 hover:text-emerald-800"
+            >
+              View all
+            </Link>
+          </div>
+
+          {!overdueCards?.length ? (
+            <div className="px-6 py-12 text-center border-b border-slate-100">
+              <CheckCircle2 className="mx-auto h-8 w-8 text-slate-300" />
+              <p className="mt-3 text-sm font-semibold text-slate-700">
+                You&apos;re all caught up!
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                There are no overdue workflow follow-ups.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100 border-b border-slate-100 bg-red-50/30">
+              {overdueCards.map((card) => (
+                <div
+                  key={card.id}
+                  className="flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-red-50/70 sm:px-6"
+                >
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-red-100 text-red-600">
+                      <AlertCircle className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={`/people/${card.person_id}`}
+                          className="truncate text-sm font-bold text-slate-900 hover:text-red-700"
+                        >
+                          {card.people?.first_name} {card.people?.last_name}
+                        </Link>
+                        <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700">
+                          OVERDUE
+                        </span>
+                      </div>
+                      <div className="mt-0.5 text-xs text-slate-600 truncate">
+                        <span className="font-medium text-slate-700">{card.workflows?.name}</span>
+                        <span className="mx-1 text-slate-400">&rarr;</span>
+                        <span>{card.workflow_steps?.name}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-xs font-bold text-red-600">
+                      {formatDistanceToNow(new Date(card.due_date), { addSuffix: true })}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-5 sm:px-6 bg-white">
             <div>
               <h2 className="font-bold text-slate-950">New visitors</h2>
               <p className="mt-1 text-xs text-slate-500">

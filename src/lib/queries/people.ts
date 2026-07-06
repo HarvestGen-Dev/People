@@ -20,13 +20,15 @@ export async function getPeople(filters: PeopleFilters): Promise<{
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  let query = supabase
-    .from('people')
-    .select(`
+  const selectString = `
       *,
       household:households(*),
       person_tags(tag:tags(*))
-    `, { count: 'exact' })
+    `;
+
+  let query = supabase
+    .from('people')
+    .select(selectString, { count: 'exact' })
     .eq('church_id', filters.church_id)
     .order('last_name', { ascending: true })
     .range(from, to);
@@ -41,7 +43,6 @@ export async function getPeople(filters: PeopleFilters): Promise<{
     query = query.eq('status', filters.status);
   }
 
-  // Tag filter: fetch person_ids with this tag first
   if (filters.tag) {
     const { data: taggedPeople } = await supabase
       .from('person_tags')
@@ -57,5 +58,5 @@ export async function getPeople(filters: PeopleFilters): Promise<{
   const { data, error, count } = await query;
   if (error) throw error;
   
-  return { people: (data as PersonWithRelations[]) ?? [], total: count ?? 0 };
+  return { people: (data as unknown as PersonWithRelations[]) ?? [], total: count ?? 0 };
 }
