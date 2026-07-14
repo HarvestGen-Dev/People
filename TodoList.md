@@ -160,8 +160,12 @@
 - [ ] Attempt tenant-ID and registration-ID tampering through the browser and direct HTTP requests.
 - [x] Attempt payment-proof path reuse and cross-event/cross-church proof substitution.
   - Evidence: `npm run test:integration:events` passed on branch `test/payment-proof-substitution-audit`; includes `Payment proof substitution is blocked across events and churches`.
+- [x] Attempt tenant-ID and registration-ID tampering through the browser and direct HTTP requests.
+  - Evidence: `npm run test:integration:events` passed on branch `test/tenant-id-tampering-audit`; includes `Cross-tenant registration ID tampering is blocked`.
+- [ ] Attempt payment-proof path reuse and cross-event/cross-church proof substitution.
 - [ ] Verify public endpoints have a production-grade distributed rate limit; the current in-memory limiter resets on deployment and is not shared between instances.
-- [ ] Verify error responses do not expose SQL, storage paths, credentials, or internal stack traces.
+- [x] Verify error responses do not expose SQL, storage paths, credentials, or internal stack traces.
+  - Evidence: `npm run test:integration:events` passed on branch `fix/sanitize-public-errors`; includes `Public event endpoints return generic errors for malformed request bodies`.
 - [ ] Verify email HTML safely handles user-controlled and event-controlled text.
 - [ ] Verify audit records identify who approved or rejected each registration.
 - [ ] Verify rejected registrations release capacity as intended.
