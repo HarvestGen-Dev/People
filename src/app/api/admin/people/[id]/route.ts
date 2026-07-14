@@ -4,19 +4,20 @@ import {
   adminApiError,
   requireTenantContext,
 } from '@/lib/tenant-context';
+import { recordAuditLog } from '@/lib/audit-log';
 import { assertTenantRecords } from '@/lib/tenant-references';
 import { triggerWorkflowsForTags } from '@/lib/workflows/trigger-tags';
 import { applyDisplayOrDatabaseIdFilter } from '@/lib/display-ids';
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { churchId } = await requireTenantContext({ requireManager: true });
+    const { churchId, user } = await requireTenantContext({ requireManager: true });
     const supabase = await createClient();
     
     const { id } = await params;
     const personQuery = supabase
       .from('people')
-      .select('id')
+      .select('id, display_id, first_name, last_name, status')
       .eq('church_id', churchId);
     const { data: person } = await applyDisplayOrDatabaseIdFilter(personQuery, id).single();
 
@@ -34,6 +35,19 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
     if (error) throw error;
 
+    await recordAuditLog({
+      churchId,
+      actor: user,
+      action: 'person.deleted',
+      resourceType: 'person',
+      resourceDisplayId: person.display_id,
+      metadata: {
+        name: `${person.first_name} ${person.last_name}`,
+        status: person.status,
+      },
+      request,
+    });
+
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
     return adminApiError(error);
@@ -42,7 +56,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { churchId } = await requireTenantContext({ requireManager: true });
+    const { churchId, user } = await requireTenantContext({ requireManager: true });
     const supabase = await createClient();
     
     const { id } = await params;
@@ -52,7 +66,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const existingQuery = supabase
       .from('people')
-      .select('id, display_id')
+      .select('id, display_id, first_name, last_name')
       .eq('church_id', churchId);
     const { data: existingPerson } = await applyDisplayOrDatabaseIdFilter(existingQuery, id).single();
 
@@ -146,6 +160,21 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         
       if (fieldError) throw fieldError;
     }
+
+    await recordAuditLog({
+      churchId,
+      actor: user,
+      action: 'person.updated',
+      resourceType: 'person',
+      resourceDisplayId: existingPerson.display_id,
+      metadata: {
+        name: `${existingPerson.first_name} ${existingPerson.last_name}`,
+        changed_fields: person ? Object.keys(person) : [],
+        tags_updated: tags !== undefined,
+        custom_fields_updated: Boolean(customFields?.length),
+      },
+      request,
+    });
 
     return NextResponse.json({
       data: { id: personId, display_id: existingPerson.display_id },

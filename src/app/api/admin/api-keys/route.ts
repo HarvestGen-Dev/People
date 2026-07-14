@@ -6,6 +6,7 @@ import {
   adminApiError,
   requireTenantContext,
 } from '@/lib/tenant-context';
+import { recordAuditLog } from '@/lib/audit-log';
 
 const ALLOWED_SCOPES = new Set([
   'people:read',
@@ -17,7 +18,7 @@ const ALLOWED_SCOPES = new Set([
 
 export async function POST(request: Request) {
   try {
-    const { churchId } = await requireTenantContext({ requireManager: true });
+    const { churchId, user } = await requireTenantContext({ requireManager: true });
     const supabase = await createClient();
 
     const body = await request.json();
@@ -77,6 +78,20 @@ export async function POST(request: Request) {
       .single();
 
     if (error) throw error;
+
+    await recordAuditLog({
+      churchId,
+      actor: user,
+      action: 'api_key.created',
+      resourceType: 'api_key',
+      resourceDisplayId: data.key_prefix,
+      metadata: {
+        name: data.name,
+        scopes: data.scopes,
+        expires_at: data.expires_at,
+      },
+      request,
+    });
     
     // Return the raw key ONCE
     return NextResponse.json({ data: { apiKey: data, rawKey } });

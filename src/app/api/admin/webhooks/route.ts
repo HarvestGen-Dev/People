@@ -6,6 +6,7 @@ import {
   adminApiError,
   requireTenantContext,
 } from '@/lib/tenant-context'
+import { recordAuditLog } from '@/lib/audit-log'
 
 const WEBHOOK_EVENTS = new Set([
   'person.created',
@@ -34,7 +35,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const { churchId } = await requireTenantContext({ requireManager: true })
+    const { churchId, user } = await requireTenantContext({ requireManager: true })
     const supabase = await createClient()
     const body = await req.json()
     const name = typeof body.name === 'string' ? body.name.trim() : ''
@@ -87,6 +88,19 @@ export async function POST(req: Request) {
       .single()
 
     if (error) throw error
+    await recordAuditLog({
+      churchId,
+      actor: user,
+      action: 'webhook.created',
+      resourceType: 'webhook',
+      resourceDisplayId: data.name,
+      metadata: {
+        events: data.events,
+        url_host: endpoint.host,
+      },
+      request: req,
+    })
+
     return NextResponse.json(data)
   } catch (error: unknown) {
     return adminApiError(error)

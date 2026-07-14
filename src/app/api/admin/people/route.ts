@@ -4,12 +4,13 @@ import {
   adminApiError,
   requireTenantContext,
 } from '@/lib/tenant-context';
+import { recordAuditLog } from '@/lib/audit-log';
 import { assertTenantRecords } from '@/lib/tenant-references';
 import { triggerWorkflowsForTags } from '@/lib/workflows/trigger-tags';
 
 export async function POST(request: Request) {
   try {
-    const { churchId: church_id } = await requireTenantContext({
+    const { churchId: church_id, user } = await requireTenantContext({
       requireManager: true,
     });
     const supabase = await createClient();
@@ -97,6 +98,21 @@ export async function POST(request: Request) {
       const { error: fieldError } = await supabase.from('person_field_values').insert(fieldInserts);
       if (fieldError) throw fieldError;
     }
+
+    await recordAuditLog({
+      churchId: church_id,
+      actor: user,
+      action: 'person.created',
+      resourceType: 'person',
+      resourceDisplayId: newPerson.display_id,
+      metadata: {
+        name: `${newPerson.first_name} ${newPerson.last_name}`,
+        status: newPerson.status,
+        tags_count: Array.isArray(tags) ? tags.length : 0,
+        custom_fields_count: Array.isArray(customFields) ? customFields.length : 0,
+      },
+      request,
+    });
 
     return NextResponse.json({
       data: { id: person_id, display_id: newPerson.display_id },

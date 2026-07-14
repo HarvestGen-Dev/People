@@ -5,6 +5,7 @@ import {
   requireTenantContext,
 } from '@/lib/tenant-context';
 import { applyDisplayOrDatabaseIdFilter } from '@/lib/display-ids';
+import { recordAuditLog } from '@/lib/audit-log';
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -63,6 +64,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .single();
 
     if (insertError) throw insertError;
+
+    await recordAuditLog({
+      churchId,
+      actor: user,
+      action: 'event.duplicated',
+      resourceType: 'event',
+      resourceDisplayId: duplicate.display_id,
+      metadata: {
+        name: duplicate.name,
+        source: original.display_id,
+        status: duplicate.status,
+      },
+      request,
+    });
 
     return NextResponse.json({ data: duplicate });
   } catch (error: unknown) {

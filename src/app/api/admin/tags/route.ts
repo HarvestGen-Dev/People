@@ -4,6 +4,7 @@ import {
   adminApiError,
   requireTenantContext,
 } from '@/lib/tenant-context';
+import { recordAuditLog } from '@/lib/audit-log';
 
 export async function GET() {
   try {
@@ -25,7 +26,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { churchId } = await requireTenantContext({ requireManager: true });
+    const { churchId, user } = await requireTenantContext({ requireManager: true });
     const supabase = await createClient();
 
     const body = await request.json();
@@ -42,6 +43,19 @@ export async function POST(request: Request) {
       .single();
 
     if (error) throw error;
+    await recordAuditLog({
+      churchId,
+      actor: user,
+      action: 'tag.created',
+      resourceType: 'tag',
+      resourceDisplayId: data.display_id,
+      metadata: {
+        name: data.name,
+        color: data.color,
+      },
+      request,
+    });
+
     return NextResponse.json({ data });
   } catch (error: unknown) {
     return adminApiError(error);

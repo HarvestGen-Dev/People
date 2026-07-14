@@ -5,10 +5,19 @@ import {
   adminApiError,
   requireTenantContext,
 } from '@/lib/tenant-context'
+import { recordAuditLog } from '@/lib/audit-log'
+
+function safeUrlHost(url: string): string | null {
+  try {
+    return new URL(url).host
+  } catch {
+    return null
+  }
+}
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { churchId } = await requireTenantContext({ requireManager: true })
+    const { churchId, user } = await requireTenantContext({ requireManager: true })
     const supabase = await createClient()
     const { id } = await params;
     const body = await req.json()
@@ -30,6 +39,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       .single()
 
     if (error) throw error
+    await recordAuditLog({
+      churchId,
+      actor: user,
+      action: 'webhook.updated',
+      resourceType: 'webhook',
+      resourceDisplayId: data.name,
+      metadata: {
+        is_active: data.is_active,
+      },
+      request: req,
+    })
+
     return NextResponse.json(data)
   } catch (error: unknown) {
     return adminApiError(error)
@@ -38,9 +59,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { churchId } = await requireTenantContext({ requireManager: true })
+    const { churchId, user } = await requireTenantContext({ requireManager: true })
     const supabase = await createClient()
     const { id } = await params;
+
+    const { data: webhook } = await supabase
+      .from('webhooks')
+      .select('name, url')
+      .eq('id', id)
+      .eq('church_id', churchId)
+      .maybeSingle()
 
     const { error } = await supabase
       .from('webhooks')
@@ -49,6 +77,20 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       .eq('church_id', churchId)
 
     if (error) throw error
+    await recordAuditLog({
+      churchId,
+      actor: user,
+      action: 'webhook.deleted',
+      resourceType: 'webhook',
+      resourceDisplayId: webhook?.name || null,
+      metadata: webhook
+        ? {
+            url_host: safeUrlHost(webhook.url),
+          }
+        : null,
+      request: req,
+    })
+
     return NextResponse.json({ success: true })
   } catch (error: unknown) {
     return adminApiError(error)

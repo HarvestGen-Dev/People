@@ -5,10 +5,11 @@ import {
   adminApiError,
   requireTenantContext,
 } from '@/lib/tenant-context'
+import { recordAuditLog } from '@/lib/audit-log'
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { churchId } = await requireTenantContext({ requireManager: true })
+    const { churchId, user } = await requireTenantContext({ requireManager: true })
     const supabase = await createClient()
     const { id } = await params;
 
@@ -84,8 +85,36 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   if (errorMessage) {
+    await recordAuditLog({
+      churchId,
+      actor: user,
+      action: 'webhook.tested',
+      resourceType: 'webhook',
+      resourceDisplayId: webhook.name,
+      metadata: {
+        success: false,
+        duration_ms: duration,
+        response_status: responseStatus,
+      },
+      request: req,
+    })
+
     return NextResponse.json({ success: false, error: errorMessage, duration }, { status: 500 })
   }
+
+    await recordAuditLog({
+      churchId,
+      actor: user,
+      action: 'webhook.tested',
+      resourceType: 'webhook',
+      resourceDisplayId: webhook.name,
+      metadata: {
+        success: true,
+        duration_ms: duration,
+        response_status: responseStatus,
+      },
+      request: req,
+    })
 
     return NextResponse.json({ success: true, duration })
   } catch (error: unknown) {

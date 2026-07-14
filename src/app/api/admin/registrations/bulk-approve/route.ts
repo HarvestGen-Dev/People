@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { approveRegistration } from '@/lib/events/approve-registration';
+import { recordAuditLog } from '@/lib/audit-log';
 import {
   adminApiError,
   requireTenantContext,
@@ -26,6 +27,21 @@ export async function POST(request: Request) {
       if (result.success) approved++;
       else failed++;
     }
+
+    await recordAuditLog({
+      churchId,
+      actor: user,
+      action: 'registration.approved',
+      resourceType: 'registration',
+      resourceDisplayId: null,
+      metadata: {
+        bulk: true,
+        requested_count: ids.length,
+        approved_count: approved,
+        failed_count: failed,
+      },
+      request,
+    });
 
     return NextResponse.json({ data: { approved, failed } });
   } catch (error: unknown) {
