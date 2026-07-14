@@ -4,6 +4,7 @@ import {
   adminApiError,
   requireTenantContext,
 } from '@/lib/tenant-context';
+import { applyDisplayOrDatabaseIdFilter } from '@/lib/display-ids';
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -15,11 +16,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { id } = await params;
     
     // 1. Fetch original event
-    const { data: original, error: fetchError } = await supabase
+    const originalQuery = supabase
       .from('events')
       .select('*')
-      .eq('id', id)
-      .eq('church_id', churchId)
+      .eq('church_id', churchId);
+
+    const { data: original, error: fetchError } = await applyDisplayOrDatabaseIdFilter(originalQuery, id)
       .single();
 
     if (fetchError || !original) throw new Error('Original event not found');
@@ -45,6 +47,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // 3. Create payload (strip ID and timestamps, set status to draft)
     const eventPayload: Partial<typeof original> = { ...original };
     delete eventPayload.id;
+    delete eventPayload.display_id;
     delete eventPayload.created_at;
     delete eventPayload.updated_at;
     eventPayload.slug = newSlug;

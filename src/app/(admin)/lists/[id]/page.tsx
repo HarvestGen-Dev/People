@@ -6,6 +6,7 @@ import { StaticListDetail } from '@/components/lists/StaticListDetail';
 import { notFound } from 'next/navigation';
 import { requireTenantContext } from '@/lib/tenant-context';
 import type { ListPerson, SmartListFilters } from '@/lib/types';
+import { applyDisplayOrDatabaseIdFilter } from '@/lib/display-ids';
 
 export const metadata = {
   title: 'List | People',
@@ -16,11 +17,12 @@ export default async function ListDetailPage({ params }: { params: Promise<{ id:
   const supabase = createServiceClient();
   const { id } = await params;
 
-  const { data: list } = await supabase
+  const listQuery = supabase
     .from('lists')
     .select('*')
-    .eq('id', id)
-    .eq('church_id', churchId)
+    .eq('church_id', churchId);
+
+  const { data: list } = await applyDisplayOrDatabaseIdFilter(listQuery, id)
     .single();
 
   if (!list) {
@@ -56,10 +58,10 @@ export default async function ListDetailPage({ params }: { params: Promise<{ id:
       .select(`
         person_id,
         people (
-          id, first_name, last_name, email, phone, status, campus, photo_url
+          id, display_id, first_name, last_name, email, phone, status, campus, photo_url
         )
       `)
-      .eq('list_id', id);
+      .eq('list_id', list.id);
 
     people = (listMembers || []).flatMap((listMember) =>
       Array.isArray(listMember.people)

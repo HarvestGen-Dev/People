@@ -10,11 +10,17 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { requireTenantContext } from '@/lib/tenant-context';
 import { redirect } from 'next/navigation';
+import { applyDisplayOrDatabaseIdFilter, displayIdFor } from '@/lib/display-ids';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const { churchId } = await requireTenantContext();
   const supabase = await createClient();
-  const { data } = await supabase.from('people').select('first_name, last_name').eq('id', id).single();
+  const query = supabase
+    .from('people')
+    .select('first_name, last_name')
+    .eq('church_id', churchId);
+  const { data } = await applyDisplayOrDatabaseIdFilter(query, id).single();
   return { title: data ? `${data.first_name} ${data.last_name} | People` : 'Person Not Found' };
 }
 
@@ -53,7 +59,7 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
       <Topbar title="Person profile">
         <div className="flex items-center gap-2">
           {canManage && (
-            <Link href={`/people/${person.id}/edit`}>
+            <Link href={`/people/${displayIdFor(person)}/edit`}>
               <Button variant="outline" className="h-9 rounded-xl border-slate-200 bg-white font-semibold shadow-sm">
                 <Pencil className="mr-2 h-3.5 w-3.5" />
                 Edit person

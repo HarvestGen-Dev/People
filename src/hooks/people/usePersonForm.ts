@@ -135,13 +135,14 @@ export function usePersonForm(
 
       const { data: responseData } = await res.json();
       const personId = responseData.id;
+      const personDisplayId = responseData.display_id || responseData.id;
 
       if (photoFile) {
         await uploadPhoto(personId);
       }
 
       toast.success(isEdit ? 'Person updated successfully' : 'Person created successfully');
-      router.push(`/people/${personId}`);
+      router.push(`/people/${personDisplayId}`);
       router.refresh();
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Failed to save person');

@@ -2,6 +2,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, Layers3 } from 'lucide-react';
 import type { WorkflowSummary } from '@/lib/types';
 import { Button } from '@/components/ui/button';
+import { displayIdFor } from '@/lib/display-ids';
 
 export function WorkflowGrid({ workflows }: { workflows: WorkflowSummary[] }) {
   const router = useRouter();
@@ -65,7 +66,7 @@ export function WorkflowGrid({ workflows }: { workflows: WorkflowSummary[] }) {
 
             <Button
               variant="outline"
-              onClick={() => router.push(`/workflows/${workflow.id}`)}
+              onClick={() => router.push(`/workflows/${displayIdFor(workflow)}`)}
               className="mt-6 h-10 w-full justify-between rounded-xl border-slate-200 font-bold group-hover:border-emerald-200 group-hover:bg-emerald-50"
             >
               Open board

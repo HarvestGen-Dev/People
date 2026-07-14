@@ -5,6 +5,11 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { adminApiError } from '@/lib/tenant-context';
 import { assertTenantRecords } from '@/lib/tenant-references';
 import { dispatchWebhook } from '@/lib/webhooks';
+import {
+  applyDisplayOrDatabaseIdFilter,
+  displayIdFor,
+  resolveScopedRecordIds,
+} from '@/lib/display-ids';
 
 export async function GET(request: NextRequest) {
   const auth = await validateApiKey(request, 'people:read');
@@ -28,7 +33,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('people')
-      .select('*, person_tags(tag:tags(id, name, color))', { count: 'exact' })
+      .select('*, person_tags(tag:tags(id, display_id, name, color))', { count: 'exact' })
       .eq('church_id', churchId)
       .order('last_name')
       .order('first_name');
@@ -40,17 +45,27 @@ export async function GET(request: NextRequest) {
       query = query.eq('status', status);
     }
     if (tag_id) {
-      // Need a join on person_tags if we filter by tag_id. 
+      const tagQuery = supabase
+        .from('tags')
+        .select('id')
+        .eq('church_id', churchId);
+      const { data: tag } = await applyDisplayOrDatabaseIdFilter(tagQuery, tag_id).single();
+
+      if (!tag) {
+        return NextResponse.json({ error: 'tag_id not found' }, { status: 400 });
+      }
+
+      // Need a join on person_tags if we filter by tag_id.
       // In Supabase REST we might have to use inner join:
       // person_tags!inner(tag_id)
       query = supabase
         .from('people')
-        .select('*, person_tags!inner(tag_id, tag:tags(id, name, color))', { count: 'exact' })
+        .select('*, person_tags!inner(tag_id, tag:tags(id, display_id, name, color))', { count: 'exact' })
         .eq('church_id', churchId)
-        .eq('person_tags.tag_id', tag_id)
+        .eq('person_tags.tag_id', tag.id)
         .order('last_name')
         .order('first_name');
-      
+
       if (search) {
         query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%`);
       }
@@ -64,7 +79,7 @@ export async function GET(request: NextRequest) {
     if (error) throw error;
 
     const people = (data || []).map(p => ({
-      id: p.id,
+      id: displayIdFor(p),
       first_name: p.first_name,
       last_name: p.last_name,
       email: p.email,
@@ -73,7 +88,11 @@ export async function GET(request: NextRequest) {
       campus: p.campus,
       photo_url: p.photo_url,
       tags: (p.person_tags || [])
-        .map((personTag: { tag: unknown }) => personTag.tag)
+        .map((personTag: { tag: { id: string; display_id?: string | null } }) =>
+          personTag.tag
+            ? { ...personTag.tag, id: displayIdFor(personTag.tag) }
+            : null
+        )
         .filter(Boolean),
       created_at: p.created_at,
       updated_at: p.updated_at,
@@ -111,21 +130,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'first_name and last_name are required' }, { status: 400 });
     }
 
-    const tagIds = Array.isArray(body.tag_ids) ? body.tag_ids : [];
+    const tagIds = Array.isArray(body.tag_ids)
+      ? await resolveScopedRecordIds(supabase, 'tags', body.tag_ids, churchId)
+      : [];
     await assertTenantRecords('tags', tagIds, churchId, 'tags');
 
     if (body.email) {
       const { data: existing } = await supabase
         .from('people')
-        .select('id')
+        .select('id, display_id')
         .eq('church_id', churchId)
         .eq('email', body.email)
         .single();
       
       if (existing) {
-        return NextResponse.json({ 
-          error: 'A person with this email already exists', 
-          data: { existing_id: existing.id } 
+        return NextResponse.json({
+          error: 'A person with this email already exists',
+          data: { existing_id: displayIdFor(existing) }
         }, { status: 409 });
       }
     }
@@ -143,7 +164,7 @@ export async function POST(request: NextRequest) {
         gender: body.gender || null,
         birthdate: body.birthdate || null,
       })
-      .select('id')
+      .select('id, display_id')
       .single();
 
     if (error) throw error;
@@ -164,9 +185,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Await webhook to prevent termination
-    await dispatchWebhook(churchId, 'person.created', { id: person.id, first_name: body.first_name, last_name: body.last_name, email: body.email });
+    await dispatchWebhook(churchId, 'person.created', { id: displayIdFor(person), first_name: body.first_name, last_name: body.last_name, email: body.email });
 
-    return NextResponse.json({ data: { id: person.id } }, { status: 201 });
+    return NextResponse.json({ data: { id: displayIdFor(person) } }, { status: 201 });
 
   } catch (error: unknown) {
     return adminApiError(error);

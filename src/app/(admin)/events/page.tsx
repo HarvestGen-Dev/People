@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { EventWithStats } from '@/lib/types';
 import { requireTenantContext } from '@/lib/tenant-context';
+import { displayIdFor } from '@/lib/display-ids';
 
 export const metadata = {
   title: 'Events | HarvestGen',
@@ -176,13 +177,14 @@ export default async function EventsPage() {
         <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {events.map((event) => {
             const publicLink = `${appUrl}/e/${event.slug}`;
+            const eventDisplayId = displayIdFor(event);
             return (
               <article
                 key={event.id}
                 className="group overflow-hidden rounded-3xl border border-slate-200/80 bg-white transition-all hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-[0_24px_55px_-40px_rgba(6,78,59,0.5)]"
               >
                 <Link
-                  href={canManage ? `/events/${event.id}/edit` : publicLink}
+                  href={canManage ? `/events/${eventDisplayId}/edit` : publicLink}
                   className="relative block aspect-[16/8.5] overflow-hidden bg-emerald-950"
                 >
                   {event.cover_image_url ? (
@@ -213,7 +215,7 @@ export default async function EventsPage() {
                 </Link>
 
                 <div className="p-5">
-                  <Link href={canManage ? `/events/${event.id}/edit` : publicLink}>
+                  <Link href={canManage ? `/events/${eventDisplayId}/edit` : publicLink}>
                     <h2 className="truncate text-xl font-bold tracking-tight text-slate-950 group-hover:text-emerald-700">
                       {event.name}
                     </h2>
@@ -265,7 +267,7 @@ export default async function EventsPage() {
                           />
                         </>
                       )}
-                      {canManage && <Link href={`/events/${event.id}/registrations`}>
+                      {canManage && <Link href={`/events/${eventDisplayId}/registrations`}>
                         <Button
                           variant="ghost"
                           size="sm"

@@ -15,6 +15,7 @@ import {
 import { format, formatDistanceToNow, startOfMonth, startOfWeek } from 'date-fns';
 import { createClient } from '@/lib/supabase/server';
 import { requireTenantContext } from '@/lib/tenant-context';
+import { displayIdFor } from '@/lib/display-ids';
 
 const statStyles = [
   {
@@ -76,7 +77,7 @@ export default async function DashboardPage() {
       .gte('occurred_at', startOfWeek(new Date()).toISOString()),
     supabase
       .from('person_events')
-      .select('*, people(id, first_name, last_name)')
+      .select('*, people(id, display_id, first_name, last_name)')
       .eq('church_id', churchId)
       .order('occurred_at', { ascending: false })
       .limit(8),
@@ -84,6 +85,7 @@ export default async function DashboardPage() {
       .from('people')
       .select(`
         id,
+        display_id,
         first_name,
         last_name,
         email,
@@ -106,7 +108,7 @@ export default async function DashboardPage() {
         id,
         due_date,
         person_id,
-        people!inner(first_name, last_name, id),
+        people!inner(first_name, last_name, id, display_id),
         workflow_steps(name),
         workflows!inner(name, church_id)
       `)
@@ -125,9 +127,9 @@ export default async function DashboardPage() {
       id: string; 
       due_date: string; 
       person_id: string; 
-      people: { first_name: string; last_name: string; id: string }; 
-      workflow_steps: { name: string } | null; 
-      workflows: { name: string }; 
+      people: { first_name: string; last_name: string; id: string; display_id: string };
+      workflow_steps: { name: string } | null;
+      workflows: { name: string };
     }[] | null;
 
 
@@ -339,7 +341,7 @@ export default async function DashboardPage() {
                       </div>
                       <div className="min-w-0">
                         <Link
-                          href={`/people/${visitor.id}`}
+                          href={`/people/${displayIdFor(visitor)}`}
                           className="block truncate text-sm font-bold text-slate-900 hover:text-emerald-700"
                         >
                           {visitor.first_name} {visitor.last_name}

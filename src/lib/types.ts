@@ -13,6 +13,7 @@ export interface Household {
 
 export interface Person {
   id: string;
+  display_id: string;
   first_name: string;
   last_name: string;
   email: string | null;
@@ -53,6 +54,7 @@ export interface PersonFieldValue {
 
 export interface Tag {
   id: string;
+  display_id: string;
   name: string;
   color: string;
   target_workflow_id: string | null;
@@ -75,7 +77,7 @@ export interface PersonWithRelations extends Person {
 
 export type ListPerson = Pick<
   Person,
-  'id' | 'first_name' | 'last_name' | 'email' | 'phone' | 'status' | 'campus' | 'photo_url'
+  'id' | 'display_id' | 'first_name' | 'last_name' | 'email' | 'phone' | 'status' | 'campus' | 'photo_url'
 >;
 
 export type ListTag = Pick<Tag, 'id' | 'name' | 'color'>;
@@ -109,6 +111,7 @@ export interface Note {
 
 export interface PersonEvent {
   id: string;
+  display_id: string;
   person_id: string;
   source: 'shepherd' | 'drip_brew' | 'manual' | 'people';
   event_type: string;
@@ -133,6 +136,7 @@ export interface ConnectForm {
 
 export interface Workflow {
   id: string;
+  display_id: string;
   name: string;
   description: string | null;
   is_active: boolean;
@@ -180,7 +184,7 @@ export interface WorkflowCardWithRelations extends WorkflowCard {
 // <!-- AGENT: FRONTEND -->
 export type WorkflowPerson = Pick<
   Person,
-  'id' | 'first_name' | 'last_name' | 'status' | 'created_at' | 'photo_url'
+  'id' | 'display_id' | 'first_name' | 'last_name' | 'status' | 'created_at' | 'photo_url'
 >;
 
 export interface WorkflowBoardCard extends WorkflowCard {
@@ -200,6 +204,7 @@ export interface WorkflowSummary extends Workflow {
 
 export interface List {
   id: string;
+  display_id: string;
   name: string;
   type: 'smart' | 'static';
   filters: unknown | null;
@@ -270,6 +275,7 @@ export type RegistrationStatus = 'pending_review' | 'approved' | 'rejected';
 
 export interface Event {
   id: string;
+  display_id: string;
   church_id: string;
   slug: string;
   name: string;
@@ -293,6 +299,7 @@ export interface Event {
 
 export interface EventRegistration {
   id: string;
+  display_id: string;
   church_id: string;
   event_id: string;
   person_id: string | null;
@@ -324,6 +331,7 @@ export interface EventWithStats extends Event {
 
 export type PersonSummary = {
   id: string
+  display_id: string
   first_name: string
   last_name: string
   email: string | null

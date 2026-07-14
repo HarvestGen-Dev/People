@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/select';
 import type { WorkflowBoardCard, WorkflowStep, WorkflowAdminUser } from '@/lib/types';
 import type { CardDraft } from '@/hooks/useKanbanBoard';
+import { displayIdFor } from '@/lib/display-ids';
 
 export function CardDetailsSidebar({
   activeCard,
@@ -39,6 +40,7 @@ export function CardDetailsSidebar({
   handleRemoveCard: () => void;
 }) {
   const router = useRouter();
+  const personDisplayId = activeCard ? displayIdFor(activeCard.people) : null;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -92,7 +94,7 @@ export function CardDetailsSidebar({
               <button
                 type="button"
                 className="mt-1 text-xs font-bold text-emerald-700 hover:text-emerald-800"
-                onClick={() => router.push(`/people/${activeCard.people.id}`)}
+                onClick={() => personDisplayId && router.push(`/people/${personDisplayId}`)}
               >
                 View person profile
               </button>

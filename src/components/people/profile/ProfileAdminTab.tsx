@@ -3,6 +3,7 @@ import type { PersonWithRelations } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { TabsContent } from '@/components/ui/tabs';
+import { displayIdFor } from '@/lib/display-ids';
 
 export function ProfileAdminTab({
   person,
@@ -42,7 +43,7 @@ export function ProfileAdminTab({
             <div className="grid gap-4 text-sm sm:grid-cols-2">
               <div>
                 <span className="mb-1 block text-muted-foreground">Person ID</span>
-                <code className="rounded bg-slate-100 px-2 py-1 text-slate-700">{person.id}</code>
+                <code className="rounded bg-slate-100 px-2 py-1 text-slate-700">{displayIdFor(person)}</code>
               </div>
               <div>
                 <span className="mb-1 block text-muted-foreground">Created At</span>

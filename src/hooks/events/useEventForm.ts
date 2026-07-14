@@ -143,6 +143,7 @@ export function useEventForm(event?: Event) {
 
       const { data: responseData } = await res.json();
       const eventId = responseData.id;
+      const eventDisplayId = responseData.display_id || responseData.id;
 
       if (coverFile) await uploadImage(eventId, coverFile, 'cover');
       if (qrFile && watchPrice > 0) await uploadImage(eventId, qrFile, 'qr');
@@ -153,7 +154,7 @@ export function useEventForm(event?: Event) {
       } else {
         toast.success(isEdit ? 'Event updated successfully' : 'Event created successfully');
         if (!isEdit) {
-          router.push(`/events/${eventId}/edit`);
+          router.push(`/events/${eventDisplayId}/edit`);
         } else {
           router.refresh();
         }

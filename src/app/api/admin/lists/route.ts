@@ -38,7 +38,7 @@ export async function POST(request: Request) {
         type: body.type,
         filters: body.filters || null
       })
-      .select('id')
+      .select('id, display_id')
       .single();
 
     if (error) throw error;

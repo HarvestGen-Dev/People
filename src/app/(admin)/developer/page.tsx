@@ -31,13 +31,13 @@ const endpoints = [
   },
   {
     method: 'GET',
-    path: '/api/v1/people/{id}',
+    path: '/api/v1/people/{person_id}',
     scope: 'people:read',
     description: 'Read one person, including tags and custom fields.',
   },
   {
     method: 'PATCH',
-    path: '/api/v1/people/{id}',
+    path: '/api/v1/people/{person_id}',
     scope: 'people:write',
     description: 'Update an existing person.',
   },
@@ -49,7 +49,7 @@ const endpoints = [
   },
   {
     method: 'GET',
-    path: '/api/v1/people/{id}/events',
+    path: '/api/v1/people/{person_id}/events',
     scope: 'events:read',
     description: 'Read a person’s integration activity timeline.',
   },
@@ -76,7 +76,7 @@ const responseExample = `{
   "data": {
     "found": true,
     "person": {
-      "id": "person_uuid",
+      "id": "PER-7F3A91C2B0",
       "first_name": "Avery",
       "last_name": "Tan",
       "status": "visitor"

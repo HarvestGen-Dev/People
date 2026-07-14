@@ -5,11 +5,13 @@ import {
   adminApiError,
   requireTenantContext,
 } from '@/lib/tenant-context';
+import { applyDisplayOrDatabaseIdFilter, displayIdFor } from '@/lib/display-ids';
 
 type ExportTag = { name?: string } | string;
 
 type ExportPerson = {
   id: string;
+  display_id?: string | null;
   first_name?: string | null;
   last_name?: string | null;
   email?: string | null;
@@ -26,11 +28,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     const { id } = await params;
 
-    const { data: list } = await supabase
+    const listQuery = supabase
       .from('lists')
       .select('*')
-      .eq('id', id)
-      .eq('church_id', churchId)
+      .eq('church_id', churchId);
+
+    const { data: list } = await applyDisplayOrDatabaseIdFilter(listQuery, id)
       .single();
 
     if (!list) return new Response('List not found', { status: 404 });
@@ -43,8 +46,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     } else {
       const { data: listMembers } = await supabase
         .from('list_people')
-        .select('people(id, first_name, last_name, email, phone, status, campus)')
-        .eq('list_id', id)
+        .select('people(id, display_id, first_name, last_name, email, phone, status, campus)')
+        .eq('list_id', list.id)
         .eq('church_id', churchId);
       const relatedPeople = (listMembers || []).flatMap((listMember) => {
         if (Array.isArray(listMember.people)) return listMember.people;
@@ -54,10 +57,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
 
     // Generate CSV
-    const headers = ['id', 'first_name', 'last_name', 'email', 'phone', 'status', 'campus', 'tags'];
+    const headers = ['person_id', 'first_name', 'last_name', 'email', 'phone', 'status', 'campus', 'tags'];
     const rows = people.map(p => {
       return [
-        p.id,
+        displayIdFor(p),
         `"${(p.first_name || '').replace(/"/g, '""')}"`,
         `"${(p.last_name || '').replace(/"/g, '""')}"`,
         p.email || '',
