@@ -11,6 +11,7 @@ import { headers } from 'next/headers';
 import { Event } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { requireTenantContext } from '@/lib/tenant-context';
+import { applyDisplayOrDatabaseIdFilter } from '@/lib/display-ids';
 
 export const metadata = {
   title: 'Edit Event | HarvestGen',
@@ -26,11 +27,12 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
   const supabase = createServiceClient();
   const { id } = await params;
   
-  const { data: event, error } = await supabase
+  const eventQuery = supabase
     .from('events')
     .select('*')
-    .eq('id', id)
-    .eq('church_id', churchId)
+    .eq('church_id', churchId);
+
+  const { data: event, error } = await applyDisplayOrDatabaseIdFilter(eventQuery, id)
     .single();
     
   if (error || !event) {
@@ -41,7 +43,7 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
   const { count } = await supabase
     .from('event_registrations')
     .select('*', { count: 'exact', head: true })
-    .eq('event_id', id)
+    .eq('event_id', event.id)
     .eq('church_id', churchId);
 
   const { data: workflows } = await supabase

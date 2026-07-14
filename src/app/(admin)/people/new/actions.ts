@@ -28,7 +28,7 @@ export async function createPerson(formData: FormData) {
       status: status || 'visitor',
       campus: campus || 'Bandar Sunway',
     })
-    .select('id')
+    .select('id, display_id')
     .single();
 
   if (error) {
@@ -40,5 +40,5 @@ export async function createPerson(formData: FormData) {
   }
 
   revalidatePath('/people');
-  redirect(`/people/${data.id}`);
+  redirect(`/people/${data.display_id || data.id}`);
 }

@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getPersonById } from '@/lib/queries/person';
 import { requireTenantContext } from '@/lib/tenant-context';
+import { displayIdFor } from '@/lib/display-ids';
 
 export const metadata = {
   title: 'Edit Person | HarvestGen',
@@ -36,7 +37,7 @@ export default async function EditPersonPage({ params }: { params: Promise<{ id:
     <>
       <Topbar title={`Edit ${person.first_name} ${person.last_name}`}>
         <div className="flex items-center gap-2">
-          <Link href={`/people/${person.id}`}>
+          <Link href={`/people/${displayIdFor(person)}`}>
             <Button variant="ghost" className="rounded-xl shadow-none h-9 text-muted-foreground hover:text-foreground">
               <ArrowLeft className="mr-2 h-4 w-4" /> Cancel
             </Button>

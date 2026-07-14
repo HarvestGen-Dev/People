@@ -11,6 +11,7 @@ import type {
   WorkflowBoardCard,
   WorkflowStep,
 } from '@/lib/types';
+import { applyDisplayOrDatabaseIdFilter } from '@/lib/display-ids';
 
 export const metadata = {
   title: 'Workflow Board | People',
@@ -21,11 +22,12 @@ export default async function WorkflowDetailPage({ params }: { params: Promise<{
   const supabase = createServiceClient();
   const { id } = await params;
 
-  const { data: workflow } = await supabase
+  const workflowQuery = supabase
     .from('workflows')
     .select('*')
-    .eq('id', id)
-    .eq('church_id', churchId)
+    .eq('church_id', churchId);
+
+  const { data: workflow } = await applyDisplayOrDatabaseIdFilter(workflowQuery, id)
     .single();
 
   if (!workflow) {
@@ -35,16 +37,16 @@ export default async function WorkflowDetailPage({ params }: { params: Promise<{
   const { data: steps } = await supabase
     .from('workflow_steps')
     .select('*')
-    .eq('workflow_id', id)
+    .eq('workflow_id', workflow.id)
     .order('position', { ascending: true });
 
   const { data: cardsData } = await supabase
     .from('workflow_cards')
     .select(`
       *,
-      people:person_id(id, first_name, last_name, status, created_at, photo_url)
+      people:person_id(id, display_id, first_name, last_name, status, created_at, photo_url)
     `)
-    .eq('workflow_id', id);
+    .eq('workflow_id', workflow.id);
 
   // <!-- AGENT: BACKEND -->
   // Memberships are the authoritative tenant access source.

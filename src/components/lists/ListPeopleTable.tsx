@@ -7,6 +7,7 @@ import type { ListPerson } from '@/lib/types';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { displayIdFor } from '@/lib/display-ids';
 
 const statusStyles: Record<string, string> = {
   active: 'bg-emerald-100 text-emerald-700 border-emerald-200',
@@ -36,7 +37,10 @@ export function ListPeopleTable({
   return (
     <>
       <div className="grid gap-3 md:hidden">
-        {people.map((person) => (
+        {people.map((person) => {
+          const personDisplayId = displayIdFor(person);
+
+          return (
           <article
             key={person.id}
             className="rounded-2xl border border-slate-200 bg-white p-4"
@@ -50,7 +54,7 @@ export function ListPeopleTable({
               </Avatar>
               <div className="min-w-0 flex-1">
                 <Link
-                  href={`/people/${person.id}`}
+                  href={`/people/${personDisplayId}`}
                   className="font-bold text-slate-900 hover:text-emerald-700"
                 >
                   {person.first_name} {person.last_name}
@@ -80,7 +84,8 @@ export function ListPeopleTable({
               </div>
             )}
           </article>
-        ))}
+          );
+        })}
       </div>
 
       <div className="hidden overflow-hidden rounded-3xl border border-slate-200/80 bg-white md:block">
@@ -96,7 +101,10 @@ export function ListPeopleTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {people.map((person) => (
+              {people.map((person) => {
+                const personDisplayId = displayIdFor(person);
+
+                return (
                 <tr
                   key={person.id}
                   className="group transition-colors hover:bg-emerald-50/35"
@@ -110,7 +118,7 @@ export function ListPeopleTable({
                         </AvatarFallback>
                       </Avatar>
                       <Link
-                        href={`/people/${person.id}`}
+                        href={`/people/${personDisplayId}`}
                         className="font-bold text-slate-900 hover:text-emerald-700"
                       >
                         {person.first_name} {person.last_name}
@@ -159,7 +167,8 @@ export function ListPeopleTable({
                     </td>
                   )}
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

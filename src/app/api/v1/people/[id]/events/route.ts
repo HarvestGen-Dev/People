@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateApiKey } from '@/lib/api-auth';
 import { createServiceClient } from '@/lib/supabase/server';
+import { applyDisplayOrDatabaseIdFilter, displayIdFor } from '@/lib/display-ids';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await validateApiKey(request, 'events:read');
@@ -13,6 +14,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const churchId = auth.apiKey!.church_id;
     const { id } = await params;
 
+    const personQuery = supabase
+      .from('people')
+      .select('id, display_id')
+      .eq('church_id', churchId);
+    const { data: person } = await applyDisplayOrDatabaseIdFilter(personQuery, id).single();
+
+    if (!person) {
+      return NextResponse.json({ error: 'Person not found' }, { status: 404 });
+    }
+
     const { searchParams } = new URL(request.url);
     const source = searchParams.get('source');
     const event_type = searchParams.get('event_type');
@@ -23,7 +34,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .from('person_events')
       .select('*')
       .eq('church_id', churchId)
-      .eq('person_id', id)
+      .eq('person_id', person.id)
       .order('occurred_at', { ascending: false })
       .limit(limit + 1); // +1 to check for has_more
 
@@ -35,11 +46,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (error) throw error;
 
     const hasMore = events && events.length > limit;
-    const resultEvents = hasMore ? events.slice(0, limit) : events;
+    const resultEvents = (hasMore ? events.slice(0, limit) : events) || [];
 
     return NextResponse.json({
       data: {
-        events: resultEvents || [],
+        events: resultEvents.map((event) => ({
+          ...event,
+          id: displayIdFor(event),
+          person_id: displayIdFor(person),
+        })),
         has_more: hasMore || false,
       }
     });

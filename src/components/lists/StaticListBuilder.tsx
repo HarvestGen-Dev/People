@@ -27,7 +27,7 @@ export function StaticListBuilder({ initialName }: { initialName?: string }) {
       const { data } = await res.json();
       
       toast.success('Static list created');
-      router.push(`/lists/${data.id}`);
+      router.push(`/lists/${data.display_id || data.id}`);
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Failed to create list');
     } finally {

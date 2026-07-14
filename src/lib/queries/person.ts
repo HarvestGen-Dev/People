@@ -5,13 +5,14 @@ import type {
   PersonEvent,
   WorkflowCardWithRelations,
 } from '@/lib/types';
+import { applyDisplayOrDatabaseIdFilter } from '@/lib/display-ids';
 
 export async function getPersonById(
   id: string,
   churchId: string
 ): Promise<PersonWithRelations | null> {
   const supabase = createServiceClient();
-  const { data, error } = await supabase
+  const query = supabase
     .from('people')
     .select(`
       *,
@@ -19,8 +20,9 @@ export async function getPersonById(
       person_tags(tag:tags(*)),
       person_field_values(*, field_definition:field_definitions(*))
     `)
-    .eq('id', id)
-    .eq('church_id', churchId)
+    .eq('church_id', churchId);
+
+  const { data, error } = await applyDisplayOrDatabaseIdFilter(query, id)
     .single();
 
   if (error || !data) return null;

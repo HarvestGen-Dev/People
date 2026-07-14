@@ -9,6 +9,7 @@ import { RegistrationsTable } from '@/components/events/RegistrationsTable';
 import { requireTenantContext } from '@/lib/tenant-context';
 import { getRegistrations } from '@/lib/queries/registrations';
 import { Pagination } from '@/components/ui/pagination';
+import { applyDisplayOrDatabaseIdFilter } from '@/lib/display-ids';
 
 export const metadata = {
   title: 'Registrations | HarvestGen',
@@ -26,11 +27,12 @@ export default async function EventRegistrationsPage({
   const { id } = await params;
   const resolvedSearchParams = await searchParams;
 
-  const { data: event, error: eventError } = await supabase
+  const eventQuery = supabase
     .from('events')
-    .select('id, name, price')
-    .eq('id', id)
-    .eq('church_id', churchId)
+    .select('id, display_id, name, price')
+    .eq('church_id', churchId);
+
+  const { data: event, error: eventError } = await applyDisplayOrDatabaseIdFilter(eventQuery, id)
     .single();
 
   if (eventError || !event) {
@@ -43,7 +45,7 @@ export default async function EventRegistrationsPage({
 
   const { registrations, total, statusCounts } = await getRegistrations({
     church_id: churchId,
-    event_id: id,
+    event_id: event.id,
     page,
     pageSize,
     status,

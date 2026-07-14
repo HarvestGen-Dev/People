@@ -126,7 +126,7 @@ export function SmartListBuilder({
       
       toast.success('List saved');
       if (!listId) {
-        router.push(`/lists/${data.id}`);
+        router.push(`/lists/${data.display_id || data.id}`);
       } else {
         router.refresh();
       }

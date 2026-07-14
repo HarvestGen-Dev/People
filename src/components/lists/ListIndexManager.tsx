@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import type { ListWithCount, SmartListFilters } from '@/lib/types';
 import { useAdminPermissions } from '@/components/layout/AdminPermissions';
+import { displayIdFor } from '@/lib/display-ids';
 
 type ListRow = ListWithCount & { filters: SmartListFilters | null };
 
@@ -141,6 +142,7 @@ export function ListIndexManager({
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {data.map((list) => {
               const ruleCount = list.filters?.rules?.length || 0;
+              const listDisplayId = displayIdFor(list);
               return (
                 <article
                   key={list.id}
@@ -165,7 +167,7 @@ export function ListIndexManager({
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-36 rounded-xl">
                         <DropdownMenuItem
-                          onClick={() => router.push(`/lists/${list.id}`)}
+                          onClick={() => router.push(`/lists/${listDisplayId}`)}
                         >
                           Open list
                         </DropdownMenuItem>
@@ -181,7 +183,7 @@ export function ListIndexManager({
 
                   <button
                     type="button"
-                    onClick={() => router.push(`/lists/${list.id}`)}
+                    onClick={() => router.push(`/lists/${listDisplayId}`)}
                     className="mt-5 block w-full text-left"
                   >
                     <h3 className="truncate text-lg font-bold text-slate-950 group-hover:text-emerald-700">

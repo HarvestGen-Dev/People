@@ -29,11 +29,18 @@
 
 All core tables include a `church_id` to ensure strict tenant isolation via Row-Level Security (RLS).
 
+Internal UUID primary keys and tenant UUIDs are database-only identifiers. Any
+human-facing UI, URL, CSV export, webhook payload, or `/api/v1/` response must
+use a separate `display_id` such as `CHR-...`, `PER-...`, `EVT-...`, or
+`LST-...`. Route handlers may accept legacy UUIDs for compatibility, but new
+links and external responses must prefer `display_id`.
+
 ### Churches (Tenants)
 
 ```sql
 CREATE TABLE churches (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  display_id  TEXT NOT NULL UNIQUE,
   slug        TEXT NOT NULL UNIQUE,       -- e.g. "harvestgen"
   name        TEXT NOT NULL,
   created_at  TIMESTAMPTZ DEFAULT NOW(),
@@ -216,7 +223,7 @@ CREATE TABLE api_keys (
 
 ## API Design (`/api/v1/`)
 
-All endpoints require `Authorization: Bearer <api_key>`. The API Key resolution intrinsically determines the `church_id` context. Integrations never need to pass `church_id` directly in payloads.
+All endpoints require `Authorization: Bearer <api_key>`. The API Key resolution intrinsically determines the internal tenant context. Integrations never need to pass `church_id` directly in payloads, and API responses must not expose raw database UUIDs.
 
 `POST /people/lookup` is atomic and concurrency-safe. It returns an existing
 person when email or phone has one unambiguous match, creates a visitor when no

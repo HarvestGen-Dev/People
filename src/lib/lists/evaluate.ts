@@ -24,7 +24,7 @@ export async function evaluateSmartList(
   
   let query = supabase
     .from('people')
-    .select('id, first_name, last_name, email, phone, status, campus, photo_url, created_at, updated_at', { count: 'exact' })
+    .select('id, display_id, first_name, last_name, email, phone, status, campus, photo_url, created_at, updated_at', { count: 'exact' })
     .eq('church_id', churchId);
 
   // If AND, we can just chain filters.
@@ -74,7 +74,7 @@ export async function evaluateSmartList(
   const { data: allPeople, error } = await supabase
     .from('people')
     .select(`
-      id, first_name, last_name, email, phone, status, campus, gender, created_at, updated_at, photo_url,
+      id, display_id, first_name, last_name, email, phone, status, campus, gender, created_at, updated_at, photo_url,
       person_tags(tag_id)
     `)
     .eq('church_id', churchId);
@@ -143,6 +143,7 @@ export async function evaluateSmartList(
   // Format to PersonSummary
   const resultPeople = paginated.map(p => ({
     id: p.id,
+    display_id: p.display_id,
     first_name: p.first_name,
     last_name: p.last_name,
     email: p.email,

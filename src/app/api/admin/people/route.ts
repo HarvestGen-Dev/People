@@ -98,7 +98,9 @@ export async function POST(request: Request) {
       if (fieldError) throw fieldError;
     }
 
-    return NextResponse.json({ data: { id: person_id } });
+    return NextResponse.json({
+      data: { id: person_id, display_id: newPerson.display_id },
+    });
   } catch (error: unknown) {
     return adminApiError(error);
   }

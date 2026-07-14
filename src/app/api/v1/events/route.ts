@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateApiKey } from '@/lib/api-auth';
 import { createServiceClient } from '@/lib/supabase/server';
 import { dispatchWebhook } from '@/lib/webhooks';
+import { applyDisplayOrDatabaseIdFilter, displayIdFor } from '@/lib/display-ids';
 
 const VALID_EVENTS = {
   shepherd: ['course_enrolled', 'course_completed', 'quiz_passed', 'last_active'],
@@ -35,11 +36,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify person exists
-    const { data: person } = await supabase
+    const personQuery = supabase
       .from('people')
-      .select('id')
-      .eq('church_id', churchId)
-      .eq('id', body.person_id)
+      .select('id, display_id')
+      .eq('church_id', churchId);
+    const { data: person } = await applyDisplayOrDatabaseIdFilter(personQuery, body.person_id)
       .single();
 
     if (!person) {
@@ -50,27 +51,27 @@ export async function POST(request: NextRequest) {
       .from('person_events')
       .insert({
         church_id: churchId,
-        person_id: body.person_id,
+        person_id: person.id,
         source: body.source,
         event_type: body.event_type,
         metadata: body.metadata || {},
         occurred_at: body.occurred_at || new Date().toISOString()
       })
-      .select('id')
+      .select('id, display_id')
       .single();
 
     if (error) throw error;
 
     // Await webhook dispatch to ensure delivery before Vercel terminates the function
     await dispatchWebhook(churchId, 'event.logged', {
-      event_id: event.id,
-      person_id: body.person_id,
+      event_id: displayIdFor(event),
+      person_id: displayIdFor(person),
       source: body.source,
       event_type: body.event_type,
       metadata: body.metadata || {}
     });
 
-    return NextResponse.json({ data: { event_id: event.id } }, { status: 201 });
+    return NextResponse.json({ data: { event_id: displayIdFor(event) } }, { status: 201 });
 
   } catch (error: unknown) {
     return NextResponse.json(

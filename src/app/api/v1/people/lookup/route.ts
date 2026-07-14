@@ -6,6 +6,7 @@ import {
   lookupOrCreatePerson,
   PersonIdentityConflictError,
 } from '@/lib/people/lookup-or-create';
+import { displayIdFor } from '@/lib/display-ids';
 
 export async function POST(request: NextRequest) {
   const auth = await validateApiKey(request, 'people:lookup');
@@ -56,14 +57,19 @@ export async function POST(request: NextRequest) {
     // Get tags to format the response
     const { data: personTags } = await supabase
       .from('person_tags')
-      .select('tag:tags(id, name, color)')
+      .select('tag:tags(id, display_id, name, color)')
       .eq('person_id', person.id)
       .eq('church_id', auth.apiKey!.church_id);
 
-    const tags = (personTags || []).map(pt => pt.tag).filter(Boolean);
+    const tags = (personTags || [])
+      .flatMap((pt) => {
+        const tag = Array.isArray(pt.tag) ? pt.tag[0] : pt.tag;
+        return tag ? [{ ...tag, id: displayIdFor(tag) }] : [];
+      })
+      .filter(Boolean);
 
     const personSummary = {
-      id: person.id,
+      id: displayIdFor(person),
       first_name: person.first_name,
       last_name: person.last_name,
       email: person.email,
