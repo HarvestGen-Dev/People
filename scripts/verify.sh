@@ -8,6 +8,9 @@ npm run typecheck
 echo "=== Running ESLint ==="
 npm run lint
 
+echo "=== Applying Local Supabase Migrations ==="
+supabase db push --local --yes
+
 echo "=== Running Supabase Database Lint ==="
 supabase db lint --local --level warning --fail-on warning
 

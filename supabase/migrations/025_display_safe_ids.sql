@@ -72,9 +72,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS event_registrations_church_display_id_key
 ALTER TABLE public.person_events
   ADD COLUMN IF NOT EXISTS display_id TEXT;
 
+ALTER TABLE public.person_events DISABLE TRIGGER person_events_append_only;
+
 UPDATE public.person_events
 SET display_id = public.generate_display_id('ACT')
 WHERE display_id IS NULL;
+
+ALTER TABLE public.person_events ENABLE TRIGGER person_events_append_only;
 
 ALTER TABLE public.person_events
   ALTER COLUMN display_id SET NOT NULL,

@@ -1,6 +1,5 @@
 // <!-- AGENT: INTEGRATION -->
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import { after, before, test } from 'node:test';
 import dotenv from 'dotenv';
@@ -8,6 +7,10 @@ import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
 import ws from 'ws';
 import net from 'node:net';
+import {
+  startNextDevServer,
+  waitForNextDevServer,
+} from './next-test-server.mjs';
 
 dotenv.config({ path: '.env.local', quiet: true });
 
@@ -36,20 +39,6 @@ let uploadedProofs = [];
 let mockSmtpServer;
 let sentEmailsCount = 0;
 let smtpPort = 0;
-
-async function waitForServer() {
-  const deadline = Date.now() + 120_000;
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(`${baseUrl}/login`);
-      if (response.ok) return;
-    } catch {
-      // The development server is still starting.
-    }
-    await new Promise((resolve) => setTimeout(resolve, 200));
-  }
-  throw new Error('Timed out waiting for the Next.js test server');
-}
 
 async function register(eventId, payload) {
   const response = await fetch(`${baseUrl}/api/public/events/${eventId}/register`, {
@@ -201,22 +190,16 @@ before(async () => {
   adminCookiesStr = await getCookieStr(email, churchId);
   otherAdminCookiesStr = await getCookieStr(otherEmail, otherChurchId);
 
-  server = spawn(
-    './node_modules/.bin/next',
-    ['dev', '--hostname', '127.0.0.1', '--port', `${port}`],
-    { 
-      cwd: process.cwd(), 
-      env: { 
-        ...process.env, 
-        SMTP_HOST: '127.0.0.1',
-        SMTP_PORT: smtpPort.toString(),
-        BREVO_SMTP_USER: 'mock-user',
-        BREVO_SMTP_KEY: 'mock-key'
-      }, 
-      stdio: ['ignore', 'pipe', 'pipe'] 
-    }
-  );
-  await waitForServer();
+  server = startNextDevServer({
+    port,
+    env: {
+      SMTP_HOST: '127.0.0.1',
+      SMTP_PORT: smtpPort.toString(),
+      BREVO_SMTP_USER: 'mock-user',
+      BREVO_SMTP_KEY: 'mock-key',
+    },
+  });
+  await waitForNextDevServer({ server, baseUrl });
 });
 
 after(async () => {
@@ -229,7 +212,9 @@ after(async () => {
     await admin.storage.from('payment-proofs').remove(uploadedProofs);
   }
   
-  if (server && !server.killed) server.kill('SIGTERM');
+  if (server?.process && !server.process.killed) {
+    server.process.kill('SIGTERM');
+  }
   if (mockSmtpServer) mockSmtpServer.close();
 });
 
