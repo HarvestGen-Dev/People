@@ -10,7 +10,7 @@ import {
   MapPin,
   UserPlus,
 } from 'lucide-react';
-import type { PersonWithRelations } from '@/lib/types';
+import type { PeopleDirectoryPerson } from '@/lib/queries/people';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -23,7 +23,7 @@ import { Button } from '@/components/ui/button';
 import { useAdminPermissions } from '@/components/layout/AdminPermissions';
 
 interface PersonTableProps {
-  people: PersonWithRelations[];
+  people: PeopleDirectoryPerson[];
 }
 
 const statusStyles: Record<string, string> = {
@@ -33,7 +33,7 @@ const statusStyles: Record<string, string> = {
   inactive: 'bg-slate-100 text-slate-600 border-slate-200',
 };
 
-function PersonTags({ person }: { person: PersonWithRelations }) {
+function PersonTags({ person }: { person: PeopleDirectoryPerson }) {
   const visibleTags = person.person_tags?.filter((item) => item.tag).slice(0, 2);
   const remaining = Math.max(0, (person.person_tags?.length || 0) - 2);
 

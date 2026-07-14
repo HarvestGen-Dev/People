@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { EventWithStats } from '@/lib/types';
 import { requireTenantContext } from '@/lib/tenant-context';
+import { getEventRegistrationStats } from '@/lib/events/registration-stats';
 
 export const metadata = {
   title: 'Events | HarvestGen',
@@ -41,38 +42,22 @@ export default async function EventsPage() {
 
   let events: EventWithStats[] = [];
   if (eventsData?.length) {
-    const { data: registrations } = await supabase
-      .from('event_registrations')
-      .select('event_id, status')
-      .eq('church_id', churchId);
-
-    const registrationsByEvent = (registrations || []).reduce<
-      Record<string, { total: number; pending: number; approved: number }>
-    >((result, registration) => {
-      if (!result[registration.event_id]) {
-        result[registration.event_id] = {
-          total: 0,
-          pending: 0,
-          approved: 0,
-        };
-      }
-      result[registration.event_id].total += 1;
-      if (registration.status === 'pending_review') {
-        result[registration.event_id].pending += 1;
-      }
-      if (registration.status === 'approved') {
-        result[registration.event_id].approved += 1;
-      }
-      return result;
-    }, {});
+    const statsByEvent = await getEventRegistrationStats(
+      supabase,
+      churchId,
+      eventsData.map((event) => event.id)
+    );
 
     events = eventsData.map((event) => ({
       ...event,
-      registration_count: registrationsByEvent[event.id]?.total || 0,
-      pending_count: registrationsByEvent[event.id]?.pending || 0,
-      approved_count: registrationsByEvent[event.id]?.approved || 0,
+      registration_count: statsByEvent[event.id]?.registration_count || 0,
+      pending_count: statsByEvent[event.id]?.pending_count || 0,
+      approved_count: statsByEvent[event.id]?.approved_count || 0,
+      active_guest_count: statsByEvent[event.id]?.active_guest_count || 0,
+      pending_guest_count: statsByEvent[event.id]?.pending_guest_count || 0,
+      approved_guest_count: statsByEvent[event.id]?.approved_guest_count || 0,
       spots_remaining: event.capacity
-        ? event.capacity - (registrationsByEvent[event.id]?.approved || 0)
+        ? event.capacity - (statsByEvent[event.id]?.active_guest_count || 0)
         : null,
     }));
   }

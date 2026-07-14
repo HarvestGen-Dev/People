@@ -89,46 +89,59 @@ before(async () => {
   mockSmtpServer = net.createServer((socket) => {
     let receivingData = false;
     let buffer = '';
+
+    // Add connection/error timeouts
+    socket.setTimeout(5000);
+    socket.on('timeout', () => socket.destroy());
+    socket.on('error', () => socket.destroy());
+
     socket.write('220 mock ESMTP\r\n');
     socket.on('data', (data) => {
       buffer += data.toString();
       
-      if (receivingData) {
-        if (buffer.includes('\r\n.\r\n')) {
-          receivingData = false;
-          sentEmailsCount++;
-          socket.write('250 OK\r\n');
-          buffer = ''; // Clear buffer after DATA completion
-        }
-        return;
-      }
-      
-      // Process commands line by line
-      let newlineIdx;
-      while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
-        const line = buffer.substring(0, newlineIdx).trim().toUpperCase();
-        buffer = buffer.substring(newlineIdx + 1);
-        
-        if (!line) continue;
-        
-        if (line.startsWith('EHLO') || line.startsWith('HELO')) {
-          socket.write('250-mock\r\n250-AUTH LOGIN PLAIN\r\n250 OK\r\n');
-        } else if (line.startsWith('AUTH')) {
-          socket.write('235 OK\r\n');
-        } else if (line.startsWith('MAIL')) {
-          socket.write('250 OK\r\n');
-        } else if (line.startsWith('RCPT')) {
-          socket.write('250 OK\r\n');
-        } else if (line.startsWith('DATA')) {
-          receivingData = true;
-          socket.write('354 Go ahead\r\n');
-          break; // Stop parsing lines, wait for \r\n.\r\n
-        } else if (line.startsWith('QUIT')) {
-          socket.write('221 OK\r\n');
-          socket.end();
+      while (buffer.length > 0) {
+        if (receivingData) {
+          const endIdx = buffer.indexOf('\r\n.\r\n');
+          if (endIdx !== -1) {
+            receivingData = false;
+            sentEmailsCount++;
+            socket.write('250 OK\r\n');
+            buffer = buffer.substring(endIdx + 5);
+            continue;
+          } else {
+            break; // Wait for more data to complete DATA command
+          }
         } else {
-          // Fallback for AUTH challenges like base64 payloads
-          socket.write('235 OK\r\n');
+          const newlineIdx = buffer.indexOf('\n');
+          if (newlineIdx === -1) {
+            break; // Wait for a full line
+          }
+
+          const line = buffer.substring(0, newlineIdx).trim().toUpperCase();
+          buffer = buffer.substring(newlineIdx + 1);
+
+          if (!line) continue;
+
+          if (line.startsWith('EHLO') || line.startsWith('HELO')) {
+            socket.write('250-mock\r\n250-AUTH LOGIN PLAIN\r\n250 OK\r\n');
+          } else if (line.startsWith('AUTH')) {
+            socket.write('235 OK\r\n');
+          } else if (line.startsWith('MAIL')) {
+            socket.write('250 OK\r\n');
+          } else if (line.startsWith('RCPT')) {
+            socket.write('250 OK\r\n');
+          } else if (line.startsWith('DATA')) {
+            receivingData = true;
+            socket.write('354 Go ahead\r\n');
+            // Do not break; let the while loop immediately check for \r\n.\r\n in the remaining buffer
+          } else if (line.startsWith('QUIT')) {
+            socket.write('221 OK\r\n');
+            socket.end();
+            break;
+          } else {
+            // Fallback for AUTH challenges like base64 payloads
+            socket.write('235 OK\r\n');
+          }
         }
       }
     });
@@ -244,6 +257,52 @@ test('Input Validation & Format constraints', async () => {
   
   res = await register(event.id, { ...basePayload, first_name: 'A'.repeat(200) });
   assert.equal(res.response.status, 400);
+});
+
+test('Distributed rate limiter blocks and resets by window', async () => {
+  const keyHash = crypto
+    .createHash('sha256')
+    .update(`rate-limit-${suffix}-${crypto.randomBytes(4).toString('hex')}`)
+    .digest('hex');
+
+  const first = await admin.rpc('check_rate_limit', {
+    p_key_hash: keyHash,
+    p_limit: 2,
+    p_window_seconds: 1,
+  });
+  assert.ifError(first.error);
+  assert.equal(first.data.allowed, true);
+  assert.equal(first.data.remaining, 1);
+
+  const second = await admin.rpc('check_rate_limit', {
+    p_key_hash: keyHash,
+    p_limit: 2,
+    p_window_seconds: 1,
+  });
+  assert.ifError(second.error);
+  assert.equal(second.data.allowed, true);
+  assert.equal(second.data.remaining, 0);
+
+  const third = await admin.rpc('check_rate_limit', {
+    p_key_hash: keyHash,
+    p_limit: 2,
+    p_window_seconds: 1,
+  });
+  assert.ifError(third.error);
+  assert.equal(third.data.allowed, false);
+  assert.equal(third.data.remaining, 0);
+  assert.ok(third.data.retry_after_seconds >= 0);
+
+  await new Promise((resolve) => setTimeout(resolve, 1100));
+
+  const reset = await admin.rpc('check_rate_limit', {
+    p_key_hash: keyHash,
+    p_limit: 2,
+    p_window_seconds: 1,
+  });
+  assert.ifError(reset.error);
+  assert.equal(reset.data.allowed, true);
+  assert.equal(reset.data.remaining, 1);
 });
 
 test('Reused proof is blocked (Proof ownership/uniqueness)', async () => {

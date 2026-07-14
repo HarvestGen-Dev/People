@@ -289,6 +289,9 @@ export interface EventWithStats extends Event {
   registration_count: number;
   pending_count: number;
   approved_count: number;
+  active_guest_count: number;
+  pending_guest_count: number;
+  approved_guest_count: number;
   spots_remaining: number | null;
 }
 

@@ -3,7 +3,7 @@
 // <!-- AGENT: FRONTEND -->
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import {
   CalendarDays,
@@ -58,7 +58,6 @@ export function Sidebar({
 }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const pathname = usePathname();
-  const router = useRouter();
 
   const supabase = useMemo(
     () =>
@@ -71,7 +70,7 @@ export function Sidebar({
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    router.push('/login');
+    window.location.href = '/login';
   };
 
   const renderNavItem = (item: (typeof primaryNav)[number]) => {

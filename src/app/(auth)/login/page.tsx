@@ -40,14 +40,17 @@ export default function LoginPage() {
 
         if (signInError) {
           setError(signInError.message);
+          setIsLoading(false);
         } else {
           setSuccess(true);
+          setIsLoading(false);
         }
       } else {
         const res = await loginWithPasswordAction(email, password);
 
         if (res.error) {
           setError(res.error);
+          setIsLoading(false);
         } else {
           // Full navigation ensures the newly issued session cookie is sent.
           window.location.href = res.redirectTo || '/account';
@@ -59,7 +62,6 @@ export default function LoginPage() {
           ? err.message
           : 'An unexpected error occurred. Please try again.'
       );
-    } finally {
       setIsLoading(false);
     }
   };

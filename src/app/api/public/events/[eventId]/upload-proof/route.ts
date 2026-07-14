@@ -2,10 +2,26 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { validateImageUpload } from '@/lib/image-upload';
+import {
+  checkRateLimit,
+  rateLimitExceededResponse,
+} from '@/lib/rate-limit';
 
 export async function POST(request: Request, { params }: { params: Promise<{ eventId: string }> }) {
   try {
     const { eventId } = await params;
+    const rateLimit = await checkRateLimit({
+      request,
+      scope: 'public-event-proof-upload',
+      identifier: eventId,
+      limit: 10,
+      windowSeconds: 60 * 60,
+    });
+
+    if (!rateLimit.allowed) {
+      return rateLimitExceededResponse(rateLimit);
+    }
+
     const supabase = createServiceClient();
     const { data: event } = await supabase
       .from('events')

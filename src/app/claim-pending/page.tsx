@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { resolveAuthenticatedHome } from '@/lib/platform-auth';
+import { SignOutButton } from '@/components/auth/SignOutButton';
 
 export default async function ClaimPendingPage() {
   const supabase = await createClient();
@@ -14,6 +15,8 @@ export default async function ClaimPendingPage() {
   const { data } = await supabase.rpc('claim_person_profile');
   const result = Array.isArray(data) ? data[0] : data;
   if (result?.claim_status === 'claimed') redirect('/portal');
+
+  const isNoMatch = result?.claim_status === 'no_match' || !result;
 
   const copy =
     result?.claim_status === 'approval_required'
@@ -28,7 +31,7 @@ export default async function ClaimPendingPage() {
           }
         : {
             title: 'No imported profile found',
-            body: 'Ask your church administrator to import or update your profile using this verified email.',
+            body: 'We could not find an imported profile associated with this email address. You can register your own account using a church code.',
           };
 
   const home = await resolveAuthenticatedHome(user.id);
@@ -45,12 +48,22 @@ export default async function ClaimPendingPage() {
         </h1>
         <p className="mt-4 leading-7 text-slate-600">{copy.body}</p>
         <p className="mt-3 text-sm font-semibold text-slate-900">{user.email}</p>
-        <Link
-          href="/login"
-          className="mt-7 inline-flex rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700"
-        >
-          Return to sign in
-        </Link>
+
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+          {isNoMatch && (
+            <Link
+              href="/register-profile"
+              className="inline-flex h-11 items-center justify-center rounded-xl bg-emerald-700 px-6 text-sm font-bold text-white transition-colors hover:bg-emerald-800"
+            >
+              Register your account
+            </Link>
+          )}
+          <SignOutButton
+            className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 px-6 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
+          >
+            Return to sign in
+          </SignOutButton>
+        </div>
       </section>
     </main>
   );

@@ -1,5 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server';
-import type { PersonWithRelations } from '@/lib/types';
+import type { ListTag, Person } from '@/lib/types';
 
 export type PeopleFilters = {
   church_id: string;
@@ -10,8 +10,28 @@ export type PeopleFilters = {
   pageSize?: number;
 };
 
+export type PeopleDirectoryPerson = Pick<
+  Person,
+  | 'id'
+  | 'first_name'
+  | 'last_name'
+  | 'email'
+  | 'phone'
+  | 'status'
+  | 'campus'
+  | 'photo_url'
+  | 'created_at'
+  | 'updated_at'
+> & {
+  person_tags?: Array<{ tag: ListTag | null }>;
+};
+
+type RawPeopleDirectoryPerson = Omit<PeopleDirectoryPerson, 'person_tags'> & {
+  person_tags?: Array<{ tag: ListTag | ListTag[] | null }>;
+};
+
 export async function getPeople(filters: PeopleFilters): Promise<{
-  people: PersonWithRelations[];
+  people: PeopleDirectoryPerson[];
   total: number;
 }> {
   const supabase = createServiceClient();
@@ -23,9 +43,17 @@ export async function getPeople(filters: PeopleFilters): Promise<{
   let query = supabase
     .from('people')
     .select(`
-      *,
-      household:households(*),
-      person_tags(tag:tags(*))
+      id,
+      first_name,
+      last_name,
+      email,
+      phone,
+      status,
+      campus,
+      photo_url,
+      created_at,
+      updated_at,
+      person_tags(tag:tags(id, name, color))
     `, { count: 'exact' })
     .eq('church_id', filters.church_id)
     .order('last_name', { ascending: true })
@@ -56,6 +84,17 @@ export async function getPeople(filters: PeopleFilters): Promise<{
 
   const { data, error, count } = await query;
   if (error) throw error;
-  
-  return { people: (data as PersonWithRelations[]) ?? [], total: count ?? 0 };
+
+  const people = ((data ?? []) as unknown as RawPeopleDirectoryPerson[]).map(
+    (person) => ({
+      ...person,
+      person_tags: person.person_tags?.map((personTag) => ({
+        tag: Array.isArray(personTag.tag)
+          ? personTag.tag[0] ?? null
+          : personTag.tag,
+      })),
+    })
+  );
+
+  return { people, total: count ?? 0 };
 }

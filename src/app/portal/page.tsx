@@ -1,6 +1,7 @@
 // <!-- AGENT: FRONTEND -->
 import { redirect } from 'next/navigation';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { SignOutButton } from '@/components/auth/SignOutButton';
 
 export default async function PortalPage() {
   const sessionClient = await createClient();
@@ -28,16 +29,21 @@ export default async function PortalPage() {
   return (
     <main className="min-h-screen bg-[#f5f7f3] p-5 sm:p-10">
       <div className="mx-auto max-w-3xl space-y-6">
-        <header>
-          <div className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">
-            Member portal
+        <header className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div>
+            <div className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">
+              Member portal
+            </div>
+            <h1 className="mt-2 text-4xl font-bold tracking-tight text-slate-950">
+              Your profile
+            </h1>
+            <p className="mt-2 text-slate-500">
+              This account can access only the church profile linked to your verified email.
+            </p>
           </div>
-          <h1 className="mt-2 text-4xl font-bold tracking-tight text-slate-950">
-            Your profile
-          </h1>
-          <p className="mt-2 text-slate-500">
-            This account can access only the church profile linked to your verified email.
-          </p>
+          <SignOutButton className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 sm:shrink-0">
+            Sign out
+          </SignOutButton>
         </header>
         {links.map((link) => {
           const person = Array.isArray(link.people) ? link.people[0] : link.people;

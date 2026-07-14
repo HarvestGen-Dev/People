@@ -11,6 +11,7 @@
     "test:integration:lookup": "node --test tests/integration/people-lookup.test.mjs",
     "test:integration:onboarding": "node --test tests/integration/account-onboarding.contract.test.mjs",
     "test:integration:events": "node --test tests/integration/event-registration.test.mjs",
+    "test:e2e": "playwright test",
     "verify": "bash scripts/verify.sh"
   },
   "dependencies": {
@@ -45,6 +46,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/papaparse": "^5.5.2",

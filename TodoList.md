@@ -15,7 +15,7 @@ When completing an item, add the reviewer's name, date, and a link or short copy
 
 <!-- AGENT: INTEGRATION -->
 
-- [ ] **Fix the mock SMTP server's TCP parser.**
+- [x] **Fix the mock SMTP server's TCP parser.** (Antigravity, 2026-07-07)
   - Owner: Integration/backend reviewer
   - File: `tests/integration/event-registration.test.mjs`
   - Keep a persistent buffer for each socket.
@@ -25,7 +25,7 @@ When completing an item, add the reviewer's name, date, and a link or short copy
   - Add connection/error timeouts so the suite fails quickly instead of hanging.
   - Evidence required: the full event integration suite completes without being interrupted.
 
-- [ ] **Rerun the full event suite after fixing SMTP.**
+- [x] **Rerun the full event suite after fixing SMTP.** (Codex, 2026-07-14)
   - Stop any existing `next dev` process for this repository first; otherwise `.next/dev/lock` prevents the isolated test server from starting.
   - Run:
 
@@ -34,8 +34,8 @@ When completing an item, add the reviewer's name, date, and a link or short copy
     npm run test:integration:events
     ```
 
-  - Expected result: all eight event-registration tests pass.
-  - Current confirmed result: migration `017` applies on a clean database and the first three tests pass; the suite then hangs during the first SMTP delivery.
+  - Expected result: all event-registration tests pass.
+  - Evidence: `npm run verify` completed successfully after `supabase db reset`; event suite passed 9/9 including SMTP delivery and distributed rate-limit coverage.
 
 ## Backend review
 
@@ -157,7 +157,8 @@ When completing an item, add the reviewer's name, date, and a link or short copy
 
 - [ ] Attempt tenant-ID and registration-ID tampering through the browser and direct HTTP requests.
 - [ ] Attempt payment-proof path reuse and cross-event/cross-church proof substitution.
-- [ ] Verify public endpoints have a production-grade distributed rate limit; the current in-memory limiter resets on deployment and is not shared between instances.
+- [x] Verify public endpoints have a production-grade distributed rate limit; the current in-memory limiter resets on deployment and is not shared between instances. (Codex, 2026-07-14)
+  - Evidence: migration `019_distributed_rate_limits.sql` adds service-role-only `rate_limits` and `check_rate_limit`; public registration and proof upload use it; `npm run verify` passed with `Distributed rate limiter blocks and resets by window`.
 - [ ] Verify error responses do not expose SQL, storage paths, credentials, or internal stack traces.
 - [ ] Verify email HTML safely handles user-controlled and event-controlled text.
 - [ ] Verify audit records identify who approved or rejected each registration.
@@ -176,4 +177,3 @@ Do not deploy migration `017` or release the event-registration changes until al
 - [ ] Supabase redirect URLs, SMTP, Storage policies, and RLS are verified.
 - [ ] Owner, admin, member, invited-user, and public registration smoke tests pass.
 - [ ] Two reviewers approve: one backend/database reviewer and one frontend/integration reviewer.
-

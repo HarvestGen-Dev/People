@@ -1,6 +1,7 @@
 // <!-- AGENT: FRONTEND -->
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { cache } from 'react';
 import {
   CalendarDays,
   CheckCircle2,
@@ -13,8 +14,9 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { RegistrationForm } from '@/components/events/RegistrationForm';
 import type { Event } from '@/lib/types';
 import { renderSafeMarkdown } from '@/lib/safe-markdown';
+import { getSingleEventRegistrationStats } from '@/lib/events/registration-stats';
 
-async function getEventBySlug(slug: string) {
+const getEventBySlug = cache(async (slug: string) => {
   const supabase = createServiceClient();
   const { data: event, error } = await supabase
     .from('events')
@@ -24,7 +26,7 @@ async function getEventBySlug(slug: string) {
 
   if (error || !event) return null;
   return event;
-}
+});
 
 export async function generateMetadata({
   params,
@@ -55,14 +57,14 @@ export default async function PublicEventPage({
   }
 
   const supabase = createServiceClient();
-  const { count: approvedCount } = await supabase
-    .from('event_registrations')
-    .select('*', { count: 'exact', head: true })
-    .eq('event_id', event.id)
-    .eq('status', 'approved');
+  const registrationStats = await getSingleEventRegistrationStats(
+    supabase,
+    event.church_id,
+    event.id
+  );
 
   const spotsRemaining = event.capacity
-    ? Math.max(0, event.capacity - (approvedCount || 0))
+    ? Math.max(0, event.capacity - registrationStats.active_guest_count)
     : null;
   const isFull = spotsRemaining === 0;
 

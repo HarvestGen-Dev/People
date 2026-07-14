@@ -1,10 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { Outfit } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
-
-const outfit = Outfit({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: {
@@ -25,8 +22,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={outfit.className} suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
+      <body suppressHydrationWarning>
         <TooltipProvider>{children}</TooltipProvider>
         <Toaster richColors position="top-right" closeButton />
       </body>
