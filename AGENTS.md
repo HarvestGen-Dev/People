@@ -33,3 +33,11 @@ When a task spans multiple agents (e.g. adding a new API endpoint AND a UI for i
 4. INTEGRATION documents how Shepherd/Drip & Brew would use the new endpoint if relevant.
 
 Each agent signs their output section with `<!-- AGENT: NAME -->` in code comments so it's clear who owns what.
+
+## Branch, Commit, Push, and PR Protocol
+
+For every feature, fix, chore, or audit:
+1. Create a dedicated branch from `main` before making changes.
+2. Commit using the existing conventional format, for example `feat: ...`, `fix: ...`, `chore: ...`, or `test: ...`.
+3. Push the completed branch to origin.
+4. After every successful push, generate a PR message that follows `.github/pull_request_template.md` exactly. Fill in the Description, Type of Change, Related Issues, Changes Made, Screenshots / Recordings, Testing, and Checklist sections based on the actual diff and verification commands run.
