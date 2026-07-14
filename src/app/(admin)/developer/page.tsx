@@ -1,16 +1,23 @@
 // <!-- AGENT: INTEGRATION -->
 import Link from 'next/link';
 import {
+  Activity,
+  AlertTriangle,
   ArrowRight,
   BookOpen,
   Braces,
+  CheckCircle2,
+  Clock3,
   KeyRound,
   LockKeyhole,
   Send,
   ShieldCheck,
+  Webhook,
 } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import { Topbar } from '@/components/layout/Topbar';
 import { requireTenantContext } from '@/lib/tenant-context';
+import { createServiceClient } from '@/lib/supabase/server';
 
 export const metadata = {
   title: 'Developer API | People',
@@ -85,7 +92,111 @@ const responseExample = `{
 }`;
 
 export default async function DeveloperPage() {
-  const { churchName } = await requireTenantContext({ requireManager: true });
+  const { churchId, churchName } = await requireTenantContext({ requireManager: true });
+  const supabase = createServiceClient();
+  const now = new Date();
+  const weekAgo = new Date();
+  weekAgo.setDate(weekAgo.getDate() - 7);
+
+  const [
+    activeApiKeysRes,
+    lastApiUseRes,
+    activeWebhooksRes,
+    failedDeliveriesRes,
+    recentFailuresRes,
+  ] = await Promise.all([
+    supabase
+      .from('api_keys')
+      .select('id', { count: 'exact', head: true })
+      .eq('church_id', churchId)
+      .eq('is_active', true)
+      .or(`expires_at.is.null,expires_at.gt.${now.toISOString()}`),
+    supabase
+      .from('api_keys')
+      .select('name, key_prefix, last_used_at')
+      .eq('church_id', churchId)
+      .eq('is_active', true)
+      .or(`expires_at.is.null,expires_at.gt.${now.toISOString()}`)
+      .not('last_used_at', 'is', null)
+      .order('last_used_at', { ascending: false })
+      .limit(1),
+    supabase
+      .from('webhooks')
+      .select('id', { count: 'exact', head: true })
+      .eq('church_id', churchId)
+      .eq('is_active', true),
+    supabase
+      .from('webhook_deliveries')
+      .select('id', { count: 'exact', head: true })
+      .eq('church_id', churchId)
+      .not('failed_at', 'is', null)
+      .gte('created_at', weekAgo.toISOString()),
+    supabase
+      .from('webhook_deliveries')
+      .select(`
+        id,
+        event_type,
+        response_status,
+        error_message,
+        failed_at,
+        created_at,
+        webhooks!inner(name, church_id)
+      `)
+      .eq('church_id', churchId)
+      .eq('webhooks.church_id', churchId)
+      .not('failed_at', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(5),
+  ]);
+
+  const lastApiUse = lastApiUseRes.data?.[0];
+  const recentFailures = (recentFailuresRes.data || []) as unknown as {
+    id: string;
+    event_type: string;
+    response_status: number | null;
+    error_message: string | null;
+    failed_at: string | null;
+    created_at: string;
+    webhooks:
+      | { name: string; church_id: string }
+      | { name: string; church_id: string }[];
+  }[];
+
+  const healthCards = [
+    {
+      label: 'Active API keys',
+      value: activeApiKeysRes.count ?? 0,
+      detail: 'Tenant-scoped credentials',
+      icon: KeyRound,
+      tone: 'bg-emerald-100 text-emerald-700',
+    },
+    {
+      label: 'Last API request',
+      value: lastApiUse?.last_used_at
+        ? formatDistanceToNow(new Date(lastApiUse.last_used_at), { addSuffix: true })
+        : 'Never',
+      detail: lastApiUse ? `${lastApiUse.name} · ${lastApiUse.key_prefix}` : 'No recorded usage',
+      icon: Clock3,
+      tone: 'bg-sky-100 text-sky-700',
+    },
+    {
+      label: 'Active webhooks',
+      value: activeWebhooksRes.count ?? 0,
+      detail: 'Outbound subscriptions',
+      icon: Webhook,
+      tone: 'bg-violet-100 text-violet-700',
+    },
+    {
+      label: 'Failures this week',
+      value: failedDeliveriesRes.count ?? 0,
+      detail: 'Webhook delivery errors',
+      icon: AlertTriangle,
+      tone:
+        (failedDeliveriesRes.count ?? 0) > 0
+          ? 'bg-red-100 text-red-700'
+          : 'bg-slate-100 text-slate-700',
+    },
+  ];
 
   return (
     <>
@@ -138,6 +249,109 @@ export default async function DeveloperPage() {
               <p className="mt-2 text-sm leading-6 text-slate-500">{body}</p>
             </div>
           ))}
+        </section>
+
+        <section className="space-y-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-emerald-700" />
+              <h2 className="font-bold text-slate-950">Integration health</h2>
+            </div>
+            <p className="mt-1 text-xs text-slate-500">
+              Operational status for API keys and outbound webhooks.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {healthCards.map((card) => (
+              <div
+                key={card.label}
+                className="rounded-2xl border border-slate-200 bg-white p-5"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-500">
+                      {card.label}
+                    </p>
+                    <p className="mt-3 text-2xl font-bold tracking-tight text-slate-950">
+                      {card.value.toLocaleString()}
+                    </p>
+                  </div>
+                  <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${card.tone}`}>
+                    <card.icon className="h-[18px] w-[18px]" />
+                  </div>
+                </div>
+                <p className="mt-4 truncate text-xs font-medium text-slate-400">
+                  {card.detail}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
+          <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-5 sm:px-6">
+            <div>
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <h2 className="font-bold text-slate-950">Recent webhook failures</h2>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">
+                Latest failed deliveries across active and paused webhooks.
+              </p>
+            </div>
+            <Link
+              href="/settings/webhooks"
+              className="shrink-0 text-xs font-bold text-emerald-700 hover:text-emerald-800"
+            >
+              Open webhooks
+            </Link>
+          </div>
+
+          {!recentFailures.length ? (
+            <div className="px-6 py-12 text-center">
+              <CheckCircle2 className="mx-auto h-8 w-8 text-slate-300" />
+              <p className="mt-3 text-sm font-semibold text-slate-700">
+                No recent webhook failures
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                Failed outbound deliveries will appear here for quick review.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {recentFailures.map((failure) => (
+                <div key={failure.id} className="px-5 py-4 sm:px-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-slate-950">
+                        {Array.isArray(failure.webhooks)
+                          ? failure.webhooks[0]?.name
+                          : failure.webhooks.name}
+                      </p>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {failure.event_type}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-red-100 px-2.5 py-1 text-[11px] font-bold text-red-700">
+                      {failure.response_status || 'Failed'}
+                    </span>
+                  </div>
+                  <div className="mt-3 flex flex-col gap-2 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="truncate">
+                      {failure.error_message || 'Delivery failed before a response was recorded'}
+                    </span>
+                    <span className="shrink-0">
+                      {formatDistanceToNow(
+                        new Date(failure.failed_at || failure.created_at),
+                        { addSuffix: true }
+                      )}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
