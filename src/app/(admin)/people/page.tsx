@@ -3,7 +3,7 @@ import { PersonTable } from '@/components/people/PersonTable';
 import { PeopleFilters } from '@/components/people/PeopleFilters';
 import { Pagination } from '@/components/ui/pagination';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { GitCompareArrows, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { getPeople, PeopleFilters as QueryFilters } from '@/lib/queries/people';
 import { Tag } from '@/lib/types';
@@ -71,12 +71,20 @@ export default async function PeoplePage({
           </p>
         </div>
         {canManage && (
-          <Link href="/people/new">
-            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2 rounded-xl px-5 h-10 shadow-sm transition-all hover:shadow-md">
-              <Plus className="h-4 w-4" />
-              Add person
-            </Button>
-          </Link>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Link href="/people/duplicates">
+              <Button variant="outline" className="h-10 gap-2 rounded-xl px-5 font-bold">
+                <GitCompareArrows className="h-4 w-4" />
+                Review duplicates
+              </Button>
+            </Link>
+            <Link href="/people/new">
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2 rounded-xl px-5 h-10 shadow-sm transition-all hover:shadow-md">
+                <Plus className="h-4 w-4" />
+                Add person
+              </Button>
+            </Link>
+          </div>
         )}
       </div>
 
