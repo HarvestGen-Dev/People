@@ -63,7 +63,7 @@ async function insertPerson(values) {
       status: 'visitor',
       ...values,
     })
-    .select('id')
+    .select('id, display_id')
     .single();
   if (error) throw error;
   return data;
@@ -133,6 +133,7 @@ test('creates a normalized visitor when no identity matches', async () => {
   assert.equal(response.status, 200);
   assert.equal(body.data.found, false);
   assert.equal(body.data.person.status, 'visitor');
+  assert.match(body.data.person.id, /^PER-[0-9A-F]{10}$/);
   assert.equal(body.data.person.email, `new.visitor.${suffix}@example.com`);
   assert.equal(body.data.person.phone, '+60123456789');
 });
@@ -163,7 +164,7 @@ test('matches a phone-only lookup across Malaysian formatting', async () => {
 
   assert.equal(response.status, 200);
   assert.equal(body.data.found, true);
-  assert.equal(body.data.person.id, person.id);
+  assert.equal(body.data.person.id, person.display_id);
 });
 
 test('returns conflict when a phone matches multiple people', async () => {

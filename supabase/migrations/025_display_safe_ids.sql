@@ -6,6 +6,7 @@
 CREATE OR REPLACE FUNCTION public.generate_display_id(p_prefix TEXT)
 RETURNS TEXT
 LANGUAGE plpgsql
+SET search_path = public, extensions, pg_catalog
 AS $$
 BEGIN
   RETURN upper(p_prefix || '-' || encode(gen_random_bytes(5), 'hex'));
