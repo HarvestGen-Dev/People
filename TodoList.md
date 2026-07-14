@@ -157,7 +157,8 @@
 
 ## Security review
 
-- [ ] Attempt tenant-ID and registration-ID tampering through the browser and direct HTTP requests.
+- [x] Attempt tenant-ID and registration-ID tampering through the browser and direct HTTP requests.
+  - Evidence: `npm run test:integration:events` passed on branch `test/tenant-id-tampering-audit`; includes `Cross-tenant registration ID tampering is blocked`.
 - [ ] Attempt payment-proof path reuse and cross-event/cross-church proof substitution.
 - [ ] Verify public endpoints have a production-grade distributed rate limit; the current in-memory limiter resets on deployment and is not shared between instances.
 - [x] Verify error responses do not expose SQL, storage paths, credentials, or internal stack traces.
