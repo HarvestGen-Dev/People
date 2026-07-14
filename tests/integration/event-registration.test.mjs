@@ -35,6 +35,7 @@ let testOtherAdminUserId;
 let uploadedProofs = [];
 let mockSmtpServer;
 let sentEmailsCount = 0;
+let smtpMessages = [];
 let smtpPort = 0;
 
 async function waitForServer() {
@@ -102,6 +103,7 @@ before(async () => {
           const endIdx = buffer.indexOf('\r\n.\r\n');
           if (endIdx !== -1) {
             receivingData = false;
+            smtpMessages.push(buffer.substring(0, endIdx));
             sentEmailsCount++;
             socket.write('250 OK\r\n');
             buffer = buffer.substring(endIdx + 5);
@@ -369,6 +371,36 @@ test('Cross-tenant isolation during approval', async () => {
   assert.equal(approveRes.status, 400);
   const body = await approveRes.json();
   assert.match(body.error, /Registration not found/);
+});
+
+test('Confirmation email escapes user and event-controlled HTML', async () => {
+  const event = await insertEvent({
+    price: 0,
+    name: 'Youth Night </h1><script>alert("event")</script>',
+    location: 'Main Hall <img src=x onerror=alert("location")>',
+  });
+
+  sentEmailsCount = 0;
+  smtpMessages = [];
+
+  const res = await register(event.id, {
+    first_name: '<img src=x onerror=alert("name")>',
+    last_name: 'Escaped',
+    email: `safe-email-${suffix}@a.com`,
+    phone: '555',
+    guests: 1,
+  });
+
+  assert.equal(res.response.status, 200);
+  assert.equal(res.body.data.status, 'approved');
+  assert.equal(sentEmailsCount, 1);
+
+  const message = smtpMessages.at(-1) || '';
+  assert.doesNotMatch(message, /<script/i);
+  assert.doesNotMatch(message, /<img/i);
+  assert.doesNotMatch(message, /<\/h1><script/i);
+  assert.match(message, /&lt;script|=26lt;script/i);
+  assert.match(message, /&lt;img|=26lt;img/i);
 });
 
 test('Admin approval idempotency, outbox retry, and exact email counting', async () => {

@@ -161,7 +161,8 @@
 - [ ] Attempt payment-proof path reuse and cross-event/cross-church proof substitution.
 - [ ] Verify public endpoints have a production-grade distributed rate limit; the current in-memory limiter resets on deployment and is not shared between instances.
 - [ ] Verify error responses do not expose SQL, storage paths, credentials, or internal stack traces.
-- [ ] Verify email HTML safely handles user-controlled and event-controlled text.
+- [x] Verify email HTML safely handles user-controlled and event-controlled text.
+  - Evidence: `npm run test:integration:events` passed on branch `feature/safe-event-emails`; includes `Confirmation email escapes user and event-controlled HTML`.
 - [ ] Verify audit records identify who approved or rejected each registration.
 - [ ] Verify rejected registrations release capacity as intended.
 - [ ] Verify approved registrations cannot be moved back to pending or rejected through direct database/API calls.
@@ -178,4 +179,3 @@ Do not deploy migration `017` or release the event-registration changes until al
 - [ ] Supabase redirect URLs, SMTP, Storage policies, and RLS are verified.
 - [ ] Owner, admin, member, invited-user, and public registration smoke tests pass.
 - [ ] Two reviewers approve: one backend/database reviewer and one frontend/integration reviewer.
-
