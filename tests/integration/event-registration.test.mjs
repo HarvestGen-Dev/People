@@ -265,6 +265,61 @@ test('Reused proof is blocked (Proof ownership/uniqueness)', async () => {
   assert.match(res.body.error, /already been used/);
 });
 
+test('Payment proof substitution is blocked across events and churches', async () => {
+  const targetEvent = await insertEvent({ price: 10 });
+  const otherEvent = await insertEvent({ price: 10 });
+  const otherChurchEvent = await insertEvent({
+    church_id: otherChurchId,
+    price: 10,
+  });
+
+  const otherEventProof = `${otherEvent.church_id}/${otherEvent.id}/wrong-event.jpg`;
+  const otherChurchProof = `${otherChurchEvent.church_id}/${otherChurchEvent.id}/wrong-church.jpg`;
+  const targetProof = `${targetEvent.church_id}/${targetEvent.id}/correct.jpg`;
+
+  await uploadProof(otherEventProof);
+  await uploadProof(otherChurchProof);
+  await uploadProof(targetProof);
+
+  const basePayload = {
+    first_name: 'Proof',
+    last_name: 'Substitution',
+    email: `proof-sub-${suffix}@test.com`,
+    phone: '123',
+    guests: 1,
+    paid_checkbox: true,
+  };
+
+  let res = await register(targetEvent.id, {
+    ...basePayload,
+    payment_proof_url: otherEventProof,
+  });
+  assert.equal(res.response.status, 400);
+  assert.match(res.body.error, /valid payment proof/);
+
+  res = await register(targetEvent.id, {
+    ...basePayload,
+    email: `proof-sub-church-${suffix}@test.com`,
+    payment_proof_url: otherChurchProof,
+  });
+  assert.equal(res.response.status, 400);
+  assert.match(res.body.error, /valid payment proof/);
+
+  const { data: failedRegistrations } = await admin
+    .from('event_registrations')
+    .select('id')
+    .eq('event_id', targetEvent.id)
+    .in('payment_proof_url', [otherEventProof, otherChurchProof]);
+  assert.equal(failedRegistrations.length, 0);
+
+  res = await register(targetEvent.id, {
+    ...basePayload,
+    email: `proof-sub-valid-${suffix}@test.com`,
+    payment_proof_url: targetProof,
+  });
+  assert.equal(res.response.status, 200);
+});
+
 test('Closed and draft events', async () => {
   const draftEvent = await insertEvent({ price: 0, status: 'draft' });
   const closedEvent = await insertEvent({ price: 0, status: 'published', start_at: new Date(Date.now() - 86400000).toISOString() });
@@ -277,6 +332,36 @@ test('Closed and draft events', async () => {
   res = await register(closedEvent.id, payload);
   assert.equal(res.response.status, 400);
   assert.match(res.body.error, /closed/);
+});
+
+test('Public event endpoints return generic errors for malformed request bodies', async () => {
+  const freeEvent = await insertEvent({ price: 0 });
+  const malformedRegistration = await fetch(`${baseUrl}/api/public/events/${freeEvent.id}/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{"first_name":',
+  });
+  const malformedRegistrationBody = await malformedRegistration.json();
+  assert.equal(malformedRegistration.status, 500);
+  assert.equal(
+    malformedRegistrationBody.error,
+    'Unable to register for event. Please try again later.'
+  );
+  assert.doesNotMatch(malformedRegistrationBody.error, /JSON|SQL|stack|storage|path/i);
+
+  const paidEvent = await insertEvent({ price: 10 });
+  const malformedUpload = await fetch(`${baseUrl}/api/public/events/${paidEvent.id}/upload-proof`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'multipart/form-data; boundary=broken' },
+    body: '--not-the-right-boundary',
+  });
+  const malformedUploadBody = await malformedUpload.json();
+  assert.equal(malformedUpload.status, 500);
+  assert.equal(
+    malformedUploadBody.error,
+    'Unable to upload proof. Please try again later.'
+  );
+  assert.doesNotMatch(malformedUploadBody.error, /SQL|stack|storage|path|boundary/i);
 });
 
 test('Invalid status transitions', async () => {
@@ -351,7 +436,7 @@ test('Transactional rollback via explicit RPC constraint failure', async () => {
   assert.equal(reg.status, 'pending_review', 'Registration should have rolled back to pending_review');
 });
 
-test('Cross-tenant isolation during approval', async () => {
+test('Cross-tenant registration ID tampering is blocked', async () => {
   const event = await insertEvent({ price: 50.0 });
   const proofUrl = `${event.church_id}/${event.id}/cross.jpg`;
   await uploadProof(proofUrl);
@@ -359,6 +444,13 @@ test('Cross-tenant isolation during approval', async () => {
   const payload = { first_name: 'Cross', last_name: 'Tenant', email: 'cross@a.com', phone: '123', guests: 1, payment_proof_url: proofUrl, paid_checkbox: true };
   const res = await register(event.id, payload);
   const regId = res.body.data.registration_id;
+
+  const pageRes = await fetch(`${baseUrl}/events/${event.id}/registrations`, {
+    headers: { Cookie: otherAdminCookiesStr }
+  });
+  const pageBody = await pageRes.text();
+  assert.doesNotMatch(pageBody, /cross@a\.com/);
+  assert.doesNotMatch(pageBody, /Registration review/);
 
   // Approve using other admin context
   const approveRes = await fetch(`${baseUrl}/api/admin/registrations/${regId}/approve`, {
@@ -369,6 +461,41 @@ test('Cross-tenant isolation during approval', async () => {
   assert.equal(approveRes.status, 400);
   const body = await approveRes.json();
   assert.match(body.error, /Registration not found/);
+
+  const rejectRes = await fetch(`${baseUrl}/api/admin/registrations/${regId}/reject`, {
+    method: 'POST',
+    headers: {
+      Cookie: otherAdminCookiesStr,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ reason: 'Cross-tenant tamper attempt' })
+  });
+  assert.equal(rejectRes.status, 404);
+  const rejectBody = await rejectRes.json();
+  assert.match(rejectBody.error, /Registration not found/);
+
+  const bulkApproveRes = await fetch(`${baseUrl}/api/admin/registrations/bulk-approve`, {
+    method: 'POST',
+    headers: {
+      Cookie: otherAdminCookiesStr,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ ids: [regId] })
+  });
+  assert.equal(bulkApproveRes.status, 200);
+  const bulkBody = await bulkApproveRes.json();
+  assert.deepEqual(bulkBody.data, { approved: 0, failed: 1 });
+
+  const { data: reg } = await admin
+    .from('event_registrations')
+    .select('status, person_id, reviewed_by, reviewed_at, rejection_reason')
+    .eq('id', regId)
+    .single();
+  assert.equal(reg.status, 'pending_review');
+  assert.equal(reg.person_id, null);
+  assert.equal(reg.reviewed_by, null);
+  assert.equal(reg.reviewed_at, null);
+  assert.equal(reg.rejection_reason, null);
 });
 
 test('Admin approval idempotency, outbox retry, and exact email counting', async () => {

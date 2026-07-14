@@ -6,7 +6,119 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
-const Select = SelectPrimitive.Root
+const SelectValueLabelContext = React.createContext<Map<string, React.ReactNode>>(
+  new Map()
+)
+
+function Select<Value, Multiple extends boolean | undefined = false>({
+  children,
+  items,
+  ...props
+}: SelectPrimitive.Root.Props<Value, Multiple>) {
+  const valueLabels = React.useMemo(
+    () => collectSelectLabels(children, items),
+    [children, items]
+  )
+
+  return (
+    <SelectValueLabelContext.Provider value={valueLabels}>
+      <SelectPrimitive.Root items={items} {...props}>
+        {children}
+      </SelectPrimitive.Root>
+    </SelectValueLabelContext.Provider>
+  )
+}
+
+function collectSelectLabels(
+  children: React.ReactNode,
+  items?: SelectPrimitive.Root.Props<unknown>["items"]
+) {
+  const labels = new Map<string, React.ReactNode>()
+
+  collectItemLabelsFromItemsProp(labels, items)
+  collectItemLabelsFromChildren(labels, children)
+
+  return labels
+}
+
+function collectItemLabelsFromItemsProp(
+  labels: Map<string, React.ReactNode>,
+  items?: SelectPrimitive.Root.Props<unknown>["items"]
+) {
+  if (!items) {
+    return
+  }
+
+  if (Array.isArray(items)) {
+    items.forEach((item) => {
+      if ("items" in item && Array.isArray(item.items)) {
+        collectItemLabelsFromItemsProp(labels, item.items)
+        return
+      }
+
+      if ("value" in item) {
+        labels.set(String(item.value), item.label)
+      }
+    })
+    return
+  }
+
+  Object.entries(items).forEach(([value, label]) => {
+    labels.set(value, label)
+  })
+}
+
+function collectItemLabelsFromChildren(
+  labels: Map<string, React.ReactNode>,
+  children: React.ReactNode
+) {
+  React.Children.forEach(children, (child) => {
+    if (!React.isValidElement(child)) {
+      return
+    }
+
+    const props = child.props as {
+      children?: React.ReactNode
+      value?: unknown
+    }
+
+    if (child.type === SelectItem && props.value != null) {
+      labels.set(String(props.value), props.children)
+    }
+
+    if (props.children) {
+      collectItemLabelsFromChildren(labels, props.children)
+    }
+  })
+}
+
+function formatSelectValue(
+  value: unknown,
+  labels: Map<string, React.ReactNode>,
+  placeholder?: React.ReactNode
+): React.ReactNode {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => formatSelectValue(item, labels))
+      .filter(Boolean)
+      .join(", ")
+  }
+
+  if (value == null || value === "") {
+    return placeholder ?? null
+  }
+
+  const valueKey = String(value)
+  const label = labels.get(valueKey)
+
+  if (label != null) {
+    return label
+  }
+
+  return valueKey
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (
@@ -18,13 +130,26 @@ function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   )
 }
 
-function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
+function SelectValue({
+  className,
+  children: childrenProp,
+  placeholder,
+  ...props
+}: SelectPrimitive.Value.Props) {
+  const valueLabels = React.useContext(SelectValueLabelContext)
+  const children =
+    childrenProp ??
+    ((value: unknown) => formatSelectValue(value, valueLabels, placeholder))
+
   return (
     <SelectPrimitive.Value
       data-slot="select-value"
       className={cn("flex flex-1 text-left", className)}
+      placeholder={placeholder}
       {...props}
-    />
+    >
+      {children}
+    </SelectPrimitive.Value>
   )
 }
 
@@ -83,7 +208,7 @@ function SelectContent({
         <SelectPrimitive.Popup
           data-slot="select-content"
           data-align-trigger={alignItemWithTrigger}
-          className={cn("relative isolate z-50 max-h-(--available-height) w-(--anchor-width) min-w-36 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", className )}
+          className={cn("relative isolate z-50 max-h-(--available-height) w-(--anchor-width) min-w-36 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-xl border border-slate-200 bg-popover p-1 text-popover-foreground shadow-lg duration-100 data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", className )}
           {...props}
         >
           <SelectScrollUpButton />
@@ -102,7 +227,7 @@ function SelectLabel({
   return (
     <SelectPrimitive.GroupLabel
       data-slot="select-label"
-      className={cn("px-1.5 py-1 text-xs text-muted-foreground", className)}
+      className={cn("px-3 py-1.5 text-xs font-medium text-muted-foreground", className)}
       {...props}
     />
   )
@@ -117,7 +242,7 @@ function SelectItem({
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "relative flex w-full cursor-default items-center gap-1.5 rounded-md py-1 pr-8 pl-1.5 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
+        "relative flex min-h-9 w-full cursor-default items-center gap-2 rounded-lg py-2 pr-9 pl-3 text-sm font-medium outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
         className
       )}
       {...props}
@@ -127,7 +252,7 @@ function SelectItem({
       </SelectPrimitive.ItemText>
       <SelectPrimitive.ItemIndicator
         render={
-          <span className="pointer-events-none absolute right-2 flex size-4 items-center justify-center" />
+          <span className="pointer-events-none absolute right-3 flex size-4 items-center justify-center" />
         }
       >
         <CheckIcon className="pointer-events-none" />

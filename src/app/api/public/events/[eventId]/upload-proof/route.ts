@@ -34,15 +34,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
       .from('payment-proofs')
       .upload(filePath, image.file, { upsert: false });
 
-    if (uploadError) throw uploadError;
+    if (uploadError) {
+      console.error('Payment proof upload error:', uploadError.message);
+      return NextResponse.json(
+        { error: 'Unable to upload proof. Please try again later.' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ data: { path: filePath } });
   } catch (error: unknown) {
+    console.error(
+      'Payment proof upload error:',
+      error instanceof Error ? error.message : String(error)
+    );
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error ? error.message : 'Unable to upload proof',
-      },
+      { error: 'Unable to upload proof. Please try again later.' },
       { status: 500 }
     );
   }
