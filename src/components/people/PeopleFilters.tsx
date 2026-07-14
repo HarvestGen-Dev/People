@@ -53,7 +53,8 @@ export function PeopleFilters({ tags, total }: PeopleFiltersProps) {
   const hasFilters =
     searchParams.has('search') ||
     searchParams.has('status') ||
-    searchParams.has('tag');
+    searchParams.has('tag') ||
+    searchParams.has('quality');
 
   return (
     <section className="rounded-2xl border border-slate-200/80 bg-white p-3 shadow-[0_10px_35px_-32px_rgba(15,23,42,0.45)]">

@@ -6,8 +6,17 @@ export type PeopleFilters = {
   search?: string;
   status?: string;
   tag?: string;
+  quality?: string;
   page?: number;
   pageSize?: number;
+};
+
+export type PeopleQualityMetrics = {
+  missingContact: number;
+  missingEmail: number;
+  missingPhone: number;
+  missingCampus: number;
+  missingPhoto: number;
 };
 
 export async function getPeople(filters: PeopleFilters): Promise<{
@@ -35,7 +44,7 @@ export async function getPeople(filters: PeopleFilters): Promise<{
 
   if (filters.search) {
     query = query.or(
-      `first_name.ilike.%${filters.search}%,last_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%`
+      `first_name.ilike.%${filters.search}%,last_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%,phone.ilike.%${filters.search}%`
     );
   }
 
@@ -55,8 +64,85 @@ export async function getPeople(filters: PeopleFilters): Promise<{
     query = query.in('id', ids);
   }
 
+  switch (filters.quality) {
+    case 'missing_contact':
+      query = query.is('email', null).is('phone', null);
+      break;
+    case 'missing_email':
+      query = query.is('email', null);
+      break;
+    case 'missing_phone':
+      query = query.is('phone', null);
+      break;
+    case 'missing_campus':
+      query = query.is('campus', null);
+      break;
+    case 'missing_photo':
+      query = query.is('photo_url', null);
+      break;
+  }
+
   const { data, error, count } = await query;
   if (error) throw error;
   
   return { people: (data as unknown as PersonWithRelations[]) ?? [], total: count ?? 0 };
+}
+
+export async function getPeopleQualityMetrics(
+  churchId: string
+): Promise<PeopleQualityMetrics> {
+  const supabase = createServiceClient();
+
+  const [
+    missingContact,
+    missingEmail,
+    missingPhone,
+    missingCampus,
+    missingPhoto,
+  ] = await Promise.all([
+    supabase
+      .from('people')
+      .select('id', { count: 'exact', head: true })
+      .eq('church_id', churchId)
+      .is('email', null)
+      .is('phone', null),
+    supabase
+      .from('people')
+      .select('id', { count: 'exact', head: true })
+      .eq('church_id', churchId)
+      .is('email', null),
+    supabase
+      .from('people')
+      .select('id', { count: 'exact', head: true })
+      .eq('church_id', churchId)
+      .is('phone', null),
+    supabase
+      .from('people')
+      .select('id', { count: 'exact', head: true })
+      .eq('church_id', churchId)
+      .is('campus', null),
+    supabase
+      .from('people')
+      .select('id', { count: 'exact', head: true })
+      .eq('church_id', churchId)
+      .is('photo_url', null),
+  ]);
+
+  const errors = [
+    missingContact.error,
+    missingEmail.error,
+    missingPhone.error,
+    missingCampus.error,
+    missingPhoto.error,
+  ].filter(Boolean);
+
+  if (errors[0]) throw errors[0];
+
+  return {
+    missingContact: missingContact.count ?? 0,
+    missingEmail: missingEmail.count ?? 0,
+    missingPhone: missingPhone.count ?? 0,
+    missingCampus: missingCampus.count ?? 0,
+    missingPhoto: missingPhoto.count ?? 0,
+  };
 }

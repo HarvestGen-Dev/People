@@ -1,11 +1,16 @@
 import { createClient } from '@/lib/supabase/server';
 import { PersonTable } from '@/components/people/PersonTable';
 import { PeopleFilters } from '@/components/people/PeopleFilters';
+import { PeopleQualityPanel } from '@/components/people/PeopleQualityPanel';
 import { Pagination } from '@/components/ui/pagination';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
-import { getPeople, PeopleFilters as QueryFilters } from '@/lib/queries/people';
+import {
+  getPeople,
+  getPeopleQualityMetrics,
+  PeopleFilters as QueryFilters,
+} from '@/lib/queries/people';
 import { Tag } from '@/lib/types';
 import { requireTenantContext } from '@/lib/tenant-context';
 import { redirect } from 'next/navigation';
@@ -17,7 +22,7 @@ export const metadata = {
 export default async function PeoplePage({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const { churchId, role, isPlatformAdmin } = await requireTenantContext();
   
@@ -34,6 +39,7 @@ export default async function PeoplePage({
   const search = typeof resolvedSearchParams.search === 'string' ? resolvedSearchParams.search : undefined;
   const status = typeof resolvedSearchParams.status === 'string' ? resolvedSearchParams.status : undefined;
   const tag = typeof resolvedSearchParams.tag === 'string' ? resolvedSearchParams.tag : undefined;
+  const quality = typeof resolvedSearchParams.quality === 'string' ? resolvedSearchParams.quality : undefined;
 
   const filters: QueryFilters = {
     church_id: churchId,
@@ -42,15 +48,17 @@ export default async function PeoplePage({
     search,
     status,
     tag,
+    quality,
   };
 
-  const [peopleRes, tagsRes] = await Promise.all([
+  const [peopleRes, tagsRes, qualityMetrics] = await Promise.all([
     getPeople(filters),
     supabase
       .from('tags')
       .select('*')
       .eq('church_id', churchId)
-      .order('name')
+      .order('name'),
+    getPeopleQualityMetrics(churchId),
   ]);
 
   const { people, total } = peopleRes;
@@ -81,6 +89,11 @@ export default async function PeoplePage({
       </div>
 
       <PeopleFilters tags={tags} total={total} />
+
+      <PeopleQualityPanel
+        metrics={qualityMetrics}
+        currentQuality={quality}
+      />
       
       <PersonTable people={people} />
       
