@@ -1,10 +1,15 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { sendEventConfirmationEmail } from '@/lib/email/send-confirmation';
 
+type RegistrationReviewer = {
+  userId: string;
+  email: string | null;
+} | null;
+
 export async function approveRegistration(
   registrationId: string,
   churchId: string,
-  reviewedBy: string | null
+  reviewer: RegistrationReviewer
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = createServiceClient();
 
@@ -12,7 +17,8 @@ export async function approveRegistration(
   const { data: rpcResult, error: rpcError } = await supabase.rpc('approve_event_registration', {
     p_church_id: churchId,
     p_registration_id: registrationId,
-    p_reviewed_by: reviewedBy
+    p_reviewed_by: reviewer?.email ?? null,
+    p_reviewed_by_user_id: reviewer?.userId ?? null
   });
 
   if (rpcError) {

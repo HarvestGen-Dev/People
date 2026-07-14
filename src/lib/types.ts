@@ -306,6 +306,9 @@ export interface EventRegistration {
   paid_checkbox: boolean;
   status: RegistrationStatus;
   reviewed_by: string | null;
+  reviewed_by_user_id: string | null;
+  reviewed_by_email: string | null;
+  reviewed_by_actor: 'system' | 'user';
   reviewed_at: string | null;
   rejection_reason: string | null;
   confirmation_email_sent_at: string | null;

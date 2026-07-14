@@ -22,7 +22,10 @@ export async function POST(request: Request) {
     let failed = 0;
 
     for (const id of ids) {
-      const result = await approveRegistration(id, churchId, user.email || null);
+      const result = await approveRegistration(id, churchId, {
+        userId: user.id,
+        email: user.email ?? null,
+      });
       if (result.success) approved++;
       else failed++;
     }

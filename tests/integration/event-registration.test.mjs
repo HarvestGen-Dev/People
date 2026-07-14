@@ -32,6 +32,7 @@ let adminCookiesStr = '';
 let otherAdminCookiesStr = '';
 let testAdminUserId;
 let testOtherAdminUserId;
+let testAdminEmail = '';
 let uploadedProofs = [];
 let mockSmtpServer;
 let sentEmailsCount = 0;
@@ -170,6 +171,7 @@ before(async () => {
 
   // Create admin user for church 1
   const email = `admin-${suffix}@test.com`;
+  testAdminEmail = email;
   const password = 'Password123!';
   const { data: userAuth, error: authErr } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
   if (authErr) throw authErr;
@@ -335,7 +337,8 @@ test('Transactional rollback via explicit RPC constraint failure', async () => {
   const { error } = await admin.rpc('approve_event_registration', {
     p_church_id: churchId,
     p_registration_id: regId,
-    p_reviewed_by: oversizedReviewer
+    p_reviewed_by: oversizedReviewer,
+    p_reviewed_by_user_id: testAdminUserId
   });
   
   assert.ok(error, 'RPC should have thrown due to column constraints');
@@ -371,6 +374,84 @@ test('Cross-tenant isolation during approval', async () => {
   assert.match(body.error, /Registration not found/);
 });
 
+test('Registration decision audit metadata distinguishes system and admin decisions', async () => {
+  const freeEvent = await insertEvent({ price: 0 });
+  const freePayload = {
+    first_name: 'Free',
+    last_name: 'Audit',
+    email: `free-audit-${suffix}@a.com`,
+    phone: '100',
+    guests: 1
+  };
+  const freeRes = await register(freeEvent.id, freePayload);
+  assert.equal(freeRes.response.status, 200);
+  assert.equal(freeRes.body.data.status, 'approved');
+
+  const { data: freeRegistration } = await admin
+    .from('event_registrations')
+    .select('status, reviewed_by_actor, reviewed_by_user_id, reviewed_by_email, reviewed_at')
+    .eq('id', freeRes.body.data.registration_id)
+    .single();
+  assert.equal(freeRegistration.status, 'approved');
+  assert.equal(freeRegistration.reviewed_by_actor, 'system');
+  assert.equal(freeRegistration.reviewed_by_user_id, null);
+  assert.equal(freeRegistration.reviewed_by_email, null);
+  assert.ok(freeRegistration.reviewed_at);
+
+  const paidEvent = await insertEvent({ price: 50.0 });
+  const proofUrl = `${paidEvent.church_id}/${paidEvent.id}/reject-audit.jpg`;
+  await uploadProof(proofUrl);
+
+  const paidPayload = {
+    first_name: 'Reject',
+    last_name: 'Audit',
+    email: `reject-audit-${suffix}@a.com`,
+    phone: '200',
+    guests: 1,
+    payment_proof_url: proofUrl,
+    paid_checkbox: true
+  };
+  const paidRes = await register(paidEvent.id, paidPayload);
+  assert.equal(paidRes.response.status, 200);
+  const paidRegistrationId = paidRes.body.data.registration_id;
+
+  const { error: missingReviewerError } = await admin
+    .from('event_registrations')
+    .update({
+      status: 'rejected',
+      reviewed_at: new Date().toISOString(),
+      reviewed_by_actor: 'user'
+    })
+    .eq('id', paidRegistrationId);
+  assert.ok(missingReviewerError);
+  assert.match(
+    missingReviewerError.message,
+    /registration_decision_missing_reviewer|event_registrations_review_actor_check/
+  );
+
+  const rejectRes = await fetch(`${baseUrl}/api/admin/registrations/${paidRegistrationId}/reject`, {
+    method: 'POST',
+    headers: {
+      Cookie: adminCookiesStr,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ reason: 'Proof did not match payment' })
+  });
+  assert.equal(rejectRes.status, 200);
+
+  const { data: rejectedRegistration } = await admin
+    .from('event_registrations')
+    .select('status, reviewed_by_actor, reviewed_by_user_id, reviewed_by_email, reviewed_at, rejection_reason')
+    .eq('id', paidRegistrationId)
+    .single();
+  assert.equal(rejectedRegistration.status, 'rejected');
+  assert.equal(rejectedRegistration.reviewed_by_actor, 'user');
+  assert.equal(rejectedRegistration.reviewed_by_user_id, testAdminUserId);
+  assert.equal(rejectedRegistration.reviewed_by_email, testAdminEmail);
+  assert.equal(rejectedRegistration.rejection_reason, 'Proof did not match payment');
+  assert.ok(rejectedRegistration.reviewed_at);
+});
+
 test('Admin approval idempotency, outbox retry, and exact email counting', async () => {
   const event = await insertEvent({ price: 50.0 });
   const proofUrl = `${event.church_id}/${event.id}/idemp.jpg`;
@@ -398,6 +479,10 @@ test('Admin approval idempotency, outbox retry, and exact email counting', async
   assert.equal(pEvents1.length, 1);
   const { data: reg1 } = await admin.from('event_registrations').select('*').eq('id', regId).single();
   assert.equal(reg1.status, 'approved');
+  assert.equal(reg1.reviewed_by_actor, 'user');
+  assert.equal(reg1.reviewed_by_user_id, testAdminUserId);
+  assert.equal(reg1.reviewed_by_email, testAdminEmail);
+  assert.ok(reg1.reviewed_at);
   assert.ok(reg1.confirmation_email_claimed_at);
   
   // Force a retry condition

@@ -14,7 +14,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { id } = await params;
     
     // Call the shared approval logic
-    const result = await approveRegistration(id, churchId, user.email || null);
+    const result = await approveRegistration(id, churchId, {
+      userId: user.id,
+      email: user.email ?? null,
+    });
 
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 400 });

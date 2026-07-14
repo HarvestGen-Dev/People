@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import {
   adminApiError,
@@ -10,23 +10,34 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { churchId, user } = await requireTenantContext({
       requireManager: true,
     });
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { id } = await params;
     const body = await request.json();
     
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('event_registrations')
       .update({
         status: 'rejected',
         rejection_reason: body.reason || null,
-        reviewed_by: user.email,
+        reviewed_by: user.email ?? null,
+        reviewed_by_user_id: user.id,
+        reviewed_by_email: user.email ?? null,
+        reviewed_by_actor: 'user',
         reviewed_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .eq('church_id', churchId);
+      .eq('church_id', churchId)
+      .select('id')
+      .maybeSingle();
 
     if (error) throw error;
+    if (!data) {
+      return NextResponse.json(
+        { error: 'Registration not found' },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json({ data: { success: true } });
   } catch (error: unknown) {

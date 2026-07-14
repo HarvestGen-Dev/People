@@ -29,19 +29,45 @@ export function RegistrationList({
   setRejectDialogId: (id: string) => void;
   setLightboxUrl: (url: string) => void;
 }) {
+  const getReviewerLabel = (registration: EventRegistration) => {
+    if (registration.reviewed_by_actor === 'system') {
+      return 'System auto-approval';
+    }
+
+    return (
+      registration.reviewed_by_email ||
+      registration.reviewed_by ||
+      'Unknown reviewer'
+    );
+  };
+
   const renderActions = (registration: EventRegistration) => {
     if (registration.status !== 'pending_review') {
       return (
-        <Badge
-          variant="outline"
-          className={
-            registration.status === 'approved'
-              ? 'border-emerald-200 bg-emerald-100 text-emerald-700'
-              : 'border-red-200 bg-red-100 text-red-700'
-          }
-        >
-          {registration.status === 'approved' ? 'Approved' : 'Rejected'}
-        </Badge>
+        <div className="space-y-1">
+          <Badge
+            variant="outline"
+            className={
+              registration.status === 'approved'
+                ? 'border-emerald-200 bg-emerald-100 text-emerald-700'
+                : 'border-red-200 bg-red-100 text-red-700'
+            }
+          >
+            {registration.status === 'approved' ? 'Approved' : 'Rejected'}
+          </Badge>
+          {registration.reviewed_at && (
+            <div className="max-w-48 text-xs leading-5 text-slate-500">
+              <span className="block truncate">
+                By {getReviewerLabel(registration)}
+              </span>
+              <span>
+                {formatDistanceToNow(new Date(registration.reviewed_at), {
+                  addSuffix: true,
+                })}
+              </span>
+            </div>
+          )}
+        </div>
       );
     }
 
