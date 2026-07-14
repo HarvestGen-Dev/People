@@ -4,6 +4,7 @@ import {
   Activity,
   ArrowRight,
   CalendarDays,
+  ClipboardCheck,
   GitBranch,
   LayoutList,
   Plus,
@@ -150,8 +151,14 @@ export default async function DashboardPage() {
         ))}
       </section>
 
-      {canManage && <section className="grid gap-3 sm:grid-cols-3">
+      {canManage && <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
+          {
+            icon: ClipboardCheck,
+            href: '/review',
+            label: 'Open review queue',
+            detail: 'Resolve pending admin work',
+          },
           {
             icon: LayoutList,
             href: '/lists/new',

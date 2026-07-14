@@ -127,6 +127,12 @@ test.describe.serial('admin and public registration smoke', () => {
       page.getByRole('heading', { name: 'Ministry overview' })
     ).toBeVisible();
 
+    await page.getByRole('link', { name: 'Review', exact: true }).click();
+    await expect(page).toHaveURL(/\/review$/);
+    await expect(
+      page.getByRole('heading', { name: 'Review queue', exact: true })
+    ).toBeVisible();
+
     await page.getByRole('link', { name: 'People', exact: true }).click();
     await expect(page).toHaveURL(/\/people$/);
     await expect(

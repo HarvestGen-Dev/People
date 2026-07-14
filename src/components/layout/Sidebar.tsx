@@ -9,6 +9,7 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  ClipboardCheck,
   Code2,
   GitBranch,
   LayoutDashboard,
@@ -37,6 +38,7 @@ const primaryNav = [
 ];
 
 const administrationNav = [
+  { label: 'Review', href: '/review', icon: ClipboardCheck },
   { label: 'Developer', href: '/developer', icon: Code2 },
   { label: 'Settings', href: '/settings', icon: Settings },
 ];
