@@ -158,7 +158,8 @@
 ## Security review
 
 - [ ] Attempt tenant-ID and registration-ID tampering through the browser and direct HTTP requests.
-- [ ] Attempt payment-proof path reuse and cross-event/cross-church proof substitution.
+- [x] Attempt payment-proof path reuse and cross-event/cross-church proof substitution.
+  - Evidence: `npm run test:integration:events` passed on branch `test/payment-proof-substitution-audit`; includes `Payment proof substitution is blocked across events and churches`.
 - [ ] Verify public endpoints have a production-grade distributed rate limit; the current in-memory limiter resets on deployment and is not shared between instances.
 - [ ] Verify error responses do not expose SQL, storage paths, credentials, or internal stack traces.
 - [ ] Verify email HTML safely handles user-controlled and event-controlled text.
@@ -178,4 +179,3 @@ Do not deploy migration `017` or release the event-registration changes until al
 - [ ] Supabase redirect URLs, SMTP, Storage policies, and RLS are verified.
 - [ ] Owner, admin, member, invited-user, and public registration smoke tests pass.
 - [ ] Two reviewers approve: one backend/database reviewer and one frontend/integration reviewer.
-
