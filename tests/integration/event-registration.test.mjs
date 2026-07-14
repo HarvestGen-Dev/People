@@ -351,7 +351,7 @@ test('Transactional rollback via explicit RPC constraint failure', async () => {
   assert.equal(reg.status, 'pending_review', 'Registration should have rolled back to pending_review');
 });
 
-test('Cross-tenant isolation during approval', async () => {
+test('Cross-tenant registration ID tampering is blocked', async () => {
   const event = await insertEvent({ price: 50.0 });
   const proofUrl = `${event.church_id}/${event.id}/cross.jpg`;
   await uploadProof(proofUrl);
@@ -359,6 +359,13 @@ test('Cross-tenant isolation during approval', async () => {
   const payload = { first_name: 'Cross', last_name: 'Tenant', email: 'cross@a.com', phone: '123', guests: 1, payment_proof_url: proofUrl, paid_checkbox: true };
   const res = await register(event.id, payload);
   const regId = res.body.data.registration_id;
+
+  const pageRes = await fetch(`${baseUrl}/events/${event.id}/registrations`, {
+    headers: { Cookie: otherAdminCookiesStr }
+  });
+  const pageBody = await pageRes.text();
+  assert.doesNotMatch(pageBody, /cross@a\.com/);
+  assert.doesNotMatch(pageBody, /Registration review/);
 
   // Approve using other admin context
   const approveRes = await fetch(`${baseUrl}/api/admin/registrations/${regId}/approve`, {
@@ -369,6 +376,41 @@ test('Cross-tenant isolation during approval', async () => {
   assert.equal(approveRes.status, 400);
   const body = await approveRes.json();
   assert.match(body.error, /Registration not found/);
+
+  const rejectRes = await fetch(`${baseUrl}/api/admin/registrations/${regId}/reject`, {
+    method: 'POST',
+    headers: {
+      Cookie: otherAdminCookiesStr,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ reason: 'Cross-tenant tamper attempt' })
+  });
+  assert.equal(rejectRes.status, 404);
+  const rejectBody = await rejectRes.json();
+  assert.match(rejectBody.error, /Registration not found/);
+
+  const bulkApproveRes = await fetch(`${baseUrl}/api/admin/registrations/bulk-approve`, {
+    method: 'POST',
+    headers: {
+      Cookie: otherAdminCookiesStr,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ ids: [regId] })
+  });
+  assert.equal(bulkApproveRes.status, 200);
+  const bulkBody = await bulkApproveRes.json();
+  assert.deepEqual(bulkBody.data, { approved: 0, failed: 1 });
+
+  const { data: reg } = await admin
+    .from('event_registrations')
+    .select('status, person_id, reviewed_by, reviewed_at, rejection_reason')
+    .eq('id', regId)
+    .single();
+  assert.equal(reg.status, 'pending_review');
+  assert.equal(reg.person_id, null);
+  assert.equal(reg.reviewed_by, null);
+  assert.equal(reg.reviewed_at, null);
+  assert.equal(reg.rejection_reason, null);
 });
 
 test('Admin approval idempotency, outbox retry, and exact email counting', async () => {
