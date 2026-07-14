@@ -51,10 +51,10 @@ async function waitForServer() {
   throw new Error('Timed out waiting for the Next.js test server');
 }
 
-async function register(eventId, payload) {
+async function register(eventId, payload, headers = {}) {
   const response = await fetch(`${baseUrl}/api/public/events/${eventId}/register`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...headers },
     body: JSON.stringify(payload),
   });
   const body = await response.json();
@@ -277,6 +277,53 @@ test('Closed and draft events', async () => {
   res = await register(closedEvent.id, payload);
   assert.equal(res.response.status, 400);
   assert.match(res.body.error, /closed/);
+});
+
+test('Public event endpoints enforce distributed rate limits', async () => {
+  const freeEvent = await insertEvent({ price: 0 });
+  const registrationIp = `198.51.100.${crypto.randomInt(1, 255)}`;
+  const invalidPayload = {
+    first_name: 'Rate',
+    last_name: 'Limited',
+    email: 'not-an-email',
+    phone: '123',
+    guests: 1,
+  };
+
+  for (let i = 0; i < 5; i += 1) {
+    const res = await register(freeEvent.id, invalidPayload, {
+      'x-forwarded-for': registrationIp,
+    });
+    assert.equal(res.response.status, 400);
+  }
+
+  const limitedRegistration = await register(freeEvent.id, invalidPayload, {
+    'x-forwarded-for': registrationIp,
+  });
+  assert.equal(limitedRegistration.response.status, 429);
+  assert.equal(limitedRegistration.response.headers.get('retry-after'), '3600');
+  assert.match(limitedRegistration.body.error, /Too many registrations/);
+
+  const paidEvent = await insertEvent({ price: 10 });
+  const uploadIp = `203.0.113.${crypto.randomInt(1, 255)}`;
+  for (let i = 0; i < 10; i += 1) {
+    const res = await fetch(`${baseUrl}/api/public/events/${paidEvent.id}/upload-proof`, {
+      method: 'POST',
+      headers: { 'x-forwarded-for': uploadIp },
+      body: new FormData(),
+    });
+    assert.equal(res.status, 400);
+  }
+
+  const limitedUpload = await fetch(`${baseUrl}/api/public/events/${paidEvent.id}/upload-proof`, {
+    method: 'POST',
+    headers: { 'x-forwarded-for': uploadIp },
+    body: new FormData(),
+  });
+  const limitedUploadBody = await limitedUpload.json();
+  assert.equal(limitedUpload.status, 429);
+  assert.equal(limitedUpload.headers.get('retry-after'), '3600');
+  assert.match(limitedUploadBody.error, /Too many proof uploads/);
 });
 
 test('Invalid status transitions', async () => {

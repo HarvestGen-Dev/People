@@ -2,6 +2,7 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { validateImageUpload } from '@/lib/image-upload';
+import { checkRateLimit, publicRateLimitKey } from '@/lib/rate-limit';
 
 export async function POST(request: Request, { params }: { params: Promise<{ eventId: string }> }) {
   try {
@@ -17,6 +18,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
       return NextResponse.json(
         { error: 'Paid event not found or not published' },
         { status: 404 }
+      );
+    }
+
+    const rateLimit = await checkRateLimit({
+      key: publicRateLimitKey(`event-proof-upload:${eventId}`, request),
+      limit: 10,
+      windowSeconds: 60 * 60,
+    });
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many proof uploads. Please try again later.' },
+        {
+          status: 429,
+          headers: { 'Retry-After': '3600' },
+        }
       );
     }
 
