@@ -21,6 +21,17 @@ interface SmartListBuilderProps {
   tags: ListTag[];
 }
 
+const OPERATOR_LABELS: Record<string, string> = {
+  is: 'Is',
+  is_not: 'Is not',
+  includes: 'Includes',
+  excludes: 'Excludes',
+  contains: 'Contains',
+  within_last_days: 'Within last days',
+  is_before: 'Is before',
+  is_after: 'Is after',
+};
+
 export function SmartListBuilder({
   listId,
   initialName,
@@ -175,16 +186,18 @@ export function SmartListBuilder({
 
                 {rule.field !== 'has_no_email' && (
                   <Select value={rule.op} onValueChange={v => updateRule(index, 'op', v ?? '')}>
-                    <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-slate-50 shadow-none"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-slate-50 shadow-none">
+                      <SelectValue>{(value) => OPERATOR_LABELS[value] || value}</SelectValue>
+                    </SelectTrigger>
                     <SelectContent>
                       {rule.field === 'status' || rule.field === 'gender' ? (
-                        <><SelectItem value="is">is</SelectItem><SelectItem value="is_not">is not</SelectItem></>
+                        <><SelectItem value="is">Is</SelectItem><SelectItem value="is_not">Is not</SelectItem></>
                       ) : rule.field === 'tag' ? (
-                        <><SelectItem value="includes">includes</SelectItem><SelectItem value="excludes">excludes</SelectItem></>
+                        <><SelectItem value="includes">Includes</SelectItem><SelectItem value="excludes">Excludes</SelectItem></>
                       ) : rule.field === 'campus' ? (
-                        <><SelectItem value="is">is</SelectItem><SelectItem value="is_not">is not</SelectItem><SelectItem value="contains">contains</SelectItem></>
+                        <><SelectItem value="is">Is</SelectItem><SelectItem value="is_not">Is not</SelectItem><SelectItem value="contains">Contains</SelectItem></>
                       ) : rule.field === 'created_at' ? (
-                        <><SelectItem value="within_last_days">within last (days)</SelectItem><SelectItem value="is_before">is before</SelectItem><SelectItem value="is_after">is after</SelectItem></>
+                        <><SelectItem value="within_last_days">Within last days</SelectItem><SelectItem value="is_before">Is before</SelectItem><SelectItem value="is_after">Is after</SelectItem></>
                       ) : null}
                     </SelectContent>
                   </Select>

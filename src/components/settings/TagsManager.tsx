@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Edit2, Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -209,16 +210,22 @@ export function TagsManager({ initialTags, workflows }: { initialTags: TagData[]
 
             <div>
               <label className="text-sm font-medium mb-1.5 block">Automations (Optional)</label>
-              <select
-                className="flex h-11 w-full items-center justify-between rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              <Select
                 value={formData.target_workflow_id}
-                onChange={e => setFormData({ ...formData, target_workflow_id: e.target.value })}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, target_workflow_id: value || 'none' })
+                }
               >
-                <option value="none">No workflow</option>
-                {workflows.map(w => (
-                  <option key={w.id} value={w.id}>{w.name}</option>
-                ))}
-              </select>
+                <SelectTrigger className="h-11 w-full rounded-xl bg-white">
+                  <SelectValue placeholder="No workflow" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No workflow</SelectItem>
+                  {workflows.map(w => (
+                    <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <p className="mt-1.5 text-xs text-slate-500">
                 When this tag is added to a person, automatically add them to this workflow.
               </p>
