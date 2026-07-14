@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Upload, Loader2, Image as ImageIcon, QrCode, AlertCircle } from 'lucide-react';
 import { renderSafeMarkdown } from '@/lib/safe-markdown';
 import { useEventForm } from '@/hooks/events/useEventForm';
@@ -263,16 +264,27 @@ export function EventForm({ event, workflows }: EventFormProps) {
               control={control}
               name="target_workflow_id"
               render={({ field }) => (
-                <select
-                  className="flex h-11 w-full max-w-md items-center justify-between rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                <Select
                   value={field.value || 'none'}
-                  onChange={field.onChange}
+                  onValueChange={(value) =>
+                    field.onChange(value === 'none' ? null : value)
+                  }
                 >
-                  <option value="none">No workflow</option>
-                  {workflows?.map((w: {id: string; name: string}) => (
-                    <option key={w.id} value={w.id}>{w.name}</option>
-                  )) || workflows === undefined && <option disabled>No workflows available</option>}
-                </select>
+                  <SelectTrigger className="h-11 w-full max-w-md rounded-xl bg-white">
+                    <SelectValue placeholder="No workflow" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No workflow</SelectItem>
+                    {workflows === undefined && (
+                      <SelectItem value="no-workflows" disabled>
+                        No workflows available
+                      </SelectItem>
+                    )}
+                    {workflows?.map((w: {id: string; name: string}) => (
+                      <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
             />
             <p className="mt-2 text-xs text-muted-foreground">
