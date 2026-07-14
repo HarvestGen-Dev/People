@@ -17,7 +17,7 @@ export const metadata = {
 export default async function PeoplePage({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const { churchId, role, isPlatformAdmin } = await requireTenantContext();
   
