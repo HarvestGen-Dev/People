@@ -279,6 +279,36 @@ test('Closed and draft events', async () => {
   assert.match(res.body.error, /closed/);
 });
 
+test('Public event endpoints return generic errors for malformed request bodies', async () => {
+  const freeEvent = await insertEvent({ price: 0 });
+  const malformedRegistration = await fetch(`${baseUrl}/api/public/events/${freeEvent.id}/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{"first_name":',
+  });
+  const malformedRegistrationBody = await malformedRegistration.json();
+  assert.equal(malformedRegistration.status, 500);
+  assert.equal(
+    malformedRegistrationBody.error,
+    'Unable to register for event. Please try again later.'
+  );
+  assert.doesNotMatch(malformedRegistrationBody.error, /JSON|SQL|stack|storage|path/i);
+
+  const paidEvent = await insertEvent({ price: 10 });
+  const malformedUpload = await fetch(`${baseUrl}/api/public/events/${paidEvent.id}/upload-proof`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'multipart/form-data; boundary=broken' },
+    body: '--not-the-right-boundary',
+  });
+  const malformedUploadBody = await malformedUpload.json();
+  assert.equal(malformedUpload.status, 500);
+  assert.equal(
+    malformedUploadBody.error,
+    'Unable to upload proof. Please try again later.'
+  );
+  assert.doesNotMatch(malformedUploadBody.error, /SQL|stack|storage|path|boundary/i);
+});
+
 test('Invalid status transitions', async () => {
   const event = await insertEvent({ price: 0 });
   const payload = { first_name: 'Idemp', last_name: 'Test', email: 'idemp@a.com', phone: '123', guests: 1 };
