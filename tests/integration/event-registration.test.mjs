@@ -265,6 +265,61 @@ test('Reused proof is blocked (Proof ownership/uniqueness)', async () => {
   assert.match(res.body.error, /already been used/);
 });
 
+test('Payment proof substitution is blocked across events and churches', async () => {
+  const targetEvent = await insertEvent({ price: 10 });
+  const otherEvent = await insertEvent({ price: 10 });
+  const otherChurchEvent = await insertEvent({
+    church_id: otherChurchId,
+    price: 10,
+  });
+
+  const otherEventProof = `${otherEvent.church_id}/${otherEvent.id}/wrong-event.jpg`;
+  const otherChurchProof = `${otherChurchEvent.church_id}/${otherChurchEvent.id}/wrong-church.jpg`;
+  const targetProof = `${targetEvent.church_id}/${targetEvent.id}/correct.jpg`;
+
+  await uploadProof(otherEventProof);
+  await uploadProof(otherChurchProof);
+  await uploadProof(targetProof);
+
+  const basePayload = {
+    first_name: 'Proof',
+    last_name: 'Substitution',
+    email: `proof-sub-${suffix}@test.com`,
+    phone: '123',
+    guests: 1,
+    paid_checkbox: true,
+  };
+
+  let res = await register(targetEvent.id, {
+    ...basePayload,
+    payment_proof_url: otherEventProof,
+  });
+  assert.equal(res.response.status, 400);
+  assert.match(res.body.error, /valid payment proof/);
+
+  res = await register(targetEvent.id, {
+    ...basePayload,
+    email: `proof-sub-church-${suffix}@test.com`,
+    payment_proof_url: otherChurchProof,
+  });
+  assert.equal(res.response.status, 400);
+  assert.match(res.body.error, /valid payment proof/);
+
+  const { data: failedRegistrations } = await admin
+    .from('event_registrations')
+    .select('id')
+    .eq('event_id', targetEvent.id)
+    .in('payment_proof_url', [otherEventProof, otherChurchProof]);
+  assert.equal(failedRegistrations.length, 0);
+
+  res = await register(targetEvent.id, {
+    ...basePayload,
+    email: `proof-sub-valid-${suffix}@test.com`,
+    payment_proof_url: targetProof,
+  });
+  assert.equal(res.response.status, 200);
+});
+
 test('Closed and draft events', async () => {
   const draftEvent = await insertEvent({ price: 0, status: 'draft' });
   const closedEvent = await insertEvent({ price: 0, status: 'published', start_at: new Date(Date.now() - 86400000).toISOString() });

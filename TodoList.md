@@ -157,6 +157,9 @@
 
 ## Security review
 
+- [ ] Attempt tenant-ID and registration-ID tampering through the browser and direct HTTP requests.
+- [x] Attempt payment-proof path reuse and cross-event/cross-church proof substitution.
+  - Evidence: `npm run test:integration:events` passed on branch `test/payment-proof-substitution-audit`; includes `Payment proof substitution is blocked across events and churches`.
 - [x] Attempt tenant-ID and registration-ID tampering through the browser and direct HTTP requests.
   - Evidence: `npm run test:integration:events` passed on branch `test/tenant-id-tampering-audit`; includes `Cross-tenant registration ID tampering is blocked`.
 - [ ] Attempt payment-proof path reuse and cross-event/cross-church proof substitution.
