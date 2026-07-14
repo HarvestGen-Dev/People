@@ -4,6 +4,7 @@ import {
   adminApiError,
   requireTenantContext,
 } from '@/lib/tenant-context';
+import { recordAuditLog } from '@/lib/audit-log';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -27,7 +28,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { churchId } = await requireTenantContext({ requireManager: true });
+    const { churchId, user } = await requireTenantContext({ requireManager: true });
     const supabase = await createClient();
 
     const { id } = await params;
@@ -51,6 +52,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .single();
 
     if (error) throw error;
+    await recordAuditLog({
+      churchId,
+      actor: user,
+      action: 'event.updated',
+      resourceType: 'event',
+      resourceDisplayId: data.display_id,
+      metadata: {
+        name: data.name,
+        status: data.status,
+        changed_fields: Object.keys(body),
+      },
+      request,
+    });
+
     return NextResponse.json({ data });
   } catch (error: unknown) {
     return adminApiError(error);
@@ -59,16 +74,39 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { churchId } = await requireTenantContext({ requireManager: true });
+    const { churchId, user } = await requireTenantContext({ requireManager: true });
     const supabase = await createClient();
 
     const { id } = await params;
+    const { data: event } = await supabase
+      .from('events')
+      .select('display_id, name, status, slug')
+      .eq('id', id)
+      .eq('church_id', churchId)
+      .maybeSingle();
+
     const { error } = await supabase
       .from('events')
       .delete()
       .eq('id', id)
       .eq('church_id', churchId);
     if (error) throw error;
+
+    await recordAuditLog({
+      churchId,
+      actor: user,
+      action: 'event.deleted',
+      resourceType: 'event',
+      resourceDisplayId: event?.display_id || null,
+      metadata: event
+        ? {
+            name: event.name,
+            status: event.status,
+            slug: event.slug,
+          }
+        : null,
+      request,
+    });
     
     return NextResponse.json({ data: { deleted: true } });
   } catch (error: unknown) {

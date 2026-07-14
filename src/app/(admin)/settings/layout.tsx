@@ -13,6 +13,7 @@ const settingsNav = [
   { name: 'Tags', href: '/settings/tags' },
   { name: 'API keys', href: '/settings/api-keys' },
   { name: 'Webhooks', href: '/settings/webhooks' },
+  { name: 'Audit log', href: '/settings/audit-log' },
 ];
 
 export default function SettingsLayout({ children }: { children: ReactNode }) {

@@ -5,10 +5,11 @@ import {
   adminApiError,
   requireTenantContext,
 } from '@/lib/tenant-context';
+import { recordAuditLog } from '@/lib/audit-log';
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { churchId } = await requireTenantContext({ requireManager: true });
+    const { churchId, user } = await requireTenantContext({ requireManager: true });
     const supabase = await createClient();
 
     const { id } = await params;
@@ -22,6 +23,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .single();
 
     if (error) throw error;
+    await recordAuditLog({
+      churchId,
+      actor: user,
+      action: 'api_key.revoked',
+      resourceType: 'api_key',
+      resourceDisplayId: data.key_prefix,
+      metadata: {
+        name: data.name,
+        scopes: data.scopes,
+      },
+      request,
+    });
+
     return NextResponse.json({ data });
   } catch (error: unknown) {
     return adminApiError(error);

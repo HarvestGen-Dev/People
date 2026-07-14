@@ -3,6 +3,7 @@ import Link from 'next/link';
 import {
   ArrowRight,
   Braces,
+  ClipboardList,
   KeyRound,
   Tags,
   Users,
@@ -47,6 +48,12 @@ const sections = [
     description: 'Deliver selected People events to external systems.',
     icon: Webhook,
   },
+  {
+    href: '/settings/audit-log',
+    label: 'Audit log',
+    description: 'Review administrative changes and security-sensitive actions.',
+    icon: ClipboardList,
+  },
 ];
 
 export default async function SettingsPage() {
@@ -54,7 +61,10 @@ export default async function SettingsPage() {
     requireManager: true,
   });
   const supabase = createServiceClient();
-  const [fields, tags, activeKeys, activeWebhooks] = await Promise.all([
+  const weekAgo = new Date();
+  weekAgo.setDate(weekAgo.getDate() - 7);
+
+  const [fields, tags, activeKeys, activeWebhooks, recentAuditEvents] = await Promise.all([
     supabase
       .from('field_definitions')
       .select('id', { count: 'exact', head: true })
@@ -73,6 +83,11 @@ export default async function SettingsPage() {
       .select('id', { count: 'exact', head: true })
       .eq('church_id', churchId)
       .eq('is_active', true),
+    supabase
+      .from('audit_log')
+      .select('id', { count: 'exact', head: true })
+      .eq('church_id', churchId)
+      .gte('created_at', weekAgo.toISOString()),
   ]);
 
   const stats = [
@@ -80,6 +95,7 @@ export default async function SettingsPage() {
     ['Tags', tags.count || 0],
     ['Active API keys', activeKeys.count || 0],
     ['Active webhooks', activeWebhooks.count || 0],
+    ['Audit events this week', recentAuditEvents.count || 0],
   ];
 
   return (
@@ -130,7 +146,7 @@ export default async function SettingsPage() {
               Open a section to review or change its settings.
             </p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             {stats.map(([label, value]) => (
               <div key={String(label)} className="rounded-2xl border border-slate-200 bg-white p-5">
                 <div className="text-2xl font-bold text-slate-950">{value}</div>

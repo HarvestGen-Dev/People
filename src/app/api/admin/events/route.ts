@@ -4,6 +4,7 @@ import {
   adminApiError,
   requireTenantContext,
 } from '@/lib/tenant-context';
+import { recordAuditLog } from '@/lib/audit-log';
 
 export async function GET() {
   try {
@@ -62,6 +63,20 @@ export async function POST(request: Request) {
       .single();
 
     if (error) throw error;
+
+    await recordAuditLog({
+      churchId,
+      actor: user,
+      action: 'event.created',
+      resourceType: 'event',
+      resourceDisplayId: data.display_id,
+      metadata: {
+        name: data.name,
+        status: data.status,
+        slug: data.slug,
+      },
+      request,
+    });
 
     return NextResponse.json({ data });
   } catch (error: unknown) {

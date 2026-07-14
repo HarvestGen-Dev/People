@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { recordAuditLog } from '@/lib/audit-log';
 import {
   adminApiError,
   requireTenantContext,
@@ -25,7 +26,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       })
       .eq('id', id)
       .eq('church_id', churchId)
-      .select('id')
+      .select('display_id, email, rejection_reason')
       .maybeSingle();
 
     if (error) throw error;
@@ -35,6 +36,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         { status: 404 }
       );
     }
+
+    await recordAuditLog({
+      churchId,
+      actor: user,
+      action: 'registration.rejected',
+      resourceType: 'registration',
+      resourceDisplayId: data.display_id,
+      metadata: {
+        email: data.email,
+        has_reason: Boolean(data.rejection_reason),
+      },
+      request,
+    });
 
     return NextResponse.json({ data: { success: true } });
   } catch (error: unknown) {
