@@ -1,11 +1,14 @@
 // <!-- AGENT: INTEGRATION -->
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import { after, before, test } from 'node:test';
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import ws from 'ws';
+import {
+  startNextDevServer,
+  waitForNextDevServer,
+} from './next-test-server.mjs';
 dotenv.config({ path: '.env.local', quiet: true });
 
 const port = Number(process.env.LOOKUP_TEST_PORT ?? 3107);
@@ -25,20 +28,6 @@ const admin = createClient(
 
 let server;
 let churchId;
-
-async function waitForServer() {
-  const deadline = Date.now() + 120_000;
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(`${baseUrl}/login`);
-      if (response.ok) return;
-    } catch {
-      // The development server is still starting.
-    }
-    await new Promise((resolve) => setTimeout(resolve, 200));
-  }
-  throw new Error('Timed out waiting for the Next.js test server');
-}
 
 async function lookup(payload) {
   const response = await fetch(`${baseUrl}/api/v1/people/lookup`, {
@@ -94,31 +83,17 @@ before(async () => {
   });
   if (keyError) throw keyError;
 
-  server = spawn(
-    './node_modules/.bin/next',
-    [
-      'dev',
-      '--hostname',
-      '127.0.0.1',
-      '--port',
-      `${port}`,
-    ],
-    {
-      cwd: process.cwd(),
-      env: process.env,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    }
-  );
+  server = startNextDevServer({ port });
 
-  await waitForServer();
+  await waitForNextDevServer({ server, baseUrl });
 });
 
 after(async () => {
   if (churchId) {
     await admin.from('churches').delete().eq('id', churchId);
   }
-  if (server && !server.killed) {
-    server.kill('SIGTERM');
+  if (server?.process && !server.process.killed) {
+    server.process.kill('SIGTERM');
   }
 });
 

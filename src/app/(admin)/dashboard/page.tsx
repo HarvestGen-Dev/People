@@ -11,6 +11,7 @@ import {
   UserRoundCheck,
   Users,
   AlertCircle,
+  ReceiptText,
 } from 'lucide-react';
 import { format, formatDistanceToNow, startOfMonth, startOfWeek } from 'date-fns';
 import { createClient } from '@/lib/supabase/server';
@@ -53,7 +54,8 @@ export default async function DashboardPage() {
     eventsRes,
     recentActivityRes,
     newVisitorsRes,
-    overdueCardsRes
+    overdueCardsRes,
+    pendingRegistrationsRes,
   ] = await Promise.all([
     supabase
       .from('people')
@@ -118,7 +120,27 @@ export default async function DashboardPage() {
       .not('due_date', 'is', null)
       .lt('due_date', new Date().toISOString())
       .order('due_date', { ascending: true })
-      .limit(5)
+      .limit(5),
+    canManage
+      ? supabase
+          .from('event_registrations')
+          .select(`
+            id,
+            display_id,
+            first_name,
+            last_name,
+            email,
+            guests,
+            amount_due,
+            created_at,
+            events!inner(id, display_id, name, start_at, church_id, currency)
+          `, { count: 'exact' })
+          .eq('church_id', churchId)
+          .eq('events.church_id', churchId)
+          .eq('status', 'pending_review')
+          .order('created_at', { ascending: true })
+          .limit(5)
+      : Promise.resolve({ data: [], count: 0 }),
   ]);
 
   const recentActivity = recentActivityRes.data;
@@ -131,6 +153,25 @@ export default async function DashboardPage() {
       workflow_steps: { name: string } | null;
       workflows: { name: string };
     }[] | null;
+  const pendingRegistrations = pendingRegistrationsRes.data as unknown as {
+    id: string;
+    display_id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    guests: number;
+    amount_due: number;
+    created_at: string;
+    events: {
+      id: string;
+      display_id: string;
+      name: string;
+      start_at: string;
+      church_id: string;
+      currency: string;
+    };
+  }[] | null;
+  const pendingRegistrationCount = pendingRegistrationsRes.count || 0;
 
 
   const statValues = [
@@ -233,16 +274,16 @@ export default async function DashboardPage() {
         <section className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white">
           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-5 sm:px-6">
             <div>
-              <h2 className="font-bold text-slate-950">New visitors</h2>
+              <h2 className="font-bold text-slate-950">Overdue follow-up</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Added during {format(new Date(), 'MMMM')}
+                Workflow cards past their due date
               </p>
             </div>
             <Link
-              href="/people?status=visitor"
+              href="/workflows"
               className="text-xs font-bold text-emerald-700 hover:text-emerald-800"
             >
-              View all
+              Open workflows
             </Link>
           </div>
 
@@ -373,55 +414,134 @@ export default async function DashboardPage() {
           )}
         </section>
 
-        <section className="rounded-3xl border border-slate-200/80 bg-white">
-          <div className="border-b border-slate-100 px-5 py-5 sm:px-6">
-            <h2 className="font-bold text-slate-950">Recent activity</h2>
-            <p className="mt-1 text-xs text-slate-500">
-              Updates from People and connected systems
-            </p>
-          </div>
-          <div className="px-5 py-2 sm:px-6">
-            {!recentActivity?.length ? (
-              <p className="py-14 text-center text-sm text-slate-400">
-                No recent activity.
-              </p>
-            ) : (
-              recentActivity.map((activity, index) => (
-                <div
-                  key={activity.id}
-                  className="relative flex gap-3 py-4 before:absolute before:bottom-0 before:left-[15px] before:top-10 before:w-px before:bg-slate-100 last:before:hidden"
-                >
-                  <div className="relative z-10 mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-700 ring-4 ring-white">
-                    {index + 1}
+        <div className="space-y-6">
+          {canManage && (
+            <section className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white">
+              <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-5 sm:px-6">
+                <div>
+                  <h2 className="font-bold text-slate-950">Registration review</h2>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Payment and attendance approvals waiting on staff
+                  </p>
+                </div>
+                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-700">
+                  <ReceiptText className="h-[18px] w-[18px]" />
+                </div>
+              </div>
+
+              {!pendingRegistrations?.length ? (
+                <div className="px-6 py-12 text-center">
+                  <CheckCircle2 className="mx-auto h-8 w-8 text-slate-300" />
+                  <p className="mt-3 text-sm font-semibold text-slate-700">
+                    No pending registrations
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    New event signups that need approval will appear here.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <div className="border-b border-amber-100 bg-amber-50/60 px-5 py-3 text-xs font-semibold text-amber-800 sm:px-6">
+                    {pendingRegistrationCount.toLocaleString()}{' '}
+                    {pendingRegistrationCount === 1
+                      ? 'registration needs'
+                      : 'registrations need'}{' '}
+                    review
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm leading-5 text-slate-600">
+                  <div className="divide-y divide-slate-100">
+                    {pendingRegistrations.map((registration) => (
                       <Link
-                        href={`/people/${activity.person_id}`}
-                        className="font-bold text-slate-900 hover:text-emerald-700"
+                        key={registration.id}
+                        href={`/events/${displayIdFor(registration.events)}/registrations?status=pending_review`}
+                        className="block px-5 py-4 transition-colors hover:bg-slate-50 sm:px-6"
                       >
-                        {activity.people?.first_name} {activity.people?.last_name}
-                      </Link>{' '}
-                      {activity.event_type?.replaceAll('_', ' ') ||
-                        'completed an action'}
-                    </p>
-                    <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-400">
-                      <span className="capitalize">
-                        {activity.source?.replace('_', ' ')}
-                      </span>
-                      <span>·</span>
-                      <span>
-                        {formatDistanceToNow(new Date(activity.occurred_at), {
-                          addSuffix: true,
-                        })}
-                      </span>
-                    </div>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold text-slate-900">
+                              {registration.first_name} {registration.last_name}
+                            </p>
+                            <p className="mt-0.5 truncate text-xs text-slate-500">
+                              {registration.events.name}
+                            </p>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className="text-xs font-bold text-slate-700">
+                              {Number(registration.amount_due).toLocaleString('en-MY', {
+                                style: 'currency',
+                                currency: registration.events.currency || 'MYR',
+                              })}
+                            </p>
+                            <p className="mt-0.5 text-[11px] text-slate-400">
+                              {registration.guests + 1} attending
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-slate-400">
+                          <span className="truncate">{registration.email}</span>
+                          <span className="shrink-0">
+                            {formatDistanceToNow(new Date(registration.created_at), {
+                              addSuffix: true,
+                            })}
+                          </span>
+                        </div>
+                      </Link>
+                    ))}
                   </div>
                 </div>
-              ))
-            )}
-          </div>
-        </section>
+              )}
+            </section>
+          )}
+
+          <section className="rounded-3xl border border-slate-200/80 bg-white">
+            <div className="border-b border-slate-100 px-5 py-5 sm:px-6">
+              <h2 className="font-bold text-slate-950">Recent activity</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Updates from People and connected systems
+              </p>
+            </div>
+            <div className="px-5 py-2 sm:px-6">
+              {!recentActivity?.length ? (
+                <p className="py-14 text-center text-sm text-slate-400">
+                  No recent activity.
+                </p>
+              ) : (
+                recentActivity.map((activity, index) => (
+                  <div
+                    key={activity.id}
+                    className="relative flex gap-3 py-4 before:absolute before:bottom-0 before:left-[15px] before:top-10 before:w-px before:bg-slate-100 last:before:hidden"
+                  >
+                    <div className="relative z-10 mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-700 ring-4 ring-white">
+                      {index + 1}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm leading-5 text-slate-600">
+                        <Link
+                          href={`/people/${activity.person_id}`}
+                          className="font-bold text-slate-900 hover:text-emerald-700"
+                        >
+                          {activity.people?.first_name} {activity.people?.last_name}
+                        </Link>{' '}
+                        {activity.event_type?.replaceAll('_', ' ') ||
+                          'completed an action'}
+                      </p>
+                      <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-400">
+                        <span className="capitalize">
+                          {activity.source?.replace('_', ' ')}
+                        </span>
+                        <span>·</span>
+                        <span>
+                          {formatDistanceToNow(new Date(activity.occurred_at), {
+                            addSuffix: true,
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   );
