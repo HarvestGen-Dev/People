@@ -33,3 +33,15 @@ When a task spans multiple agents (e.g. adding a new API endpoint AND a UI for i
 4. INTEGRATION documents how Shepherd/Drip & Brew would use the new endpoint if relevant.
 
 Each agent signs their output section with `<!-- AGENT: NAME -->` in code comments so it's clear who owns what.
+
+---
+
+## Git Workflow
+
+For every feature, fix, or documentation change:
+1. Start from the intended base branch, usually `main`, and create a dedicated branch before editing.
+2. Use branch names that match the existing repository style, such as `feature/<short-description>`, `fix/<short-description>`, or `chore/<short-description>`.
+3. Keep commits scoped to the current task. Do not stage unrelated user or agent changes.
+4. Use the existing Conventional Commit message format, such as `feat: ...`, `fix: ...`, or `chore: ...`.
+5. Run the relevant checks before committing when practical.
+6. Commit the completed work, push the branch to `origin`, and leave the completed branch checked out with a clean working tree.

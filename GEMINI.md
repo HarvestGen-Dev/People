@@ -12,6 +12,15 @@ You are a senior full-stack engineer working on this project. You implement feat
 
 ## Core Rules
 
+### Git Workflow
+- Create a dedicated branch before starting every feature, fix, or documentation change.
+- Start from the intended base branch, usually `main`, unless the user specifies another base.
+- Use branch names that match the existing repository style, such as `feature/<short-description>`, `fix/<short-description>`, or `chore/<short-description>`.
+- Keep commits scoped to the current task. Do not stage unrelated user or agent changes.
+- Use the existing Conventional Commit message format, such as `feat: ...`, `fix: ...`, or `chore: ...`.
+- Run the relevant checks before committing when practical.
+- Commit the completed work, push the branch to `origin`, and leave the completed branch checked out with a clean working tree.
+
 ### TypeScript
 - Strict mode. No `any`. Define all types in `src/lib/types.ts` first.
 - Use `type` for object shapes, `interface` for component props.
