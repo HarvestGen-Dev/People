@@ -40,6 +40,7 @@ let uploadedProofs = [];
 const eventIds = [];
 let mockSmtpServer;
 let sentEmailsCount = 0;
+const sentEmailBodies = [];
 let smtpPort = 0;
 
 async function register(eventId, payload) {
@@ -96,6 +97,7 @@ before(async () => {
         if (receivingData) {
           const endIdx = buffer.indexOf('\r\n.\r\n');
           if (endIdx !== -1) {
+            sentEmailBodies.push(buffer.substring(0, endIdx));
             receivingData = false;
             sentEmailsCount++;
             socket.write('250 OK\r\n');
@@ -289,6 +291,37 @@ test('Public event registration is rate limited per event and IP', async () => {
     .eq('event_id', event.id);
   if (error) throw error;
   assert.equal(count, 5);
+});
+
+test('Confirmation emails escape registration and event HTML', async () => {
+  sentEmailsCount = 0;
+  sentEmailBodies.length = 0;
+
+  const event = await insertEvent({
+    price: 0,
+    name: 'Escape <i>',
+    location: 'Main hall <u>',
+  });
+
+  const res = await register(event.id, {
+    first_name: '<b>',
+    last_name: 'Email',
+    email: `escaped-email-${suffix}@test.com`,
+    phone: '123',
+    guests: 1,
+  });
+
+  assert.equal(res.response.status, 200);
+  assert.equal(sentEmailsCount, 1);
+
+  const emailBody = sentEmailBodies.at(-1) || '';
+  const htmlBody = emailBody.split('\r\n\r\n').slice(1).join('\r\n\r\n');
+  assert.doesNotMatch(htmlBody, /Escape <i>/);
+  assert.doesNotMatch(htmlBody, /Hi <b>/);
+  assert.doesNotMatch(htmlBody, /Main hall <u>/);
+  assert.match(htmlBody, /Escape &lt;i&gt;/);
+  assert.match(htmlBody, /Hi &lt;b&gt;/);
+  assert.match(htmlBody, /Main hall &lt;u&gt;/);
 });
 
 test('Reused proof is blocked (Proof ownership/uniqueness)', async () => {

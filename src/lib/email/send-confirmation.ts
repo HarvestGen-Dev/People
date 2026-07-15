@@ -1,6 +1,8 @@
+// <!-- AGENT: BACKEND -->
 import nodemailer from 'nodemailer';
 import { Event, EventRegistration } from '@/lib/types';
 import { format } from 'date-fns';
+import { escapeHtml } from '@/lib/email/html';
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
@@ -17,18 +19,21 @@ type RegistrationWithEvent = EventRegistration & { event: Event };
 function buildConfirmationEmailHtml(registration: RegistrationWithEvent) {
   const event = registration.event;
   const dateStr = format(new Date(event.start_at), 'EEEE, MMMM d, yyyy h:mm a');
+  const eventName = escapeHtml(event.name);
+  const firstName = escapeHtml(registration.first_name);
+  const location = event.location ? escapeHtml(event.location) : null;
   
   return `
-    <div style="font-family: sans-serif; max-w: 600px; margin: 0 auto; color: #333;">
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
       <h2 style="color: #0f766e;">Harvest Generation Church</h2>
-      <h1>You're confirmed for ${event.name}!</h1>
-      <p>Hi ${registration.first_name},</p>
+      <h1>You're confirmed for ${eventName}!</h1>
+      <p>Hi ${firstName},</p>
       <p>We've successfully processed your registration and you're all set.</p>
       
       <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
         <h3 style="margin-top: 0;">Event Details</h3>
         <p><strong>When:</strong> ${dateStr}</p>
-        ${event.location ? `<p><strong>Where:</strong> ${event.location}</p>` : ''}
+        ${location ? `<p><strong>Where:</strong> ${location}</p>` : ''}
         <p><strong>Guests:</strong> ${registration.guests}</p>
       </div>
       

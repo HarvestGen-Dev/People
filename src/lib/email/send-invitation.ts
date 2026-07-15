@@ -2,6 +2,7 @@
 import 'server-only';
 
 import nodemailer from 'nodemailer';
+import { escapeHtml } from '@/lib/email/html';
 
 const transporter = nodemailer.createTransport({
   host: 'smtp-relay.brevo.com',
@@ -12,20 +13,6 @@ const transporter = nodemailer.createTransport({
     pass: process.env.BREVO_SMTP_KEY || '',
   },
 });
-
-function escapeHtml(value: string): string {
-  return value.replace(
-    /[&<>"']/g,
-    (character) =>
-      ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#039;',
-      })[character] || character
-  );
-}
 
 export async function sendChurchInvitationEmail(input: {
   email: string;
