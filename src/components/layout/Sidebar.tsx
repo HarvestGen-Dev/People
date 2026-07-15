@@ -6,17 +6,9 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import {
-  CalendarDays,
   ChevronLeft,
   ChevronRight,
-  Code2,
-  GitBranch,
-  LayoutDashboard,
-  LayoutList,
-  Network,
   LogOut,
-  Settings,
-  Users,
   X,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -27,19 +19,12 @@ import {
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { TenantRole } from '@/lib/tenant-context';
-
-const primaryNav = [
-  { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'People', href: '/people', icon: Users },
-  { label: 'Lists', href: '/lists', icon: LayoutList },
-  { label: 'Workflows', href: '/workflows', icon: GitBranch },
-  { label: 'Events', href: '/events', icon: CalendarDays },
-];
-
-const administrationNav = [
-  { label: 'Developer', href: '/developer', icon: Code2 },
-  { label: 'Settings', href: '/settings', icon: Settings },
-];
+import {
+  administrationNav,
+  platformNavItem,
+  primaryNav,
+  type AdminNavItem,
+} from '@/components/layout/admin-nav';
 
 interface SidebarProps {
   mobileOpen?: boolean;
@@ -74,7 +59,7 @@ export function Sidebar({
     router.push('/login');
   };
 
-  const renderNavItem = (item: (typeof primaryNav)[number]) => {
+  const renderNavItem = (item: AdminNavItem) => {
     const Icon = item.icon;
     const isActive =
       pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -189,7 +174,7 @@ export function Sidebar({
           <div className="space-y-1">
           {[
             ...(isPlatformAdmin
-              ? [{ label: 'Platform', href: '/platform', icon: Network }]
+              ? [platformNavItem]
               : []),
             ...(role === 'member' && !isPlatformAdmin
               ? []
