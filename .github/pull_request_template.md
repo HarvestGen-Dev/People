@@ -23,10 +23,7 @@
 ## Testing
 - [ ] I have added tests that prove my fix is effective or that my feature works
 - [ ] New and existing unit tests pass locally with my changes
-- [ ] I have tested on the following platforms:
-  - [ ] Backend API (FastAPI)
-  - [ ] Flutter mobile app (iOS)
-  - [ ] Flutter mobile app (Android)
+- [ ] I have added screenshots to prove that my fix works
 
 ## Checklist
 - [ ] My code follows the project's style guidelines
