@@ -157,16 +157,16 @@
 
 ## Security review
 
-- [ ] Attempt tenant-ID and registration-ID tampering through the browser and direct HTTP requests.
 - [x] Attempt payment-proof path reuse and cross-event/cross-church proof substitution.
   - Evidence: `npm run test:integration:events` passed on branch `test/payment-proof-substitution-audit`; includes `Payment proof substitution is blocked across events and churches`.
 - [x] Attempt tenant-ID and registration-ID tampering through the browser and direct HTTP requests.
   - Evidence: `npm run test:integration:events` passed on branch `test/tenant-id-tampering-audit`; includes `Cross-tenant registration ID tampering is blocked`.
-- [ ] Attempt payment-proof path reuse and cross-event/cross-church proof substitution.
-- [ ] Verify public endpoints have a production-grade distributed rate limit; the current in-memory limiter resets on deployment and is not shared between instances.
+- [x] Verify public endpoints have a production-grade distributed rate limit.
+  - Evidence: `npm run verify` passed on branch `feat/distributed-public-rate-limit`; includes `Public event registration is rate limited per event and IP`.
 - [x] Verify error responses do not expose SQL, storage paths, credentials, or internal stack traces.
   - Evidence: `npm run test:integration:events` passed on branch `fix/sanitize-public-errors`; includes `Public event endpoints return generic errors for malformed request bodies`.
-- [ ] Verify email HTML safely handles user-controlled and event-controlled text.
+- [x] Verify email HTML safely handles user-controlled and event-controlled text.
+  - Evidence: `npm run verify` passed on branch `fix/escape-event-email-html`; includes `Confirmation emails escape registration and event HTML`.
 - [ ] Verify audit records identify who approved or rejected each registration.
 - [ ] Verify rejected registrations release capacity as intended.
 - [ ] Verify approved registrations cannot be moved back to pending or rejected through direct database/API calls.
