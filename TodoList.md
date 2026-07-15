@@ -167,9 +167,12 @@
   - Evidence: `npm run test:integration:events` passed on branch `fix/sanitize-public-errors`; includes `Public event endpoints return generic errors for malformed request bodies`.
 - [x] Verify email HTML safely handles user-controlled and event-controlled text.
   - Evidence: `npm run verify` passed on branch `fix/escape-event-email-html`; includes `Confirmation emails escape registration and event HTML`.
-- [ ] Verify audit records identify who approved or rejected each registration.
-- [ ] Verify rejected registrations release capacity as intended.
-- [ ] Verify approved registrations cannot be moved back to pending or rejected through direct database/API calls.
+- [x] Verify audit records identify who approved or rejected each registration.
+  - Evidence: `npm run verify` passed on branch `test/registration-final-state-integrity`; includes `Approval and rejection audit logs identify the reviewer`.
+- [x] Verify rejected registrations release capacity as intended.
+  - Evidence: `npm run verify` passed on branch `test/registration-final-state-integrity`; includes `Rejected registrations release event capacity`.
+- [x] Verify approved registrations cannot be moved back to pending or rejected through direct database/API calls.
+  - Evidence: `npm run verify` passed on branch `test/registration-final-state-integrity`; includes `Approved registrations cannot return to pending or rejected`.
 
 ## Release gate
 
