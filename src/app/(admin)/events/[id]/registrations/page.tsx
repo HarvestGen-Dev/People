@@ -10,6 +10,7 @@ import { requireTenantContext } from '@/lib/tenant-context';
 import { getRegistrations } from '@/lib/queries/registrations';
 import { Pagination } from '@/components/ui/pagination';
 import { applyDisplayOrDatabaseIdFilter } from '@/lib/display-ids';
+import { createRequestPerformanceTracker } from '@/lib/performance';
 
 export const metadata = {
   title: 'Registrations | HarvestGen',
@@ -24,6 +25,7 @@ export default async function EventRegistrationsPage({
 }) {
   const { churchId } = await requireTenantContext({ requireManager: true });
   const supabase = createServiceClient();
+  const perf = createRequestPerformanceTracker('event-registrations-page');
   const { id } = await params;
   const resolvedSearchParams = await searchParams;
 
@@ -32,8 +34,10 @@ export default async function EventRegistrationsPage({
     .select('id, display_id, name, price')
     .eq('church_id', churchId);
 
-  const { data: event, error: eventError } = await applyDisplayOrDatabaseIdFilter(eventQuery, id)
-    .single();
+  const { data: event, error: eventError } = await perf.track(
+    'event.lookup',
+    applyDisplayOrDatabaseIdFilter(eventQuery, id).single()
+  );
 
   if (eventError || !event) {
     notFound();
@@ -43,13 +47,18 @@ export default async function EventRegistrationsPage({
   const status = typeof resolvedSearchParams.status === 'string' ? resolvedSearchParams.status : 'all';
   const pageSize = 50;
 
-  const { registrations, total, statusCounts } = await getRegistrations({
-    church_id: churchId,
-    event_id: event.id,
-    page,
-    pageSize,
-    status,
-  });
+  const { registrations, total, statusCounts } = await perf.track(
+    'registrations.helper',
+    getRegistrations({
+      church_id: churchId,
+      event_id: event.id,
+      page,
+      pageSize,
+      status,
+    })
+  );
+
+  perf.log();
 
   return (
     <>

@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import type { PersonWithRelations } from '@/lib/types';
+import { createRequestPerformanceTracker } from '@/lib/performance';
 
 export type PeopleFilters = {
   church_id: string;
@@ -15,15 +16,41 @@ export async function getPeople(filters: PeopleFilters): Promise<{
   total: number;
 }> {
   const supabase = createServiceClient();
+  const perf = createRequestPerformanceTracker('people-query');
   const page = filters.page ?? 1;
   const pageSize = filters.pageSize ?? 50;
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  const selectString = `
-      *,
-      household:households(*),
-      person_tags(tag:tags(*))
+  const selectString = filters.tag
+    ? `
+      id,
+      display_id,
+      first_name,
+      last_name,
+      email,
+      phone,
+      status,
+      campus,
+      photo_url,
+      created_at,
+      updated_at,
+      person_tags(tag:tags(id, name, color)),
+      tag_filter:person_tags!inner(tag_id)
+    `
+    : `
+      id,
+      display_id,
+      first_name,
+      last_name,
+      email,
+      phone,
+      status,
+      campus,
+      photo_url,
+      created_at,
+      updated_at,
+      person_tags(tag:tags(id, name, color))
     `;
 
   let query = supabase
@@ -44,19 +71,12 @@ export async function getPeople(filters: PeopleFilters): Promise<{
   }
 
   if (filters.tag) {
-    const { data: taggedPeople } = await supabase
-      .from('person_tags')
-      .select('person_id')
-      .eq('church_id', filters.church_id)
-      .eq('tag_id', filters.tag);
-    
-    const ids = (taggedPeople ?? []).map(r => r.person_id);
-    if (ids.length === 0) return { people: [], total: 0 };
-    query = query.in('id', ids);
+    query = query.eq('tag_filter.tag_id', filters.tag);
   }
 
-  const { data, error, count } = await query;
+  const { data, error, count } = await perf.track('people.list', query);
   if (error) throw error;
-  
+
+  perf.log();
   return { people: (data as unknown as PersonWithRelations[]) ?? [], total: count ?? 0 };
 }

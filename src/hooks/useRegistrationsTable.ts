@@ -38,6 +38,7 @@ export function useRegistrationsTable(
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
+  const [proofLoadingIds, setProofLoadingIds] = useState<Set<string>>(new Set());
   
   const [rejectDialogId, setRejectDialogId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -150,6 +151,29 @@ export function useRegistrationsTable(
     }
   };
 
+  const handleViewProof = async (id: string) => {
+    setProofLoadingIds((current) => new Set(current).add(id));
+
+    try {
+      const response = await fetch(`/api/admin/registrations/${id}/proof`);
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Failed to load payment proof');
+      }
+
+      setLightboxUrl(payload.data.url);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to load payment proof');
+    } finally {
+      setProofLoadingIds((current) => {
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+    }
+  };
+
   const toggleSelectAll = () => {
     if (selectedIds.size === filteredRegistrations.length) {
       setSelectedIds(new Set());
@@ -171,6 +195,7 @@ export function useRegistrationsTable(
     filter, setFilter,
     selectedIds, setSelectedIds,
     loadingIds, setLoadingIds,
+    proofLoadingIds,
     rejectDialogId, setRejectDialogId,
     rejectReason, setRejectReason,
     lightboxUrl, setLightboxUrl,
@@ -179,6 +204,7 @@ export function useRegistrationsTable(
     handleApprove,
     handleReject,
     handleBulkApprove,
+    handleViewProof,
     toggleSelectAll,
     toggleSelect,
   };

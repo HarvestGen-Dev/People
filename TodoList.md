@@ -11,6 +11,46 @@
 
   When completing an item, add the reviewer's name, date, and a link or short copy of the relevant test output. Do not mark an item complete based only on reading the code.
 
+## Performance optimization pass
+
+<!-- AGENT: BACKEND -->
+<!-- AGENT: ARCHITECT -->
+<!-- AGENT: DEVOPS -->
+
+- [~] **Measure high-traffic page and route timings before and after optimization.**
+  - Owner: Backend/DevOps reviewer
+  - Scope: dashboard, people directory, events index, event registrations, public event page, public registration submit.
+  - Before evidence: not available in this branch; previous implementation did not log per-request Supabase call counts.
+  - After evidence required: run each route locally in development and record `[perf:*]` log lines with total time, Supabase call count, and Supabase query time.
+
+- [x] **Validate aggregate RPCs and indexes.**
+  - Owner: Architect/Backend reviewer
+  - Migration: `supabase/migrations/030_performance_aggregate_rpcs.sql`
+  - Evidence:
+
+    ```bash
+    supabase db lint --local --level warning --fail-on warning
+    ```
+    *(Output: No schema errors found.)*
+
+    ```bash
+    npm run verify
+    ```
+    *(Output: `Applying migration 030_performance_aggregate_rpcs.sql... Finished supabase db push.` and `=== All checks passed! ===`)*
+
+- [x] **Verify optimized query behavior remains unchanged.**
+  - Owner: Backend/Integration reviewer
+  - Scope: dashboard stats, event index registration stats, people pagination/filtering, registration status filtering, public event capacity display.
+  - Evidence:
+
+    ```bash
+    npm run typecheck
+    npm run lint -- --max-warnings=0
+    git diff --check
+    npm run verify
+    ```
+    *(Output: typecheck exited 0, lint exited 0 with `--max-warnings=0`, `git diff --check` was clean, and `npm run verify` passed lookup, onboarding, event integration, migration, lint, and production build checks.)*
+
   ## Current release blocker
 
   <!-- AGENT: INTEGRATION -->

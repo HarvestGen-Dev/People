@@ -31,6 +31,7 @@ export function RegistrationsTable({
     selectedIds,
     setSelectedIds,
     loadingIds,
+    proofLoadingIds,
     rejectDialogId,
     setRejectDialogId,
     rejectReason,
@@ -42,6 +43,7 @@ export function RegistrationsTable({
     handleApprove,
     handleReject,
     handleBulkApprove,
+    handleViewProof,
     toggleSelectAll,
     toggleSelect,
   } = useRegistrationsTable(registrations, serverStatusCounts, currentFilter);
@@ -81,8 +83,9 @@ export function RegistrationsTable({
         toggleSelect={toggleSelect}
         toggleSelectAll={toggleSelectAll}
         handleApprove={handleApprove}
+        handleViewProof={handleViewProof}
+        proofLoadingIds={proofLoadingIds}
         setRejectDialogId={setRejectDialogId}
-        setLightboxUrl={setLightboxUrl}
       />
 
       <RegistrationDialogs

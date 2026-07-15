@@ -13,10 +13,11 @@ import {
   AlertCircle,
   ReceiptText,
 } from 'lucide-react';
-import { format, formatDistanceToNow, startOfMonth, startOfWeek } from 'date-fns';
-import { createClient } from '@/lib/supabase/server';
+import { format, formatDistanceToNow, startOfMonth } from 'date-fns';
+import { createServiceClient } from '@/lib/supabase/server';
 import { requireTenantContext } from '@/lib/tenant-context';
 import { displayIdFor } from '@/lib/display-ids';
+import { createRequestPerformanceTracker } from '@/lib/performance';
 
 const statStyles = [
   {
@@ -41,49 +42,59 @@ const statStyles = [
   },
 ];
 
+type DashboardSummary = {
+  active_count: number;
+  visitor_count: number;
+  new_this_month_count: number;
+  activity_this_week_count: number;
+};
+
+type RecentActivityRow = {
+  id: string;
+  person_id: string;
+  source: string | null;
+  event_type: string | null;
+  occurred_at: string;
+  people: {
+    id: string;
+    display_id: string;
+    first_name: string;
+    last_name: string;
+  } | null;
+};
+
 export default async function DashboardPage() {
   const { churchId, role, isPlatformAdmin } = await requireTenantContext();
   const canManage =
     isPlatformAdmin || role === 'owner' || role === 'admin';
-  const supabase = await createClient();
+  const supabase = createServiceClient();
+  const perf = createRequestPerformanceTracker('dashboard');
 
   const [
-    activeRes, 
-    visitorRes, 
-    newRes, 
-    eventsRes,
+    summaryRes,
     recentActivityRes,
     newVisitorsRes,
     overdueCardsRes,
     pendingRegistrationsRes,
   ] = await Promise.all([
-    supabase
-      .from('people')
-      .select('id', { count: 'exact' })
-      .eq('church_id', churchId)
-      .eq('status', 'active'),
-    supabase
-      .from('people')
-      .select('id', { count: 'exact' })
-      .eq('church_id', churchId)
-      .eq('status', 'visitor'),
-    supabase
-      .from('people')
-      .select('id', { count: 'exact' })
-      .eq('church_id', churchId)
-      .gte('created_at', startOfMonth(new Date()).toISOString()),
-    supabase
+    perf.track(
+      'dashboard.summary',
+      supabase.rpc('get_dashboard_summary', { p_church_id: churchId }).single()
+    ),
+    perf.track('dashboard.recent_activity', supabase
       .from('person_events')
-      .select('id', { count: 'exact' })
-      .eq('church_id', churchId)
-      .gte('occurred_at', startOfWeek(new Date()).toISOString()),
-    supabase
-      .from('person_events')
-      .select('*, people(id, display_id, first_name, last_name)')
+      .select(`
+        id,
+        person_id,
+        source,
+        event_type,
+        occurred_at,
+        people(id, display_id, first_name, last_name)
+      `)
       .eq('church_id', churchId)
       .order('occurred_at', { ascending: false })
-      .limit(8),
-    supabase
+      .limit(8)),
+    perf.track('dashboard.new_visitors', supabase
       .from('people')
       .select(`
         id,
@@ -103,8 +114,8 @@ export default async function DashboardPage() {
       .eq('status', 'visitor')
       .gte('created_at', startOfMonth(new Date()).toISOString())
       .order('created_at', { ascending: false })
-      .limit(8),
-    supabase
+      .limit(8)),
+    perf.track('dashboard.overdue_cards', supabase
       .from('workflow_cards')
       .select(`
         id,
@@ -120,9 +131,9 @@ export default async function DashboardPage() {
       .not('due_date', 'is', null)
       .lt('due_date', new Date().toISOString())
       .order('due_date', { ascending: true })
-      .limit(5),
+      .limit(5)),
     canManage
-      ? supabase
+      ? perf.track('dashboard.pending_registrations', supabase
           .from('event_registrations')
           .select(`
             id,
@@ -139,11 +150,11 @@ export default async function DashboardPage() {
           .eq('events.church_id', churchId)
           .eq('status', 'pending_review')
           .order('created_at', { ascending: true })
-          .limit(5)
+          .limit(5))
       : Promise.resolve({ data: [], count: 0 }),
   ]);
 
-  const recentActivity = recentActivityRes.data;
+  const recentActivity = recentActivityRes.data as unknown as RecentActivityRow[] | null;
   const newVisitors = newVisitorsRes.data;
   const overdueCards = overdueCardsRes.data as unknown as { 
       id: string; 
@@ -174,12 +185,19 @@ export default async function DashboardPage() {
   const pendingRegistrationCount = pendingRegistrationsRes.count || 0;
 
 
+  if (summaryRes.error) {
+    throw summaryRes.error;
+  }
+
+  const summary = summaryRes.data as DashboardSummary | null;
   const statValues = [
-    activeRes.count || 0,
-    visitorRes.count || 0,
-    newRes.count || 0,
-    eventsRes.count || 0,
+    Number(summary?.active_count || 0),
+    Number(summary?.visitor_count || 0),
+    Number(summary?.new_this_month_count || 0),
+    Number(summary?.activity_this_week_count || 0),
   ];
+
+  perf.log();
 
   return (
     <div className="mx-auto max-w-[1440px] space-y-8 p-5 sm:p-8 lg:p-10">

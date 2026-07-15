@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/server';
+import { createRequestPerformanceTracker } from '@/lib/performance';
 import type { EventRegistration } from '@/lib/types';
 
 export interface RegistrationFilters {
@@ -10,7 +11,8 @@ export interface RegistrationFilters {
 }
 
 export async function getRegistrations(filters: RegistrationFilters) {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
+  const perf = createRequestPerformanceTracker('registrations-query');
   const page = filters.page || 1;
   const pageSize = filters.pageSize || 50;
   const start = (page - 1) * pageSize;
@@ -18,7 +20,31 @@ export async function getRegistrations(filters: RegistrationFilters) {
 
   let query = supabase
     .from('event_registrations')
-    .select('*', { count: 'exact' })
+    .select(
+      `
+        id,
+        display_id,
+        church_id,
+        event_id,
+        person_id,
+        first_name,
+        last_name,
+        email,
+        phone,
+        guests,
+        amount_due,
+        payment_proof_url,
+        paid_checkbox,
+        status,
+        reviewed_by,
+        reviewed_at,
+        rejection_reason,
+        confirmation_email_sent_at,
+        created_at,
+        updated_at
+      `,
+      { count: 'exact' }
+    )
     .eq('church_id', filters.church_id)
     .eq('event_id', filters.event_id);
 
@@ -28,53 +54,41 @@ export async function getRegistrations(filters: RegistrationFilters) {
 
   query = query.order('created_at', { ascending: false }).range(start, end);
 
-  const { data: registrations, error, count } = await query;
+  const [registrationsRes, statusCountsRes] = await Promise.all([
+    perf.track('registrations.page', query),
+    perf.track(
+      'registrations.status_counts',
+      supabase.rpc('get_registration_status_counts', {
+        p_church_id: filters.church_id,
+        p_event_id: filters.event_id,
+      })
+    ),
+  ]);
+
+  const { data: registrations, error, count } = registrationsRes;
 
   if (error) {
     console.error('Error fetching registrations:', error);
     return { registrations: [], total: 0 };
   }
 
-  // Get status counts
-  const { data: statusCountsData } = await supabase
-    .from('event_registrations')
-    .select('status')
-    .eq('church_id', filters.church_id)
-    .eq('event_id', filters.event_id);
+  if (statusCountsRes.error) {
+    console.error('Error fetching registration status counts:', statusCountsRes.error);
+  }
 
+  const statusCountsData = Array.isArray(statusCountsRes.data)
+    ? statusCountsRes.data[0]
+    : null;
   const statusCounts = {
-    all: statusCountsData?.length || 0,
-    pending_review: statusCountsData?.filter(r => r.status === 'pending_review').length || 0,
-    approved: statusCountsData?.filter(r => r.status === 'approved').length || 0,
-    rejected: statusCountsData?.filter(r => r.status === 'rejected').length || 0,
+    all: Number(statusCountsData?.all_count || 0),
+    pending_review: Number(statusCountsData?.pending_review_count || 0),
+    approved: Number(statusCountsData?.approved_count || 0),
+    rejected: Number(statusCountsData?.rejected_count || 0),
   };
 
-  const registrationsWithProofUrls = await Promise.all(
-    (registrations || []).map(async (registration: EventRegistration) => {
-      const storedProof = registration.payment_proof_url;
-      if (!storedProof) return registration;
-
-      const legacyPublicMarker = '/storage/v1/object/public/payment-proofs/';
-      const markerIndex = storedProof.indexOf(legacyPublicMarker);
-      const proofPath = markerIndex >= 0
-        ? decodeURIComponent(storedProof.slice(markerIndex + legacyPublicMarker.length))
-        : storedProof;
-
-      if (/^https?:\/\//.test(proofPath)) return registration;
-
-      const { data } = await supabase.storage
-        .from('payment-proofs')
-        .createSignedUrl(proofPath, 60 * 60);
-
-      return {
-        ...registration,
-        payment_proof_url: data?.signedUrl || null,
-      };
-    })
-  );
-
+  perf.log();
   return {
-    registrations: registrationsWithProofUrls,
+    registrations: ((registrations || []) as EventRegistration[]),
     total: count || 0,
     statusCounts,
   };

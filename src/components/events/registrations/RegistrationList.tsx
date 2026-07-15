@@ -12,22 +12,24 @@ export function RegistrationList({
   isFreeEvent,
   selectedIds,
   loadingIds,
+  proofLoadingIds,
   toggleSelect,
   toggleSelectAll,
   handleApprove,
+  handleViewProof,
   setRejectDialogId,
-  setLightboxUrl,
 }: {
   filteredRegistrations: EventRegistration[];
   filter: RegistrationFilter;
   isFreeEvent: boolean;
   selectedIds: Set<string>;
   loadingIds: Set<string>;
+  proofLoadingIds: Set<string>;
   toggleSelect: (id: string) => void;
   toggleSelectAll: () => void;
   handleApprove: (id: string) => void;
+  handleViewProof: (id: string) => void;
   setRejectDialogId: (id: string) => void;
-  setLightboxUrl: (url: string) => void;
 }) {
   const renderActions = (registration: EventRegistration) => {
     if (registration.status !== 'pending_review') {
@@ -131,12 +133,13 @@ export function RegistrationList({
                 {registration.payment_proof_url ? (
                   <button
                     type="button"
-                    onClick={() =>
-                      setLightboxUrl(registration.payment_proof_url as string)
-                    }
+                    onClick={() => handleViewProof(registration.id)}
+                    disabled={proofLoadingIds.has(registration.id)}
                     className="text-xs font-bold text-emerald-700"
                   >
-                    View payment proof
+                    {proofLoadingIds.has(registration.id)
+                      ? 'Loading proof'
+                      : 'View payment proof'}
                   </button>
                 ) : (
                   <span className="text-xs text-slate-400">
@@ -221,16 +224,11 @@ export function RegistrationList({
                       {registration.payment_proof_url ? (
                         <button
                           type="button"
-                          className="h-10 w-14 overflow-hidden rounded-lg border border-slate-200 bg-slate-100 hover:opacity-80"
-                          onClick={() =>
-                            setLightboxUrl(registration.payment_proof_url as string)
-                          }
+                          className="h-8 rounded-lg border border-emerald-200 px-3 text-xs font-bold text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
+                          onClick={() => handleViewProof(registration.id)}
+                          disabled={proofLoadingIds.has(registration.id)}
                         >
-                          <img
-                            src={registration.payment_proof_url}
-                            className="h-full w-full object-cover"
-                            alt="Payment proof"
-                          />
+                          {proofLoadingIds.has(registration.id) ? 'Loading' : 'View'}
                         </button>
                       ) : (
                         <span className="text-xs text-slate-400">
