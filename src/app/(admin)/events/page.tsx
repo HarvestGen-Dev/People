@@ -30,91 +30,6 @@ const statusStyles: Record<string, string> = {
   draft: 'bg-amber-100 text-amber-700 border-amber-200',
 };
 
-async function getEventsWithStatsFallback(
-  supabase: ReturnType<typeof createServiceClient>,
-  churchId: string,
-  track: ReturnType<typeof createRequestPerformanceTracker>['track']
-) {
-  const [eventsRes, registrationsRes] = await Promise.all([
-    track(
-      'events.fallback.events',
-      supabase
-        .from('events')
-        .select(`
-          id,
-          display_id,
-          church_id,
-          slug,
-          name,
-          description,
-          cover_image_url,
-          location,
-          start_at,
-          end_at,
-          capacity,
-          price,
-          currency,
-          payment_qr_url,
-          payment_link,
-          payment_instructions,
-          status,
-          target_workflow_id,
-          created_by,
-          created_at,
-          updated_at
-        `)
-        .eq('church_id', churchId)
-        .order('start_at', { ascending: false })
-    ),
-    track(
-      'events.fallback.registrations',
-      supabase
-        .from('event_registrations')
-        .select('event_id, status, guests')
-        .eq('church_id', churchId)
-    ),
-  ]);
-
-  if (eventsRes.error) throw eventsRes.error;
-  if (registrationsRes.error) throw registrationsRes.error;
-
-  const registrationsByEvent = (registrationsRes.data || []).reduce<
-    Record<string, { total: number; pending: number; approved: number; claimedSpots: number }>
-  >((result, registration) => {
-    if (!result[registration.event_id]) {
-      result[registration.event_id] = {
-        total: 0,
-        pending: 0,
-        approved: 0,
-        claimedSpots: 0,
-      };
-    }
-
-    result[registration.event_id].total += 1;
-    if (registration.status === 'pending_review') {
-      result[registration.event_id].pending += 1;
-    }
-    if (registration.status === 'approved') {
-      result[registration.event_id].approved += 1;
-    }
-    if (registration.status !== 'rejected') {
-      result[registration.event_id].claimedSpots += registration.guests || 0;
-    }
-
-    return result;
-  }, {});
-
-  return ((eventsRes.data || []) as EventWithStats[]).map((event) => ({
-    ...event,
-    registration_count: registrationsByEvent[event.id]?.total || 0,
-    pending_count: registrationsByEvent[event.id]?.pending || 0,
-    approved_count: registrationsByEvent[event.id]?.approved || 0,
-    spots_remaining: event.capacity
-      ? event.capacity - (registrationsByEvent[event.id]?.claimedSpots || 0)
-      : null,
-  }));
-}
-
 export default async function EventsPage() {
   const { churchId, role, isPlatformAdmin } = await requireTenantContext();
   const canManage =
@@ -127,16 +42,18 @@ export default async function EventsPage() {
     supabase.rpc('get_event_index_with_stats', { p_church_id: churchId })
   );
 
-  const events = eventsRes.error
-    ? await getEventsWithStatsFallback(supabase, churchId, perf.track)
-    : ((eventsRes.data || []) as EventWithStats[]).map((event) => ({
-        ...event,
-        registration_count: Number(event.registration_count || 0),
-        pending_count: Number(event.pending_count || 0),
-        approved_count: Number(event.approved_count || 0),
-        spots_remaining:
-          event.spots_remaining === null ? null : Number(event.spots_remaining),
-      }));
+  if (eventsRes.error) {
+    throw eventsRes.error;
+  }
+
+  const events = ((eventsRes.data || []) as EventWithStats[]).map((event) => ({
+    ...event,
+    registration_count: Number(event.registration_count || 0),
+    pending_count: Number(event.pending_count || 0),
+    approved_count: Number(event.approved_count || 0),
+    spots_remaining:
+      event.spots_remaining === null ? null : Number(event.spots_remaining),
+  }));
 
   const publishedCount = events.filter(
     (event) => event.status === 'published'
