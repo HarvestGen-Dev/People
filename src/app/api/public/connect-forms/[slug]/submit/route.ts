@@ -1,5 +1,7 @@
+// <!-- AGENT: BACKEND -->
 import { createServiceClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { enforcePublicRateLimit } from '@/lib/public-rate-limit';
 
 export async function POST(
   request: Request,
@@ -8,6 +10,15 @@ export async function POST(
   try {
     const supabase = createServiceClient();
     const { slug } = await params;
+    const limited = await enforcePublicRateLimit(request, {
+      bucket: 'public:connect-form-submit',
+      scope: slug,
+      limit: 10,
+      windowSeconds: 60 * 60,
+      error: 'Too many submissions. Please try again later.',
+    });
+    if (limited) return limited;
+
     const body = await request.json();
 
     // 1. Find the active connect form by slug

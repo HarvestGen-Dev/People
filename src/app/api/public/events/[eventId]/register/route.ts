@@ -2,33 +2,20 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { approveRegistration } from '@/lib/events/approve-registration';
-
-// Simple in-memory rate limit Map (Reset on deploy/cold start)
-// For real production, use Upstash Redis or Supabase-backed table
-const rateLimitMap = new Map<string, { count: number; timestamp: number }>();
+import { enforcePublicRateLimit } from '@/lib/public-rate-limit';
 
 export async function POST(request: Request, { params }: { params: Promise<{ eventId: string }> }) {
   try {
     const { eventId } = await params;
-    
-    // IP-based Rate Limiting (5 per hour)
-    const ip = request.headers.get('x-forwarded-for') || 'unknown';
-    const rateLimitKey = `${ip}-${eventId}`;
-    const now = Date.now();
-    const rateLimitData = rateLimitMap.get(rateLimitKey);
-    
-    if (rateLimitData) {
-      if (now - rateLimitData.timestamp < 3600000) {
-        if (rateLimitData.count >= 5) {
-          return NextResponse.json({ error: 'Too many registrations. Please try again later.' }, { status: 429 });
-        }
-        rateLimitMap.set(rateLimitKey, { count: rateLimitData.count + 1, timestamp: rateLimitData.timestamp });
-      } else {
-        rateLimitMap.set(rateLimitKey, { count: 1, timestamp: now });
-      }
-    } else {
-      rateLimitMap.set(rateLimitKey, { count: 1, timestamp: now });
-    }
+
+    const limited = await enforcePublicRateLimit(request, {
+      bucket: 'public:event-register',
+      scope: eventId,
+      limit: 5,
+      windowSeconds: 60 * 60,
+      error: 'Too many registrations. Please try again later.',
+    });
+    if (limited) return limited;
 
     const supabase = createServiceClient();
     const body = await request.json();
