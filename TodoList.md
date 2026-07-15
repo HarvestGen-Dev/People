@@ -143,7 +143,8 @@
   - Evidence: `supabase migration list` showed local and remote migrations `001` through `030` aligned after applying migrations `025` through `030`.
 - [ ] Take a database backup before applying migration `017` outside local development. (DevOps)
 - [ ] Apply and validate migration `017` in staging before production. (DevOps)
-- [ ] Confirm production Site URL and allowed redirect URLs do not point to `localhost`. (DevOps)
+- [x] Confirm production Site URL and allowed redirect URLs do not point to `localhost`. (DevOps)
+  - Evidence: Confirmed by Jaeden on 2026-07-15 that the production Site URL and allowed redirect URLs do not point to `localhost`.
 - [x] Confirm invitation and authentication links redirect to the deployed application domain.
 - [ ] Confirm SMTP credentials and sender-domain verification are configured in the deployment environment. (DevOps)
 - [x] Confirm `SMTP_HOST`, `SMTP_PORT`, `BREVO_SMTP_USER`, and `BREVO_SMTP_KEY` are documented and present where required.
