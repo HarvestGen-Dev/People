@@ -9,6 +9,7 @@ import { getPeople, PeopleFilters as QueryFilters } from '@/lib/queries/people';
 import { Tag } from '@/lib/types';
 import { requireTenantContext } from '@/lib/tenant-context';
 import { redirect } from 'next/navigation';
+import { createRequestPerformanceTracker } from '@/lib/performance';
 
 export const metadata = {
   title: 'People | HarvestGen',
@@ -28,6 +29,7 @@ export default async function PeoplePage({
   const canManage =
     isPlatformAdmin || role === 'owner' || role === 'admin';
   const supabase = await createClient();
+  const perf = createRequestPerformanceTracker('people-page');
 
   const resolvedSearchParams = await searchParams;
   const page = typeof resolvedSearchParams.page === 'string' ? parseInt(resolvedSearchParams.page, 10) : 1;
@@ -46,17 +48,18 @@ export default async function PeoplePage({
 
   const [peopleRes, tagsRes] = await Promise.all([
     getPeople(filters),
-    supabase
+    perf.track('people.tags', supabase
       .from('tags')
-      .select('*')
+      .select('id, display_id, name, color, target_workflow_id, created_at')
       .eq('church_id', churchId)
-      .order('name')
+      .order('name'))
   ]);
 
   const { people, total } = peopleRes;
   const { data: tagsData } = tagsRes;
     
   const tags = (tagsData as Tag[]) || [];
+  perf.log();
 
   return (
     <div className="mx-auto max-w-[1440px] space-y-6 p-5 animate-in fade-in-50 duration-300 sm:p-8 lg:p-10">

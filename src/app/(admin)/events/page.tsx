@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import type { EventWithStats } from '@/lib/types';
 import { requireTenantContext } from '@/lib/tenant-context';
 import { displayIdFor } from '@/lib/display-ids';
+import { createRequestPerformanceTracker } from '@/lib/performance';
 
 export const metadata = {
   title: 'Events | HarvestGen',
@@ -34,55 +35,25 @@ export default async function EventsPage() {
   const canManage =
     isPlatformAdmin || role === 'owner' || role === 'admin';
   const supabase = createServiceClient();
+  const perf = createRequestPerformanceTracker('events-index');
 
-  const [eventsRes, registrationsRes] = await Promise.all([
-    supabase
-      .from('events')
-      .select('*')
-      .eq('church_id', churchId)
-      .order('start_at', { ascending: false }),
-    supabase
-      .from('event_registrations')
-      .select('event_id, status')
-      .eq('church_id', churchId)
-  ]);
+  const eventsRes = await perf.track(
+    'events.with_stats',
+    supabase.rpc('get_event_index_with_stats', { p_church_id: churchId })
+  );
 
-  const { data: eventsData } = eventsRes;
-  
-  let events: EventWithStats[] = [];
-  if (eventsData?.length) {
-    const { data: registrations } = registrationsRes;
-
-    const registrationsByEvent = (registrations || []).reduce<
-      Record<string, { total: number; pending: number; approved: number }>
-    >((result, registration) => {
-      if (!result[registration.event_id]) {
-        result[registration.event_id] = {
-          total: 0,
-          pending: 0,
-          approved: 0,
-        };
-      }
-      result[registration.event_id].total += 1;
-      if (registration.status === 'pending_review') {
-        result[registration.event_id].pending += 1;
-      }
-      if (registration.status === 'approved') {
-        result[registration.event_id].approved += 1;
-      }
-      return result;
-    }, {});
-
-    events = eventsData.map((event) => ({
-      ...event,
-      registration_count: registrationsByEvent[event.id]?.total || 0,
-      pending_count: registrationsByEvent[event.id]?.pending || 0,
-      approved_count: registrationsByEvent[event.id]?.approved || 0,
-      spots_remaining: event.capacity
-        ? event.capacity - (registrationsByEvent[event.id]?.approved || 0)
-        : null,
-    }));
+  if (eventsRes.error) {
+    throw eventsRes.error;
   }
+
+  const events = ((eventsRes.data || []) as EventWithStats[]).map((event) => ({
+    ...event,
+    registration_count: Number(event.registration_count || 0),
+    pending_count: Number(event.pending_count || 0),
+    approved_count: Number(event.approved_count || 0),
+    spots_remaining:
+      event.spots_remaining === null ? null : Number(event.spots_remaining),
+  }));
 
   const publishedCount = events.filter(
     (event) => event.status === 'published'
@@ -99,6 +70,7 @@ export default async function EventsPage() {
   const host = reqHeaders.get('x-forwarded-host') || reqHeaders.get('host');
   const proto = reqHeaders.get('x-forwarded-proto') || (process.env.NODE_ENV === 'development' ? 'http' : 'https');
   const appUrl = host ? `${proto}://${host}` : (process.env.NEXT_PUBLIC_APP_URL || 'https://people.harvestgen.org');
+  perf.log();
 
   return (
     <div className="mx-auto max-w-[1440px] space-y-8 p-5 animate-in fade-in-50 duration-300 sm:p-8 lg:p-10">

@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { approveRegistration } from '@/lib/events/approve-registration';
 import { enforcePublicRateLimit } from '@/lib/public-rate-limit';
+import { createRequestPerformanceTracker } from '@/lib/performance';
 
 export async function POST(request: Request, { params }: { params: Promise<{ eventId: string }> }) {
   try {
@@ -18,13 +19,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
     if (limited) return limited;
 
     const supabase = createServiceClient();
+    const perf = createRequestPerformanceTracker('public-registration-submit');
     const body = await request.json();
 
-    const { data: event } = await supabase
-      .from('events')
-      .select('church_id, price')
-      .eq('id', eventId)
-      .single();
+    const { data: event } = await perf.track(
+      'event.lookup',
+      supabase
+        .from('events')
+        .select('church_id, price')
+        .eq('id', eventId)
+        .single()
+    );
 
     if (!event) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
@@ -65,8 +70,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
       return NextResponse.json({ error: 'Invalid guest count' }, { status: 400 });
     }
 
-    const { data: registrationId, error: rpcError } = await supabase
-      .rpc('register_for_event', {
+    const { data: registrationId, error: rpcError } = await perf.track(
+      'registration.insert_rpc',
+      supabase.rpc('register_for_event', {
         p_church_id: event.church_id,
         p_event_id: eventId,
         p_first_name: firstName,
@@ -76,7 +82,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
         p_guests: guests,
         p_payment_proof_url: body.payment_proof_url || null,
         p_paid_checkbox: Boolean(body.paid_checkbox)
-      });
+      })
+    );
 
     if (rpcError) {
       if (rpcError.message.includes('event_not_published')) return NextResponse.json({ error: 'Event not published' }, { status: 404 });
@@ -93,8 +100,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
     const reference = `REG-${registrationId.substring(0, 6).toUpperCase()}`;
 
     if (isFree && registrationId) {
-      const approveRes = await approveRegistration(registrationId, event.church_id, null);
+      const approveRes = await perf.track(
+        'registration.auto_approve',
+        approveRegistration(registrationId, event.church_id, null)
+      );
       if (!approveRes.success) {
+        perf.log();
         // If auto-approve fails due to an identity conflict, we leave it pending_review.
         return NextResponse.json({ 
           data: { 
@@ -105,9 +116,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
           } 
         });
       }
+      perf.log();
       return NextResponse.json({ data: { registration_id: registrationId, status: 'approved', reference } });
     }
 
+    perf.log();
     return NextResponse.json({
       data: {
         registration_id: registrationId,

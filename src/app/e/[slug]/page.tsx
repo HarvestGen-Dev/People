@@ -13,14 +13,41 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { RegistrationForm } from '@/components/events/RegistrationForm';
 import type { Event } from '@/lib/types';
 import { renderSafeMarkdown } from '@/lib/safe-markdown';
+import { createRequestPerformanceTracker } from '@/lib/performance';
 
-async function getEventBySlug(slug: string) {
+async function getEventBySlug(slug: string, trackerName = 'public-event') {
   const supabase = createServiceClient();
-  const { data: event, error } = await supabase
-    .from('events')
-    .select('*')
-    .eq('slug', slug)
-    .single();
+  const perf = createRequestPerformanceTracker(trackerName);
+  const { data: event, error } = await perf.track(
+    'event.by_slug',
+    supabase
+      .from('events')
+      .select(`
+        id,
+        display_id,
+        church_id,
+        slug,
+        name,
+        description,
+        cover_image_url,
+        location,
+        start_at,
+        end_at,
+        capacity,
+        price,
+        currency,
+        payment_qr_url,
+        payment_link,
+        payment_instructions,
+        status,
+        target_workflow_id,
+        created_at,
+        updated_at
+      `)
+      .eq('slug', slug)
+      .single()
+  );
+  perf.log();
 
   if (error || !event) return null;
   return event;
@@ -32,7 +59,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const event = await getEventBySlug(slug);
+  const event = await getEventBySlug(slug, 'public-event-metadata');
   return {
     title: event ? `${event.name} | HarvestGen` : 'Event not found',
     description: event?.description?.slice(0, 160),
@@ -55,14 +82,18 @@ export default async function PublicEventPage({
   }
 
   const supabase = createServiceClient();
-  const { count: approvedCount } = await supabase
-    .from('event_registrations')
-    .select('*', { count: 'exact', head: true })
-    .eq('event_id', event.id)
-    .eq('status', 'approved');
+  const perf = createRequestPerformanceTracker('public-event-capacity');
+  const { data: claimedSpots } = await perf.track(
+    'event.claimed_spots',
+    supabase.rpc('get_event_capacity_claimed_spots', {
+      p_church_id: event.church_id,
+      p_event_id: event.id,
+    })
+  );
+  perf.log();
 
   const spotsRemaining = event.capacity
-    ? Math.max(0, event.capacity - (approvedCount || 0))
+    ? Math.max(0, event.capacity - (claimedSpots || 0))
     : null;
   const isFull = spotsRemaining === 0;
 
