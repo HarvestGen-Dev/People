@@ -63,6 +63,61 @@ type RecentActivityRow = {
   } | null;
 };
 
+async function getDashboardSummaryFallback(
+  supabase: ReturnType<typeof createServiceClient>,
+  churchId: string,
+  track: ReturnType<typeof createRequestPerformanceTracker>['track']
+) {
+  const [activeRes, visitorRes, newRes, eventsRes] = await Promise.all([
+    track(
+      'dashboard.summary_fallback.active',
+      supabase
+        .from('people')
+        .select('id', { count: 'exact', head: true })
+        .eq('church_id', churchId)
+        .eq('status', 'active')
+    ),
+    track(
+      'dashboard.summary_fallback.visitors',
+      supabase
+        .from('people')
+        .select('id', { count: 'exact', head: true })
+        .eq('church_id', churchId)
+        .eq('status', 'visitor')
+    ),
+    track(
+      'dashboard.summary_fallback.new',
+      supabase
+        .from('people')
+        .select('id', { count: 'exact', head: true })
+        .eq('church_id', churchId)
+        .gte('created_at', startOfMonth(new Date()).toISOString())
+    ),
+    track(
+      'dashboard.summary_fallback.activity',
+      supabase
+        .from('person_events')
+        .select('id', { count: 'exact', head: true })
+        .eq('church_id', churchId)
+        .gte('occurred_at', startOfWeekSunday(new Date()).toISOString())
+    ),
+  ]);
+
+  return {
+    active_count: activeRes.count || 0,
+    visitor_count: visitorRes.count || 0,
+    new_this_month_count: newRes.count || 0,
+    activity_this_week_count: eventsRes.count || 0,
+  };
+}
+
+function startOfWeekSunday(date: Date) {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - start.getDay());
+  return start;
+}
+
 export default async function DashboardPage() {
   const { churchId, role, isPlatformAdmin } = await requireTenantContext();
   const canManage =
@@ -185,11 +240,9 @@ export default async function DashboardPage() {
   const pendingRegistrationCount = pendingRegistrationsRes.count || 0;
 
 
-  if (summaryRes.error) {
-    throw summaryRes.error;
-  }
-
-  const summary = summaryRes.data as DashboardSummary | null;
+  const summary = summaryRes.error
+    ? await getDashboardSummaryFallback(supabase, churchId, perf.track)
+    : (summaryRes.data as DashboardSummary | null);
   const statValues = [
     Number(summary?.active_count || 0),
     Number(summary?.visitor_count || 0),
