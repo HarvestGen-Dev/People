@@ -2,10 +2,20 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { validateImageUpload } from '@/lib/image-upload';
+import { enforcePublicRateLimit } from '@/lib/public-rate-limit';
 
 export async function POST(request: Request, { params }: { params: Promise<{ eventId: string }> }) {
   try {
     const { eventId } = await params;
+    const limited = await enforcePublicRateLimit(request, {
+      bucket: 'public:event-proof-upload',
+      scope: eventId,
+      limit: 10,
+      windowSeconds: 60 * 60,
+      error: 'Too many upload attempts. Please try again later.',
+    });
+    if (limited) return limited;
+
     const supabase = createServiceClient();
     const { data: event } = await supabase
       .from('events')

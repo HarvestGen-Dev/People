@@ -17,6 +17,7 @@ dotenv.config({ path: '.env.local', quiet: true });
 const port = Number(process.env.REGISTRATION_TEST_PORT ?? 3108);
 const baseUrl = `http://127.0.0.1:${port}`;
 const suffix = `${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+const publicClientIp = '203.0.113.10';
 
 const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -36,6 +37,7 @@ let otherAdminCookiesStr = '';
 let testAdminUserId;
 let testOtherAdminUserId;
 let uploadedProofs = [];
+const eventIds = [];
 let mockSmtpServer;
 let sentEmailsCount = 0;
 let smtpPort = 0;
@@ -43,7 +45,10 @@ let smtpPort = 0;
 async function register(eventId, payload) {
   const response = await fetch(`${baseUrl}/api/public/events/${eventId}/register`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-forwarded-for': publicClientIp,
+    },
     body: JSON.stringify(payload),
   });
   const body = await response.json();
@@ -64,6 +69,7 @@ async function insertEvent(values) {
     .select('id, church_id, price')
     .single();
   if (error) throw error;
+  eventIds.push(data.id);
   return data;
 }
 
@@ -211,6 +217,17 @@ after(async () => {
   if (uploadedProofs.length > 0) {
     await admin.storage.from('payment-proofs').remove(uploadedProofs);
   }
+
+  if (eventIds.length > 0) {
+    await admin
+      .from('public_rate_limits')
+      .delete()
+      .in('bucket', ['public:event-register', 'public:event-proof-upload'])
+      .in(
+        'subject',
+        eventIds.map((eventId) => `${publicClientIp}:${eventId}`)
+      );
+  }
   
   if (server?.process && !server.process.killed) {
     server.process.kill('SIGTERM');
@@ -234,6 +251,44 @@ test('Input Validation & Format constraints', async () => {
   
   res = await register(event.id, { ...basePayload, first_name: 'A'.repeat(200) });
   assert.equal(res.response.status, 400);
+});
+
+test('Public event registration is rate limited per event and IP', async () => {
+  const event = await insertEvent({ price: 0 });
+
+  for (let i = 0; i < 5; i++) {
+    const res = await register(event.id, {
+      first_name: 'Rate',
+      last_name: `Limit ${i}`,
+      email: `rate-limit-${i}-${suffix}@test.com`,
+      phone: '123',
+      guests: 1,
+    });
+    assert.equal(res.response.status, 200);
+  }
+
+  const limited = await register(event.id, {
+    first_name: 'Rate',
+    last_name: 'Limited',
+    email: `rate-limit-blocked-${suffix}@test.com`,
+    phone: '123',
+    guests: 1,
+  });
+
+  assert.equal(limited.response.status, 429);
+  assert.equal(
+    limited.body.error,
+    'Too many registrations. Please try again later.'
+  );
+  assert.ok(Number(limited.response.headers.get('retry-after')) > 0);
+  assert.ok(limited.response.headers.get('x-ratelimit-reset'));
+
+  const { count, error } = await admin
+    .from('event_registrations')
+    .select('id', { count: 'exact', head: true })
+    .eq('event_id', event.id);
+  if (error) throw error;
+  assert.equal(count, 5);
 });
 
 test('Reused proof is blocked (Proof ownership/uniqueness)', async () => {
@@ -323,7 +378,10 @@ test('Public event endpoints return generic errors for malformed request bodies'
   const freeEvent = await insertEvent({ price: 0 });
   const malformedRegistration = await fetch(`${baseUrl}/api/public/events/${freeEvent.id}/register`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-forwarded-for': publicClientIp,
+    },
     body: '{"first_name":',
   });
   const malformedRegistrationBody = await malformedRegistration.json();
@@ -337,7 +395,10 @@ test('Public event endpoints return generic errors for malformed request bodies'
   const paidEvent = await insertEvent({ price: 10 });
   const malformedUpload = await fetch(`${baseUrl}/api/public/events/${paidEvent.id}/upload-proof`, {
     method: 'POST',
-    headers: { 'Content-Type': 'multipart/form-data; boundary=broken' },
+    headers: {
+      'Content-Type': 'multipart/form-data; boundary=broken',
+      'x-forwarded-for': publicClientIp,
+    },
     body: '--not-the-right-boundary',
   });
   const malformedUploadBody = await malformedUpload.json();
