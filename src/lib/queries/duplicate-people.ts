@@ -23,12 +23,11 @@ export type DuplicatePeopleGroup = {
   people: DuplicatePersonCandidate[];
 };
 
-function normalizedName(person: DuplicatePersonCandidate) {
-  return `${person.first_name} ${person.last_name}`
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, ' ');
-}
+type DuplicateCandidateRow = DuplicatePersonCandidate & {
+  group_key: string;
+  reason: DuplicatePeopleGroup['reason'];
+  confidence: DuplicatePeopleGroup['confidence'];
+};
 
 function sortGroupPeople(people: DuplicatePersonCandidate[]) {
   return [...people].sort((a, b) => {
@@ -43,71 +42,57 @@ function sortGroupPeople(people: DuplicatePersonCandidate[]) {
   });
 }
 
-function groupCandidates(
-  people: DuplicatePersonCandidate[],
-  keyFor: (person: DuplicatePersonCandidate) => string | null,
-  reason: DuplicatePeopleGroup['reason'],
-  confidence: DuplicatePeopleGroup['confidence'],
-  labelFor: (key: string) => string
-) {
-  const buckets = new Map<string, DuplicatePersonCandidate[]>();
-
-  people.forEach((person) => {
-    const key = keyFor(person);
-    if (!key) return;
-
-    buckets.set(key, [...(buckets.get(key) || []), person]);
-  });
-
-  return [...buckets.entries()]
-    .filter(([, group]) => group.length > 1)
-    .map(([key, group]) => ({
-      key,
-      reason,
-      label: labelFor(key),
-      confidence,
-      people: sortGroupPeople(group),
-    }));
-}
-
 export async function getDuplicatePeopleGroups(
   churchId: string
 ): Promise<DuplicatePeopleGroup[]> {
   const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from('people')
-    .select(
-      'id, display_id, first_name, last_name, email, phone, phone_normalized, status, campus, created_at, updated_at'
-    )
-    .eq('church_id', churchId)
-    .order('updated_at', { ascending: false });
+  const { data, error } = await supabase.rpc('get_duplicate_people_candidates', {
+    p_church_id: churchId,
+  });
 
   if (error) throw error;
 
-  const people = (data || []) as DuplicatePersonCandidate[];
-  const groups = [
-    ...groupCandidates(
-      people,
-      (person) => person.phone_normalized,
-      'shared_phone',
-      'high',
-      (key) => key
-    ),
-    ...groupCandidates(
-      people,
-      (person) => {
-        const name = normalizedName(person);
-        return name.length >= 4 ? name : null;
-      },
-      'same_name',
-      'medium',
-      (key) => key
-    ),
-  ];
+  const rows = (data || []) as DuplicateCandidateRow[];
+  const groupsByKey = new Map<string, DuplicatePeopleGroup>();
+
+  rows.forEach((row) => {
+    const key = `${row.reason}:${row.group_key}`;
+    const existingGroup = groupsByKey.get(key);
+    const person = {
+      id: row.id,
+      display_id: row.display_id,
+      first_name: row.first_name,
+      last_name: row.last_name,
+      email: row.email,
+      phone: row.phone,
+      phone_normalized: row.phone_normalized,
+      status: row.status,
+      campus: row.campus,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    };
+
+    if (existingGroup) {
+      existingGroup.people.push(person);
+      return;
+    }
+
+    groupsByKey.set(key, {
+      key: row.group_key,
+      reason: row.reason,
+      label: row.group_key,
+      confidence: row.confidence,
+      people: [person],
+    });
+  });
 
   const seen = new Set<string>();
 
-  return groups
+  return [...groupsByKey.values()]
+    .map((group) => ({
+      ...group,
+      people: sortGroupPeople(group.people),
+    }))
     .filter((group) => {
       const signature = group.people
         .map((person) => person.display_id)
