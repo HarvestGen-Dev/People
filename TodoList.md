@@ -138,7 +138,9 @@
 
 <!-- AGENT: DEVOPS -->
 
-- [ ] Confirm the target Supabase project and environment before running any command. (DevOps)
+- [x] Confirm the target Supabase project and environment before running any command. (DevOps)
+  - Evidence: `supabase projects list` showed linked project `People Management System (WIP)`, reference `kpajlysbaftnrrgjwvtr`, region `Southeast Asia (Singapore)`.
+  - Evidence: `supabase migration list` showed local and remote migrations `001` through `030` aligned after applying migrations `025` through `030`.
 - [ ] Take a database backup before applying migration `017` outside local development. (DevOps)
 - [ ] Apply and validate migration `017` in staging before production. (DevOps)
 - [ ] Confirm production Site URL and allowed redirect URLs do not point to `localhost`. (DevOps)
