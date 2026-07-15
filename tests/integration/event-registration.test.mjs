@@ -34,6 +34,7 @@ let churchId;
 let otherChurchId;
 let adminCookiesStr = '';
 let otherAdminCookiesStr = '';
+let adminEmail = '';
 let testAdminUserId;
 let testOtherAdminUserId;
 let uploadedProofs = [];
@@ -51,6 +52,41 @@ async function register(eventId, payload) {
       'x-forwarded-for': publicClientIp,
     },
     body: JSON.stringify(payload),
+  });
+  const body = await response.json();
+  return { response, body };
+}
+
+async function approveRegistrationRequest(registrationId, cookies = adminCookiesStr) {
+  const response = await fetch(`${baseUrl}/api/admin/registrations/${registrationId}/approve`, {
+    method: 'POST',
+    headers: { Cookie: cookies },
+  });
+  const body = await response.json();
+  return { response, body };
+}
+
+async function rejectRegistrationRequest(registrationId, reason, cookies = adminCookiesStr) {
+  const response = await fetch(`${baseUrl}/api/admin/registrations/${registrationId}/reject`, {
+    method: 'POST',
+    headers: {
+      Cookie: cookies,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ reason }),
+  });
+  const body = await response.json();
+  return { response, body };
+}
+
+async function bulkApproveRequest(ids, cookies = adminCookiesStr) {
+  const response = await fetch(`${baseUrl}/api/admin/registrations/bulk-approve`, {
+    method: 'POST',
+    headers: {
+      Cookie: cookies,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ ids }),
   });
   const body = await response.json();
   return { response, body };
@@ -167,6 +203,7 @@ before(async () => {
 
   // Create admin user for church 1
   const email = `admin-${suffix}@test.com`;
+  adminEmail = email;
   const password = 'Password123!';
   const { data: userAuth, error: authErr } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
   if (authErr) throw authErr;
@@ -443,15 +480,224 @@ test('Public event endpoints return generic errors for malformed request bodies'
   assert.doesNotMatch(malformedUploadBody.error, /SQL|stack|storage|path|boundary/i);
 });
 
-test('Invalid status transitions', async () => {
-  const event = await insertEvent({ price: 0 });
-  const payload = { first_name: 'Idemp', last_name: 'Test', email: 'idemp@a.com', phone: '123', guests: 1 };
+test('Approved registrations cannot return to pending or rejected', async () => {
+  const event = await insertEvent({ price: 50.0 });
+  const proofUrl = `${event.church_id}/${event.id}/immutable.jpg`;
+  await uploadProof(proofUrl);
+
+  const payload = {
+    first_name: 'Immutable',
+    last_name: 'Status',
+    email: `immutable-${suffix}@a.com`,
+    phone: '123',
+    guests: 1,
+    payment_proof_url: proofUrl,
+    paid_checkbox: true,
+  };
   const res = await register(event.id, payload);
   const regId = res.body.data.registration_id;
+
+  const approveRes = await approveRegistrationRequest(regId);
+  assert.equal(approveRes.response.status, 200);
 
   const { error: rejectErr } = await admin.from('event_registrations').update({ status: 'rejected' }).eq('id', regId);
   assert.ok(rejectErr);
   assert.match(rejectErr.message, /invalid_status_transition/);
+
+  const { error: pendingErr } = await admin.from('event_registrations').update({ status: 'pending_review' }).eq('id', regId);
+  assert.ok(pendingErr);
+  assert.match(pendingErr.message, /invalid_status_transition/);
+
+  const { data: reg } = await admin
+    .from('event_registrations')
+    .select('status, person_id, reviewed_by, reviewed_at, rejection_reason')
+    .eq('id', regId)
+    .single();
+  assert.equal(reg.status, 'approved');
+  assert.ok(reg.person_id);
+  assert.equal(reg.reviewed_by, adminEmail);
+  assert.ok(reg.reviewed_at);
+  assert.equal(reg.rejection_reason, null);
+});
+
+test('Approval and rejection audit logs identify the reviewer', async () => {
+  const approvalEvent = await insertEvent({ price: 50.0 });
+  const approvalProof = `${approvalEvent.church_id}/${approvalEvent.id}/audit-approve.jpg`;
+  await uploadProof(approvalProof);
+
+  const approvalRegistration = await register(approvalEvent.id, {
+    first_name: 'Audit',
+    last_name: 'Approve',
+    email: `audit-approve-${suffix}@a.com`,
+    phone: '123',
+    guests: 1,
+    payment_proof_url: approvalProof,
+    paid_checkbox: true,
+  });
+  const approvalRegistrationId = approvalRegistration.body.data.registration_id;
+
+  const approveRes = await approveRegistrationRequest(approvalRegistrationId);
+  assert.equal(approveRes.response.status, 200);
+
+  const { data: approvedReg } = await admin
+    .from('event_registrations')
+    .select('display_id, email')
+    .eq('id', approvalRegistrationId)
+    .single();
+
+  const { data: approvalAudit } = await admin
+    .from('audit_log')
+    .select('actor_user_id, actor_email, action, resource_display_id, metadata')
+    .eq('church_id', churchId)
+    .eq('action', 'registration.approved')
+    .eq('resource_display_id', approvedReg.display_id)
+    .single();
+
+  assert.equal(approvalAudit.actor_user_id, testAdminUserId);
+  assert.equal(approvalAudit.actor_email, adminEmail);
+  assert.equal(approvalAudit.action, 'registration.approved');
+  assert.equal(approvalAudit.resource_display_id, approvedReg.display_id);
+  assert.equal(approvalAudit.metadata.email, approvedReg.email);
+
+  const rejectionEvent = await insertEvent({ price: 50.0 });
+  const rejectionProof = `${rejectionEvent.church_id}/${rejectionEvent.id}/audit-reject.jpg`;
+  await uploadProof(rejectionProof);
+
+  const rejectionRegistration = await register(rejectionEvent.id, {
+    first_name: 'Audit',
+    last_name: 'Reject',
+    email: `audit-reject-${suffix}@a.com`,
+    phone: '123',
+    guests: 1,
+    payment_proof_url: rejectionProof,
+    paid_checkbox: true,
+  });
+  const rejectionRegistrationId = rejectionRegistration.body.data.registration_id;
+
+  const rejectRes = await rejectRegistrationRequest(rejectionRegistrationId, 'Audit evidence');
+  assert.equal(rejectRes.response.status, 200);
+
+  const { data: rejectedReg } = await admin
+    .from('event_registrations')
+    .select('display_id, email')
+    .eq('id', rejectionRegistrationId)
+    .single();
+
+  const { data: rejectionAudit } = await admin
+    .from('audit_log')
+    .select('actor_user_id, actor_email, action, resource_display_id, metadata')
+    .eq('church_id', churchId)
+    .eq('action', 'registration.rejected')
+    .eq('resource_display_id', rejectedReg.display_id)
+    .single();
+
+  assert.equal(rejectionAudit.actor_user_id, testAdminUserId);
+  assert.equal(rejectionAudit.actor_email, adminEmail);
+  assert.equal(rejectionAudit.action, 'registration.rejected');
+  assert.equal(rejectionAudit.resource_display_id, rejectedReg.display_id);
+  assert.equal(rejectionAudit.metadata.email, rejectedReg.email);
+  assert.equal(rejectionAudit.metadata.has_reason, true);
+
+  const bulkEvent = await insertEvent({ price: 50.0 });
+  const bulkRegistrationIds = [];
+  for (let i = 0; i < 2; i++) {
+    const proof = `${bulkEvent.church_id}/${bulkEvent.id}/audit-bulk-${i}.jpg`;
+    await uploadProof(proof);
+    const bulkRegistration = await register(bulkEvent.id, {
+      first_name: 'Audit',
+      last_name: `Bulk ${i}`,
+      email: `audit-bulk-${i}-${suffix}@a.com`,
+      phone: '123',
+      guests: 1,
+      payment_proof_url: proof,
+      paid_checkbox: true,
+    });
+    bulkRegistrationIds.push(bulkRegistration.body.data.registration_id);
+  }
+
+  const bulkRes = await bulkApproveRequest(bulkRegistrationIds);
+  assert.equal(bulkRes.response.status, 200);
+  assert.deepEqual(bulkRes.body.data, { approved: 2, failed: 0 });
+
+  const { data: bulkAudit } = await admin
+    .from('audit_log')
+    .select('actor_user_id, actor_email, action, resource_display_id, metadata, created_at')
+    .eq('church_id', churchId)
+    .eq('action', 'registration.approved')
+    .contains('metadata', {
+      bulk: true,
+      requested_count: 2,
+      approved_count: 2,
+      failed_count: 0,
+    })
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+
+  assert.equal(bulkAudit.actor_user_id, testAdminUserId);
+  assert.equal(bulkAudit.actor_email, adminEmail);
+  assert.equal(bulkAudit.action, 'registration.approved');
+  assert.equal(bulkAudit.resource_display_id, null);
+  assert.equal(bulkAudit.metadata.bulk, true);
+});
+
+test('Rejected registrations release event capacity', async () => {
+  const event = await insertEvent({ price: 10, capacity: 2 });
+  const registrationIds = [];
+
+  for (let i = 0; i < 2; i++) {
+    const proof = `${event.church_id}/${event.id}/capacity-${i}.jpg`;
+    await uploadProof(proof);
+    const res = await register(event.id, {
+      first_name: 'Capacity',
+      last_name: `Hold ${i}`,
+      email: `capacity-hold-${i}-${suffix}@a.com`,
+      phone: '123',
+      guests: 1,
+      payment_proof_url: proof,
+      paid_checkbox: true,
+    });
+    assert.equal(res.response.status, 200);
+    registrationIds.push(res.body.data.registration_id);
+  }
+
+  const fullProof = `${event.church_id}/${event.id}/capacity-full.jpg`;
+  await uploadProof(fullProof);
+  const fullRes = await register(event.id, {
+    first_name: 'Capacity',
+    last_name: 'Full',
+    email: `capacity-full-${suffix}@a.com`,
+    phone: '123',
+    guests: 1,
+    payment_proof_url: fullProof,
+    paid_checkbox: true,
+  });
+  assert.equal(fullRes.response.status, 409);
+  assert.match(fullRes.body.error, /full/);
+
+  const rejectRes = await rejectRegistrationRequest(registrationIds[0], 'Capacity release');
+  assert.equal(rejectRes.response.status, 200);
+
+  const releasedProof = `${event.church_id}/${event.id}/capacity-released.jpg`;
+  await uploadProof(releasedProof);
+  const releasedRes = await register(event.id, {
+    first_name: 'Capacity',
+    last_name: 'Released',
+    email: `capacity-released-${suffix}@a.com`,
+    phone: '123',
+    guests: 1,
+    payment_proof_url: releasedProof,
+    paid_checkbox: true,
+  });
+  assert.equal(releasedRes.response.status, 200);
+
+  const { count, error } = await admin
+    .from('event_registrations')
+    .select('id', { count: 'exact', head: true })
+    .eq('event_id', event.id)
+    .neq('status', 'rejected');
+  if (error) throw error;
+  assert.equal(count, 2);
 });
 
 test('Graceful failure on identity conflict', async () => {
