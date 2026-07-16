@@ -62,17 +62,16 @@ test('invited users can atomically create and link their own profile', async () 
   );
 });
 
-test('signup actions clear an existing session before account creation', async () => {
+test('signup actions preserve existing sessions instead of impersonating new accounts', async () => {
   const source = await readFile(signupActionsPath, 'utf8');
 
-  assert.match(source, /async function clearExistingSession/);
-  assert.match(source, /await supabase\.auth\.signOut\(\)/);
+  assert.doesNotMatch(source, /auth\.signOut\(\)/);
   assert.match(
     source,
-    /const supabase = await createClient\(\)[\s\S]*?await clearExistingSession\(supabase\)[\s\S]*?supabase\.auth\.signUp/
+    /const supabase = await createClient\(\)[\s\S]*?supabase\.auth\.getUser\(\)[\s\S]*?You are already signed in[\s\S]*?supabase\.auth\.signUp/
   );
   assert.match(
     source,
-    /const sessionClient = await createClient\(\)[\s\S]*?await clearExistingSession\(sessionClient\)[\s\S]*?sessionClient\.auth\.signInWithPassword/
+    /const sessionClient = await createClient\(\)[\s\S]*?sessionClient\.auth\.getUser\(\)[\s\S]*?signed in with a different account[\s\S]*?sessionClient\.auth\.signInWithPassword/
   );
 });

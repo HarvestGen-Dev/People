@@ -91,18 +91,6 @@ async function createInvitedPersonProfile(
   return error?.message ?? null
 }
 
-async function clearExistingSession(
-  supabase: Awaited<ReturnType<typeof createClient>>
-) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (user) {
-    await supabase.auth.signOut()
-  }
-}
-
 // <!-- AGENT: BACKEND -->
 export async function selfSignUpAction(
   email: string,
@@ -117,7 +105,16 @@ export async function selfSignUpAction(
   }
 
   const supabase = await createClient()
-  await clearExistingSession(supabase)
+  const {
+    data: { user: currentUser },
+  } = await supabase.auth.getUser()
+  if (currentUser) {
+    return {
+      error:
+        'You are already signed in. Sign out or use a private window to create a different account.',
+    }
+  }
+
   const appUrl = await getAppUrl()
   const { data, error } = await supabase.auth.signUp({
     email: normalizedEmail,
@@ -161,7 +158,19 @@ export async function signUpAction(
   }
 
   const sessionClient = await createClient()
-  await clearExistingSession(sessionClient)
+  const {
+    data: { user: currentUser },
+  } = await sessionClient.auth.getUser()
+  if (
+    currentUser?.email &&
+    currentUser.email.toLowerCase() !== invitation.email.toLowerCase()
+  ) {
+    return {
+      error:
+        'You are signed in with a different account. Use a private window to accept this invitation.',
+    }
+  }
+
   const existingSignIn = await sessionClient.auth.signInWithPassword({
     email: invitation.email,
     password,
