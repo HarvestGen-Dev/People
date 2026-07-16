@@ -34,7 +34,8 @@ The worker claims due rows with `FOR UPDATE SKIP LOCKED`, marks them
 
 Retryable failures are network errors, timeouts, HTTP 408, HTTP 425, HTTP 429,
 and HTTP 5xx. Most other HTTP 4xx responses are permanent. Manual retry is
-restricted to `owner` and `admin` and preserves the original event identity.
+restricted to `owner` and `admin`, preserves the original event identity, and
+mints a new delivery identity for the retry attempt.
 
 Webhook signatures use:
 
@@ -52,6 +53,12 @@ requires HTTPS. Embedded credentials, localhost, private IPv4 ranges,
 link-local addresses, multicast/unspecified addresses, metadata hostnames,
 unsafe IPv6 ranges, and IPv4-mapped local/private IPv6 forms are rejected.
 Redirects are not followed automatically.
+
+The current Node `fetch` path revalidates DNS immediately before delivery and
+rejects the destination if any returned address is unsafe, but it does not pin
+the subsequent HTTP connection to the already-validated IP. Treat DNS rebinding
+as a residual risk until the transport can connect to a pinned address while
+preserving TLS hostname verification.
 
 ## People Photos
 

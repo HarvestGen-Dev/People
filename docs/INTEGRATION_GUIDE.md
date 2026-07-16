@@ -89,6 +89,9 @@ for the same form returns the original stable result and does not create another
 person, tag assignment, workflow card, proposed update, person event, or webhook
 event.
 
+Reusing the same idempotency key for the same form with materially different
+submitted values returns HTTP `409` and does not replay the original result.
+
 Unauthenticated connect forms only fill empty safe fields. If an existing
 populated value differs from the submitted value, People preserves the current
 value and records a pending `person_proposed_updates` row for staff review.
@@ -125,6 +128,9 @@ Production endpoints must use HTTPS, cannot include embedded credentials, and
 must not resolve to localhost, private networks, link-local addresses,
 multicast/unspecified addresses, or metadata services. Redirects are not
 followed automatically.
+
+Manual retry preserves `X-People-Event-Id` for the same business event and uses
+a new `X-People-Delivery-Id` for the retry attempt.
 
 ## Shepherd Integration
 

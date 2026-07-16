@@ -285,5 +285,5 @@ test('manual retry is owner/admin-only and preserves event identity', async () =
     .single();
   assert.equal(retried.status, 'pending');
   assert.equal(retried.event_id, failed.event_id);
-  assert.equal(retried.delivery_id, failed.delivery_id);
+  assert.notEqual(retried.delivery_id, failed.delivery_id);
 });

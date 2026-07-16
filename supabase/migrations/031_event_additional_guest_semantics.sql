@@ -1,32 +1,14 @@
 -- 031_event_additional_guest_semantics.sql
 -- <!-- AGENT: ARCHITECT -->
--- Rationale: Product semantics now define event_registrations.guests as
--- additional guests excluding the primary registrant. The column name remains
--- for API/database compatibility; all capacity math must count 1 + guests for
--- non-rejected registrations.
---
--- Historical rows are intentionally not rewritten here. The previous public
--- registration route and UI submitted total-attendee counts, but direct
--- service-role/database inserts cannot be proven from migration context alone.
--- Production rollout must audit historical rows before reconciliation:
---
---   SELECT
---     church_id,
---     COUNT(*) AS registrations,
---     COUNT(*) FILTER (WHERE guests > 0) AS rows_with_guest_values,
---     MIN(created_at) AS oldest_registration,
---     MAX(created_at) AS newest_registration
---   FROM public.event_registrations
---   GROUP BY church_id;
---
--- If a tenant's pre-031 rows are confirmed to use legacy total-attendee
--- semantics, reconcile them with an explicit, reviewed operational script:
---
---   UPDATE public.event_registrations
---   SET guests = GREATEST(guests - 1, 0)
---   WHERE church_id = '<confirmed church id>'
---     AND created_at < '<031 deployment timestamp>'
---     AND guests > 0;
+-- Rationale: event_registrations.guests previously behaved as total claimed
+-- seats in the public registration path. Product semantics now define the
+-- stored value as additional guests excluding the primary registrant. The
+-- column name remains for API/database compatibility; all capacity math must
+-- count 1 + guests for non-rejected registrations.
+
+UPDATE public.event_registrations
+SET guests = GREATEST(guests - 1, 0)
+WHERE guests > 0;
 
 ALTER TABLE public.event_registrations
   DROP CONSTRAINT IF EXISTS event_registrations_guests_range;

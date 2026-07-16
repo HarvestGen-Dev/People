@@ -169,10 +169,12 @@ test('new connect-form submission creates one person with idempotent tag, workfl
 
   const first = await submit(payload, key);
   const retry = await submit(payload, key);
+  const changedRetry = await submit({ ...payload, last_name: 'Changed' }, key);
 
   assert.equal(first.response.status, 200);
   assert.equal(retry.response.status, 200);
   assert.equal(retry.body.person_id, first.body.person_id);
+  assert.equal(changedRetry.response.status, 409);
 
   const [{ count: peopleCount }, { count: tagCount }, { count: cardCount }, { count: eventCount }] = await Promise.all([
     admin.from('people').select('id', { count: 'exact', head: true }).eq('church_id', churchId).eq('email', payload.email),

@@ -1,5 +1,6 @@
 // <!-- AGENT: BACKEND -->
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import {
   adminApiError,
@@ -33,10 +34,13 @@ export async function POST(
       return NextResponse.json({ error: 'Webhook delivery is not eligible for retry' }, { status: 409 });
     }
 
+    const nextDeliveryId = crypto.randomUUID();
+
     const { error } = await serviceSupabase
       .from('webhook_deliveries')
       .update({
         status: 'pending',
+        delivery_id: nextDeliveryId,
         next_attempt_at: new Date().toISOString(),
         processing_lease_until: null,
       })
@@ -55,11 +59,13 @@ export async function POST(
         event_id: delivery.event_id,
         event_type: delivery.event_type,
         webhook_id: delivery.webhook_id,
+        previous_delivery_id: delivery.delivery_id,
+        retry_delivery_id: nextDeliveryId,
       },
       request,
     });
 
-    return NextResponse.json({ data: { id, status: 'pending' } });
+    return NextResponse.json({ data: { id, status: 'pending', delivery_id: nextDeliveryId } });
   } catch (error: unknown) {
     return adminApiError(error);
   }

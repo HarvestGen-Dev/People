@@ -18,7 +18,7 @@ const connectFormSubmissionSchema = z.object({
 
 type ConnectFormRpcResult =
   | { success: true; person_id: string; found: boolean; idempotency_key: string }
-  | { success: false; code: 'form_not_found' | 'rate_limited' | 'identity_conflict'; reset_at?: string; message?: string };
+  | { success: false; code: 'form_not_found' | 'rate_limited' | 'identity_conflict' | 'idempotency_conflict'; reset_at?: string; message?: string };
 
 function clientIp(request: Request) {
   const forwardedFor = request.headers.get('x-forwarded-for');
@@ -29,6 +29,23 @@ function clientIp(request: Request) {
     request.headers.get('cf-connecting-ip') ||
     'unknown'
   );
+}
+
+function submissionHash(submission: z.infer<typeof connectFormSubmissionSchema>) {
+  const fingerprint = {
+    first_name: submission.first_name,
+    last_name: submission.last_name,
+    email: submission.email?.toLowerCase() ?? null,
+    phone: submission.phone ?? null,
+    gender: submission.gender ?? null,
+    birthdate: submission.birthdate ?? null,
+    campus: submission.campus ?? null,
+  };
+
+  return crypto
+    .createHash('sha256')
+    .update(JSON.stringify(fingerprint))
+    .digest('hex');
 }
 
 export async function POST(
@@ -54,6 +71,7 @@ export async function POST(
     const { data, error } = await supabase.rpc('submit_connect_form', {
       p_slug: slug,
       p_idempotency_key: idempotencyKey,
+      p_request_body_hash: submissionHash(submission),
       p_rate_limit_subject: rateLimitSubject,
       p_first_name: submission.first_name,
       p_last_name: submission.last_name,
@@ -74,6 +92,12 @@ export async function POST(
       if (result.code === 'identity_conflict') {
         return NextResponse.json(
           { error: 'This submission needs manual review before it can be matched.' },
+          { status: 409 }
+        );
+      }
+      if (result.code === 'idempotency_conflict') {
+        return NextResponse.json(
+          { error: 'Idempotency key was already used with a different submission.' },
           { status: 409 }
         );
       }

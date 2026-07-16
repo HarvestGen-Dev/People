@@ -11,6 +11,7 @@ export type WebhookEvent =
   | 'webhook.test'
 
 const WEBHOOK_TIMEOUT_MS = 10000
+const WEBHOOK_DNS_TIMEOUT_MS = 3000
 const MAX_WEBHOOK_ATTEMPTS = 7
 const RETRY_DELAYS_MS = [60_000, 5 * 60_000, 30 * 60_000, 2 * 60 * 60_000, 8 * 60 * 60_000, 24 * 60 * 60_000]
 
@@ -108,7 +109,12 @@ export async function validateWebhookDestination(
   }
 
   try {
-    const addresses = await dns.lookup(hostname, { all: true, verbatim: true })
+    const addresses = await Promise.race([
+      dns.lookup(hostname, { all: true, verbatim: true }),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('dns_lookup_timeout')), WEBHOOK_DNS_TIMEOUT_MS)
+      }),
+    ])
     if (!addresses.length) {
       return { ok: false, reason: 'dns_no_addresses' }
     }
@@ -117,8 +123,13 @@ export async function validateWebhookDestination(
         return { ok: false, reason: 'unsafe_resolved_address' }
       }
     }
-  } catch {
-    return { ok: false, reason: 'dns_lookup_failed' }
+  } catch (error) {
+    return {
+      ok: false,
+      reason: error instanceof Error && error.message === 'dns_lookup_timeout'
+        ? 'dns_lookup_timeout'
+        : 'dns_lookup_failed',
+    }
   }
 
   return { ok: true, url }
@@ -141,8 +152,16 @@ function isRetryableStatus(status: number | null): boolean {
   return status === 408 || status === 425 || status === 429 || (status !== null && status >= 500)
 }
 
-function sanitizeExcerpt(value: string) {
-  return value.replace(/[\u0000-\u001F\u007F]/g, ' ').slice(0, 1000)
+function sanitizeExcerpt(value: string, contentType: string | null) {
+  if (contentType?.toLowerCase().includes('text/html')) {
+    return '[html_response_omitted]'
+  }
+
+  return value
+    .replace(/[\u0000-\u001F\u007F]/g, ' ')
+    .replace(/(authorization|api[_-]?key|signing[_-]?secret|secret|token)(["'\s:=]+)[^"',\s]{8,}/gi, '$1$2[redacted]')
+    .replace(/people_k[0-9]_[A-Za-z0-9._-]+/g, '[redacted_api_key]')
+    .slice(0, 1000)
 }
 
 function failureState(attemptCount: number, retryable: boolean) {
@@ -208,7 +227,7 @@ export async function processWebhookDelivery(
   })
 
   if (!validation.ok) {
-    const retryable = validation.reason === 'dns_lookup_failed'
+    const retryable = validation.reason === 'dns_lookup_failed' || validation.reason === 'dns_lookup_timeout'
     const failed = failureState(delivery.attempt_count, retryable)
     await supabase
       .from('webhook_deliveries')
@@ -263,7 +282,10 @@ export async function processWebhookDelivery(
 
     const retryable = isRetryableStatus(response.status)
     const failed = failureState(delivery.attempt_count, retryable)
-    const excerpt = sanitizeExcerpt(await response.text().catch(() => ''))
+    const excerpt = sanitizeExcerpt(
+      await response.text().catch(() => ''),
+      response.headers.get('content-type')
+    )
     await supabase
       .from('webhook_deliveries')
       .update({
