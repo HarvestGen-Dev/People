@@ -34,7 +34,8 @@ function buildConfirmationEmailHtml(registration: RegistrationWithEvent) {
         <h3 style="margin-top: 0;">Event Details</h3>
         <p><strong>When:</strong> ${dateStr}</p>
         ${location ? `<p><strong>Where:</strong> ${location}</p>` : ''}
-        <p><strong>Guests:</strong> ${registration.guests}</p>
+        <p><strong>Total attending:</strong> ${registration.guests + 1}</p>
+        <p><strong>Additional guests:</strong> ${registration.guests}</p>
       </div>
       
       <p>See you there!</p>

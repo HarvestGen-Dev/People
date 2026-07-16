@@ -65,6 +65,40 @@ curl -X POST https://people.harvestgen.org/api/v1/events \
   }'
 ```
 
+## Event registration semantics
+
+Public event registrations count the primary registrant automatically. The
+`additional_guest_count` field is the number of guests in addition to the
+registrant, so claimed capacity is `1 + additional_guest_count`. The legacy
+`guests` field remains accepted for compatibility and has the same
+additional-guest meaning. Multiple family members may register for the same
+event using the same email address when their attendee names differ.
+
+## Webhook delivery contract
+
+People treats business-critical outbound webhooks as at-least-once delivery.
+Receivers must handle duplicate delivery and deduplicate with the stable IDs in
+the request headers:
+
+```text
+X-People-Event
+X-People-Event-Id
+X-People-Delivery-Id
+X-People-Timestamp
+X-People-Signature
+```
+
+The signature is HMAC-SHA256 over:
+
+```text
+timestamp + "." + raw_request_body
+```
+
+Only HTTP 2xx responses are recorded as delivered. HTTP 429 and 5xx responses
+are retryable; most other 4xx responses are treated as permanent failures.
+Webhook endpoints must not target localhost, private networks, link-local
+addresses, or metadata services.
+
 ## Shepherd Integration
 
 Scopes needed: `people:lookup`, `events:write`

@@ -9,7 +9,7 @@ export const metadata = {
 };
 
 export default async function ApiKeysSettingsPage() {
-  const { churchId } = await requireTenantContext({ requireManager: true });
+  const { churchId } = await requireTenantContext({ requireDeveloperTools: true });
   const supabase = createServiceClient();
 
   const { data: apiKeys } = await supabase

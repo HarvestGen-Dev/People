@@ -5,14 +5,23 @@ import {
   requireTenantContext,
 } from '@/lib/tenant-context';
 import { getChurchTeam } from '@/lib/team';
-import { createChurchInvitation } from '@/lib/auth/create-invitation';
+import { createChurchInvitation, type InvitationRole } from '@/lib/auth/create-invitation';
 
 type CreateInvitationBody = {
   church_id?: string;
   email?: string;
-  role?: 'admin' | 'member';
+  role?: InvitationRole;
   expires_in_days?: number;
 };
+
+const INVITABLE_ROLES = new Set<InvitationRole>([
+  'admin',
+  'pastoral',
+  'workflow_manager',
+  'staff',
+  'viewer',
+  'member',
+]);
 
 export async function GET() {
   try {
@@ -42,9 +51,9 @@ export async function POST(request: Request) {
       );
     }
 
-    if (role !== 'admin' && role !== 'member') {
+    if (!INVITABLE_ROLES.has(role)) {
       return NextResponse.json(
-        { error: 'Role must be admin or member' },
+        { error: 'Role is not invitable' },
         { status: 400 }
       );
     }

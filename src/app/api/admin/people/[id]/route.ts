@@ -8,6 +8,41 @@ import { recordAuditLog } from '@/lib/audit-log';
 import { assertTenantRecords } from '@/lib/tenant-references';
 import { triggerWorkflowsForTags } from '@/lib/workflows/trigger-tags';
 import { applyDisplayOrDatabaseIdFilter } from '@/lib/display-ids';
+import { z } from 'zod';
+import { readJsonObject, validationErrorResponse } from '@/lib/validation';
+
+const nullableText = (max: number) =>
+  z.string().trim().max(max).nullable().optional();
+
+const adminPersonUpdateSchema = z.object({
+  person: z
+    .object({
+      first_name: z.string().trim().min(1).max(100).optional(),
+      last_name: z.string().trim().min(1).max(100).optional(),
+      email: z.string().trim().email().max(255).nullable().optional(),
+      phone: nullableText(50),
+      gender: z.enum(['male', 'female', 'other', 'prefer_not_to_say']).nullable().optional(),
+      birthdate: z.string().date().nullable().optional(),
+      marital_status: z.enum(['single', 'married', 'divorced', 'widowed']).nullable().optional(),
+      anniversary: z.string().date().nullable().optional(),
+      status: z.enum(['active', 'visitor', 'inactive', 'child']).optional(),
+      campus: nullableText(100),
+      household_id: z.string().uuid().nullable().optional(),
+    })
+    .strict()
+    .optional(),
+  tags: z.array(z.string().uuid()).max(100).optional(),
+  customFields: z
+    .array(
+      z.object({
+        field_definition_id: z.string().uuid(),
+        value: z.union([z.string().max(5000), z.number(), z.boolean(), z.null()]).optional(),
+      }).strict()
+    )
+    .max(100)
+    .optional(),
+  household_name: z.string().trim().max(200).optional(),
+}).strict();
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -60,9 +95,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const supabase = await createClient();
     
     const { id } = await params;
-    const body = await request.json();
-    
-    const { person, tags, customFields } = body;
+    const body = await readJsonObject(request);
+    if (body instanceof NextResponse) return body;
+    const parsed = adminPersonUpdateSchema.safeParse(body);
+    if (!parsed.success) return validationErrorResponse(parsed.error);
+
+    const { person, tags, customFields } = parsed.data;
 
     const existingQuery = supabase
       .from('people')
@@ -105,8 +143,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     // 1. Update people table
     if (person && Object.keys(person).length > 0) {
-      delete person.church_id;
-      delete person.id;
       const { error: personError } = await supabase
         .from('people')
         .update(person)
@@ -144,10 +180,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     // 3. Upsert person_field_values
     if (customFields && customFields.length > 0) {
-      const fieldInserts = customFields.map((field: {
-        field_definition_id: string;
-        value: unknown;
-      }) => ({
+      const fieldInserts = customFields.map((field) => ({
         church_id: churchId,
         person_id: personId,
         field_definition_id: field.field_definition_id,

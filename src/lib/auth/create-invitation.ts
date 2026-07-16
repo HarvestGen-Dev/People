@@ -5,7 +5,14 @@ import { createHash, randomBytes } from 'crypto';
 import { createServiceClient } from '@/lib/supabase/server';
 import { sendChurchInvitationEmail } from '@/lib/email/send-invitation';
 
-export type InvitationRole = 'owner' | 'admin' | 'member';
+export type InvitationRole =
+  | 'owner'
+  | 'admin'
+  | 'pastoral'
+  | 'workflow_manager'
+  | 'staff'
+  | 'viewer'
+  | 'member';
 
 export async function createChurchInvitation(input: {
   churchId: string;

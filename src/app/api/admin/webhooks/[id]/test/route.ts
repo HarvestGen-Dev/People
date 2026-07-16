@@ -6,10 +6,11 @@ import {
   requireTenantContext,
 } from '@/lib/tenant-context'
 import { recordAuditLog } from '@/lib/audit-log'
+import { isUnsafeWebhookUrl, signWebhook } from '@/lib/webhooks'
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { churchId, user } = await requireTenantContext({ requireManager: true })
+    const { churchId, user } = await requireTenantContext({ requireDeveloperTools: true })
     const supabase = await createClient()
     const { id } = await params;
 
@@ -29,20 +30,27 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   
   const fullPayload = {
     event: 'webhook.test',
+    event_id: crypto.randomUUID(),
     timestamp: new Date().toISOString(),
     data: payload,
   }
   
   const body = JSON.stringify(fullPayload)
-  const signature = crypto.createHmac('sha256', webhook.secret).update(body).digest('hex')
+  const timestamp = new Date().toISOString()
+  const signature = signWebhook(webhook.secret, timestamp, body)
+  const deliveryId = crypto.randomUUID()
 
   const deliveryRecord = await supabase
     .from('webhook_deliveries')
     .insert({
       church_id: churchId,
       webhook_id: webhook.id,
+      event_id: fullPayload.event_id,
+      delivery_id: deliveryId,
       event_type: 'webhook.test',
       payload: fullPayload,
+      status: 'processing',
+      attempt_count: 1,
     })
     .select('id')
     .single()
@@ -52,12 +60,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   let errorMessage = null
 
   try {
+    if (isUnsafeWebhookUrl(webhook.url)) {
+      throw new Error('unsafe_webhook_destination')
+    }
     const fetchResponse = await fetch(webhook.url, {
       method: 'POST',
+      redirect: 'manual',
       headers: {
         'Content-Type': 'application/json',
         'X-People-Signature': `sha256=${signature}`,
         'X-People-Event': 'webhook.test',
+        'X-People-Event-Id': fullPayload.event_id,
+        'X-People-Delivery-Id': deliveryId,
+        'X-People-Timestamp': timestamp,
       },
       body,
       signal: AbortSignal.timeout(10000),
@@ -76,8 +91,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     await supabase
       .from('webhook_deliveries')
       .update({
+        status: errorMessage ? 'permanently_failed' : 'delivered',
         response_status: responseStatus,
+        last_status_code: responseStatus,
         error_message: errorMessage,
+        last_error: errorMessage,
         delivered_at: !errorMessage ? new Date().toISOString() : null,
         failed_at: errorMessage ? new Date().toISOString() : null,
       })

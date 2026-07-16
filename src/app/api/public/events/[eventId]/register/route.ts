@@ -4,6 +4,43 @@ import { NextResponse } from 'next/server';
 import { approveRegistration } from '@/lib/events/approve-registration';
 import { enforcePublicRateLimit } from '@/lib/public-rate-limit';
 import { createRequestPerformanceTracker } from '@/lib/performance';
+import { z } from 'zod';
+import { readJsonObject, validationErrorResponse } from '@/lib/validation';
+
+const MAX_ADDITIONAL_GUESTS = 20;
+
+const registrationSchema = z
+  .object({
+    first_name: z.string().trim().min(1).max(100),
+    last_name: z.string().trim().min(1).max(100),
+    email: z.string().trim().email().max(255).transform((value) => value.toLowerCase()),
+    phone: z.string().trim().max(50).optional().nullable(),
+    additional_guest_count: z.number().int().min(0).max(MAX_ADDITIONAL_GUESTS).optional(),
+    guests: z.number().int().min(0).max(MAX_ADDITIONAL_GUESTS).optional(),
+    payment_proof_url: z.string().trim().min(1).max(1024).optional().nullable(),
+    paid_checkbox: z.boolean().optional(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (
+      value.additional_guest_count !== undefined &&
+      value.guests !== undefined &&
+      value.additional_guest_count !== value.guests
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['additional_guest_count'],
+        message: 'additional_guest_count and guests must match when both are provided',
+      });
+    }
+  })
+  .transform((value) => ({
+    ...value,
+    additional_guest_count: value.additional_guest_count ?? value.guests ?? 0,
+    phone: value.phone ? value.phone : null,
+    payment_proof_url: value.payment_proof_url || null,
+    paid_checkbox: value.paid_checkbox ?? false,
+  }));
 
 export async function POST(request: Request, { params }: { params: Promise<{ eventId: string }> }) {
   try {
@@ -20,7 +57,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
 
     const supabase = createServiceClient();
     const perf = createRequestPerformanceTracker('public-registration-submit');
-    const body = await request.json();
+    const body = await readJsonObject(request);
+    if (body instanceof NextResponse) return body;
+    const parsed = registrationSchema.safeParse(body);
+    if (!parsed.success) return validationErrorResponse(parsed.error);
+    const registration = parsed.data;
 
     const { data: event } = await perf.track(
       'event.lookup',
@@ -35,53 +76,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
 
-    if (
-      !body.first_name || typeof body.first_name !== 'string' ||
-      !body.last_name || typeof body.last_name !== 'string' ||
-      !body.email || typeof body.email !== 'string'
-    ) {
-      return NextResponse.json({ error: 'Missing or invalid required fields' }, { status: 400 });
-    }
-
-    const firstName = body.first_name.trim();
-    const lastName = body.last_name.trim();
-    const email = body.email.trim();
-    const phone = typeof body.phone === 'string' ? body.phone.trim() : null;
-
-    if (!firstName || !lastName || !email) {
-      return NextResponse.json({ error: 'Missing or invalid required fields after trimming' }, { status: 400 });
-    }
-
-    if (body.payment_proof_url !== undefined && body.payment_proof_url !== null && typeof body.payment_proof_url !== 'string') {
-      return NextResponse.json({ error: 'Invalid payment proof format' }, { status: 400 });
-    }
-
-    if (firstName.length > 100 || lastName.length > 100 || email.length > 255 || (phone && phone.length > 50)) {
-      return NextResponse.json({ error: 'Field length exceeds maximum limit' }, { status: 400 });
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return NextResponse.json({ error: 'Invalid email format' }, { status: 400 });
-    }
-
-    const guests = typeof body.guests === 'number' ? body.guests : 1;
-    if (!Number.isInteger(guests) || guests < 1 || guests > 100) {
-      return NextResponse.json({ error: 'Invalid guest count' }, { status: 400 });
-    }
-
     const { data: registrationId, error: rpcError } = await perf.track(
       'registration.insert_rpc',
       supabase.rpc('register_for_event', {
         p_church_id: event.church_id,
         p_event_id: eventId,
-        p_first_name: firstName,
-        p_last_name: lastName,
-        p_email: email,
-        p_phone: phone,
-        p_guests: guests,
-        p_payment_proof_url: body.payment_proof_url || null,
-        p_paid_checkbox: Boolean(body.paid_checkbox)
+        p_first_name: registration.first_name,
+        p_last_name: registration.last_name,
+        p_email: registration.email,
+        p_phone: registration.phone,
+        p_guests: registration.additional_guest_count,
+        p_payment_proof_url: registration.payment_proof_url,
+        p_paid_checkbox: registration.paid_checkbox
       })
     );
 

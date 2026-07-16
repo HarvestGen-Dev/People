@@ -20,6 +20,7 @@ import {
   type InvitationResult,
 } from '@/components/settings/InvitationResultDialog';
 import type { TenantRole } from '@/lib/tenant-context';
+import type { InvitationRole } from '@/lib/auth/create-invitation';
 
 export function TeamManagerDialogs({
   isInviteOpen,
@@ -46,8 +47,8 @@ export function TeamManagerDialogs({
   isSaving: boolean;
   email: string;
   setEmail: (v: string) => void;
-  role: 'admin' | 'workflow_manager' | 'member';
-  setRole: (v: 'admin' | 'workflow_manager' | 'member') => void;
+  role: InvitationRole;
+  setRole: (v: InvitationRole) => void;
   expiresInDays: string;
   setExpiresInDays: (v: string) => void;
   createdInvitation: InvitationResult | null;
@@ -96,19 +97,19 @@ export function TeamManagerDialogs({
                   <Select
                     value={role}
                     onValueChange={(value) =>
-                      setRole(value as 'admin' | 'workflow_manager' | 'member')
+                      setRole(value as InvitationRole)
                     }
                   >
                     <SelectTrigger id="invite-role" className="h-11 rounded-xl">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="member">Member</SelectItem>
+                      <SelectItem value="viewer">Viewer</SelectItem>
+                      <SelectItem value="staff">Staff</SelectItem>
+                      <SelectItem value="pastoral">Pastoral</SelectItem>
+                      <SelectItem value="workflow_manager">Workflow manager</SelectItem>
                       {currentRole === 'owner' && (
-                        <>
-                          <SelectItem value="workflow_manager">Workflow Manager</SelectItem>
-                          <SelectItem value="admin">Administrator</SelectItem>
-                        </>
+                        <SelectItem value="admin">Administrator</SelectItem>
                       )}
                     </SelectContent>
                   </Select>

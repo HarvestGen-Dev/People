@@ -22,7 +22,7 @@ const regSchema = z.object({
   last_name: z.string().min(1, 'Required'),
   email: z.string().email('Invalid email'),
   phone: z.string().min(1, 'Required'),
-  guests: z.number().min(1),
+  additional_guest_count: z.number().int().min(0).max(20),
   paid_checkbox: z.boolean(),
 });
 
@@ -39,12 +39,13 @@ export function RegistrationForm({ event, spotsRemaining }: RegistrationFormProp
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<RegData>({
     resolver: zodResolver(regSchema),
-    defaultValues: { guests: 1, paid_checkbox: isFree },
+    defaultValues: { additional_guest_count: 0, paid_checkbox: isFree },
   });
 
-  const watchGuests = watch('guests');
+  const additionalGuestCount = watch('additional_guest_count');
   const watchPaid = watch('paid_checkbox');
-  const amountDue = watchGuests * event.price;
+  const totalAttending = 1 + additionalGuestCount;
+  const amountDue = totalAttending * event.price;
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -90,7 +91,6 @@ export function RegistrationForm({ event, spotsRemaining }: RegistrationFormProp
 
       const payload = {
         ...data,
-        amount_due: amountDue,
         payment_proof_url: proofUrl,
       };
 
@@ -192,15 +192,16 @@ export function RegistrationForm({ event, spotsRemaining }: RegistrationFormProp
             </div>
 
             <div>
-              <label className="text-sm font-medium mb-1 block">Number of Guests</label>
+              <label className="text-sm font-medium mb-1 block">Additional guests</label>
               <Input 
                 type="number" 
-                min="1" 
-                max={spotsRemaining !== null ? spotsRemaining : undefined} 
-                {...register('guests', { valueAsNumber: true })} 
+                min="0" 
+                max={spotsRemaining !== null ? Math.max(spotsRemaining - 1, 0) : 20} 
+                {...register('additional_guest_count', { valueAsNumber: true })} 
                 className="rounded-xl" 
               />
-              {errors.guests && <p className="text-xs text-red-500 mt-1">{errors.guests.message}</p>}
+              <p className="mt-1 text-xs text-slate-500">{totalAttending} total attending including you.</p>
+              {errors.additional_guest_count && <p className="text-xs text-red-500 mt-1">{errors.additional_guest_count.message}</p>}
             </div>
 
             {!isFree && (

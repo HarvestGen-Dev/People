@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import type { ClaimRequestSummary, InvitationSummary } from '@/lib/team';
 import type { InvitationResult } from '@/components/settings/InvitationResultDialog';
+import type { InvitationRole } from '@/lib/auth/create-invitation';
 
 export function useTeamManager(
   initialInvitations: InvitationSummary[],
@@ -19,7 +20,7 @@ export function useTeamManager(
   const [busyClaimId, setBusyClaimId] = useState<string | null>(null);
   
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'admin' | 'workflow_manager' | 'member'>('member');
+  const [role, setRole] = useState<InvitationRole>('viewer');
   const [expiresInDays, setExpiresInDays] = useState('7');
   const [createdInvitation, setCreatedInvitation] = useState<InvitationResult | null>(null);
 
@@ -76,7 +77,7 @@ export function useTeamManager(
       });
       setIsInviteOpen(false);
       setEmail('');
-      setRole('member');
+      setRole('viewer');
       setExpiresInDays('7');
       toast.success('Invitation created');
     } catch (error: unknown) {

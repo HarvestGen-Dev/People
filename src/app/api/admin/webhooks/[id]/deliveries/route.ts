@@ -7,7 +7,7 @@ import {
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { churchId } = await requireTenantContext({ requireManager: true })
+    const { churchId } = await requireTenantContext({ requireDeveloperTools: true })
     const supabase = await createClient()
     const { id } = await params;
 

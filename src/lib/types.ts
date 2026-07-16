@@ -193,7 +193,7 @@ export interface WorkflowBoardCard extends WorkflowCard {
 
 export interface WorkflowAdminUser {
   user_id: string;
-  role: 'owner' | 'admin' | 'workflow_manager' | 'member';
+  role: 'owner' | 'admin' | 'pastoral' | 'workflow_manager' | 'staff' | 'viewer' | 'member';
 }
 
 export interface WorkflowSummary extends Workflow {

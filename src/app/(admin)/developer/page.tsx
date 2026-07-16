@@ -92,7 +92,7 @@ const responseExample = `{
 }`;
 
 export default async function DeveloperPage() {
-  const { churchId, churchName } = await requireTenantContext({ requireManager: true });
+  const { churchId, churchName } = await requireTenantContext({ requireDeveloperTools: true });
   const supabase = createServiceClient();
   const now = new Date();
   const weekAgo = new Date();

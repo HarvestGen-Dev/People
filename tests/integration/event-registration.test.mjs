@@ -280,7 +280,7 @@ test('Input Validation & Format constraints', async () => {
 
   let res = await register(event.id, { ...basePayload, first_name: '   ' });
   assert.equal(res.response.status, 400);
-  assert.match(res.body.error, /Missing or invalid required fields after trimming/);
+  assert.match(res.body.error, /first_name/);
 
   res = await register(event.id, { ...basePayload, payment_proof_url: { bad: 'object' } });
   assert.equal(res.response.status, 400);
@@ -301,7 +301,7 @@ test('Public event registration is rate limited per event and IP', async () => {
       last_name: `Limit ${i}`,
       email: `rate-limit-${i}-${suffix}@test.com`,
       phone: '123',
-      guests: 1,
+      additional_guest_count: 0,
     });
     assert.equal(res.response.status, 200);
   }
@@ -311,7 +311,7 @@ test('Public event registration is rate limited per event and IP', async () => {
     last_name: 'Limited',
     email: `rate-limit-blocked-${suffix}@test.com`,
     phone: '123',
-    guests: 1,
+    additional_guest_count: 0,
   });
 
   assert.equal(limited.response.status, 429);
@@ -330,6 +330,63 @@ test('Public event registration is rate limited per event and IP', async () => {
   assert.equal(count, 5);
 });
 
+test('Family members can register for the same event with the same email', async () => {
+  const event = await insertEvent({ price: 0, capacity: 10 });
+  const familyEmail = `family-${suffix}@test.com`;
+
+  const first = await register(event.id, {
+    first_name: 'Family',
+    last_name: 'One',
+    email: familyEmail,
+    phone: '123',
+    additional_guest_count: 0,
+  });
+  const second = await register(event.id, {
+    first_name: 'Family',
+    last_name: 'Two',
+    email: familyEmail,
+    phone: '456',
+    additional_guest_count: 0,
+  });
+
+  assert.equal(first.response.status, 200);
+  assert.equal(second.response.status, 200);
+
+  const { count, error } = await admin
+    .from('event_registrations')
+    .select('id', { count: 'exact', head: true })
+    .eq('event_id', event.id)
+    .eq('email', familyEmail);
+  if (error) throw error;
+  assert.equal(count, 2);
+});
+
+test('Concurrent final-capacity registrations count primary plus additional guests', async () => {
+  const event = await insertEvent({ price: 0, capacity: 1 });
+
+  const results = await Promise.all(
+    Array.from({ length: 5 }, (_, index) =>
+      register(event.id, {
+        first_name: 'Concurrent',
+        last_name: `Capacity ${index}`,
+        email: `capacity-concurrent-${index}-${suffix}@test.com`,
+        phone: `555-${index}`,
+        additional_guest_count: 0,
+      })
+    )
+  );
+
+  assert.equal(results.filter(({ response }) => response.status === 200).length, 1);
+  assert.equal(results.filter(({ response }) => response.status === 409).length, 4);
+
+  const { data: claimedSpots, error } = await admin.rpc('get_event_capacity_claimed_spots', {
+    p_church_id: churchId,
+    p_event_id: event.id,
+  });
+  if (error) throw error;
+  assert.equal(claimedSpots, 1);
+});
+
 test('Confirmation emails escape registration and event HTML', async () => {
   sentEmailsCount = 0;
   sentEmailBodies.length = 0;
@@ -345,7 +402,7 @@ test('Confirmation emails escape registration and event HTML', async () => {
     last_name: 'Email',
     email: `escaped-email-${suffix}@test.com`,
     phone: '123',
-    guests: 1,
+    additional_guest_count: 0,
   });
 
   assert.equal(res.response.status, 200);
@@ -366,7 +423,7 @@ test('Reused proof is blocked (Proof ownership/uniqueness)', async () => {
   const proofUrl = `${event.church_id}/${event.id}/reusable-proof.jpg`;
   await uploadProof(proofUrl);
 
-  const basePayload = { first_name: 'A', last_name: 'B', email: 'a@b.com', phone: '123', guests: 1, payment_proof_url: proofUrl, paid_checkbox: true };
+  const basePayload = { first_name: 'A', last_name: 'B', email: 'a@b.com', phone: '123', additional_guest_count: 0, payment_proof_url: proofUrl, paid_checkbox: true };
   let res = await register(event.id, basePayload);
   assert.equal(res.response.status, 200);
 
@@ -434,7 +491,7 @@ test('Closed and draft events', async () => {
   const draftEvent = await insertEvent({ price: 0, status: 'draft' });
   const closedEvent = await insertEvent({ price: 0, status: 'published', start_at: new Date(Date.now() - 86400000).toISOString() });
 
-  const payload = { first_name: 'A', last_name: 'B', email: 'a@b.com', phone: '123', guests: 1 };
+  const payload = { first_name: 'A', last_name: 'B', email: 'a@b.com', phone: '123', additional_guest_count: 0 };
   
   let res = await register(draftEvent.id, payload);
   assert.equal(res.response.status, 404);
@@ -455,12 +512,12 @@ test('Public event endpoints return generic errors for malformed request bodies'
     body: '{"first_name":',
   });
   const malformedRegistrationBody = await malformedRegistration.json();
-  assert.equal(malformedRegistration.status, 500);
+  assert.equal(malformedRegistration.status, 400);
   assert.equal(
     malformedRegistrationBody.error,
-    'Unable to register for event. Please try again later.'
+    'Request body must be valid JSON'
   );
-  assert.doesNotMatch(malformedRegistrationBody.error, /JSON|SQL|stack|storage|path/i);
+  assert.doesNotMatch(malformedRegistrationBody.error, /SQL|stack|storage|path/i);
 
   const paidEvent = await insertEvent({ price: 10 });
   const malformedUpload = await fetch(`${baseUrl}/api/public/events/${paidEvent.id}/upload-proof`, {
@@ -608,7 +665,7 @@ test('Approval and rejection audit logs identify the reviewer', async () => {
       last_name: `Bulk ${i}`,
       email: `audit-bulk-${i}-${suffix}@a.com`,
       phone: '123',
-      guests: 1,
+      additional_guest_count: 0,
       payment_proof_url: proof,
       paid_checkbox: true,
     });
@@ -653,7 +710,7 @@ test('Rejected registrations release event capacity', async () => {
       last_name: `Hold ${i}`,
       email: `capacity-hold-${i}-${suffix}@a.com`,
       phone: '123',
-      guests: 1,
+      additional_guest_count: 0,
       payment_proof_url: proof,
       paid_checkbox: true,
     });
@@ -668,7 +725,7 @@ test('Rejected registrations release event capacity', async () => {
     last_name: 'Full',
     email: `capacity-full-${suffix}@a.com`,
     phone: '123',
-    guests: 1,
+    additional_guest_count: 0,
     payment_proof_url: fullProof,
     paid_checkbox: true,
   });
@@ -685,7 +742,7 @@ test('Rejected registrations release event capacity', async () => {
     last_name: 'Released',
     email: `capacity-released-${suffix}@a.com`,
     phone: '123',
-    guests: 1,
+    additional_guest_count: 0,
     payment_proof_url: releasedProof,
     paid_checkbox: true,
   });
