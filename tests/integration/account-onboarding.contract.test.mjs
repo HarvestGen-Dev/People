@@ -7,6 +7,7 @@ const migrationPath =
   'supabase/migrations/014_platform_admins_and_profile_claims.sql';
 const invitedProfileMigrationPath =
   'supabase/migrations/016_create_invited_person_profile.sql';
+const signupActionsPath = 'src/app/(auth)/signup/actions.ts';
 
 test('onboarding migration keeps portal identity separate from tenant roles', async () => {
   const sql = await readFile(migrationPath, 'utf8');
@@ -58,5 +59,20 @@ test('invited users can atomically create and link their own profile', async () 
   assert.doesNotMatch(
     sql,
     /GRANT EXECUTE ON FUNCTION public\.create_invited_person_profile\([\s\S]*?TO authenticated/
+  );
+});
+
+test('signup actions clear an existing session before account creation', async () => {
+  const source = await readFile(signupActionsPath, 'utf8');
+
+  assert.match(source, /async function clearExistingSession/);
+  assert.match(source, /await supabase\.auth\.signOut\(\)/);
+  assert.match(
+    source,
+    /const supabase = await createClient\(\)[\s\S]*?await clearExistingSession\(supabase\)[\s\S]*?supabase\.auth\.signUp/
+  );
+  assert.match(
+    source,
+    /const sessionClient = await createClient\(\)[\s\S]*?await clearExistingSession\(sessionClient\)[\s\S]*?sessionClient\.auth\.signInWithPassword/
   );
 });

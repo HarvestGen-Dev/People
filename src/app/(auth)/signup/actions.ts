@@ -91,6 +91,18 @@ async function createInvitedPersonProfile(
   return error?.message ?? null
 }
 
+async function clearExistingSession(
+  supabase: Awaited<ReturnType<typeof createClient>>
+) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (user) {
+    await supabase.auth.signOut()
+  }
+}
+
 // <!-- AGENT: BACKEND -->
 export async function selfSignUpAction(
   email: string,
@@ -105,6 +117,7 @@ export async function selfSignUpAction(
   }
 
   const supabase = await createClient()
+  await clearExistingSession(supabase)
   const appUrl = await getAppUrl()
   const { data, error } = await supabase.auth.signUp({
     email: normalizedEmail,
@@ -148,6 +161,7 @@ export async function signUpAction(
   }
 
   const sessionClient = await createClient()
+  await clearExistingSession(sessionClient)
   const existingSignIn = await sessionClient.auth.signInWithPassword({
     email: invitation.email,
     password,
