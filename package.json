@@ -10,6 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test:integration:lookup": "node --test tests/integration/people-lookup.test.mjs",
     "test:integration:onboarding": "node --test tests/integration/account-onboarding.contract.test.mjs",
+    "test:integration:authorization": "node --test tests/integration/developer-authorization.test.mjs",
+    "test:integration:connect-forms": "node --test tests/integration/connect-form-submission.test.mjs",
+    "test:integration:webhooks": "node --test tests/integration/webhook-worker.test.mjs",
     "test:integration:events": "node --test tests/integration/event-registration.test.mjs",
     "verify": "bash scripts/verify.sh"
   },

@@ -193,7 +193,7 @@ export interface WorkflowBoardCard extends WorkflowCard {
 
 export interface WorkflowAdminUser {
   user_id: string;
-  role: 'owner' | 'admin' | 'workflow_manager' | 'member';
+  role: 'owner' | 'admin' | 'pastoral' | 'workflow_manager' | 'staff' | 'viewer' | 'member';
 }
 
 export interface WorkflowSummary extends Workflow {
@@ -263,10 +263,18 @@ export interface WebhookDelivery {
   webhook_id: string;
   event_type: string;
   payload: Record<string, unknown>;
+  event_id: string;
+  delivery_id: string;
+  status: 'pending' | 'processing' | 'delivered' | 'retry_scheduled' | 'permanently_failed';
+  attempt_count: number;
+  next_attempt_at: string | null;
+  last_status_code: number | null;
+  last_error: string | null;
   response_status: number | null;
   error_message: string | null;
   delivered_at: string | null;
   failed_at: string | null;
+  last_attempted_at: string | null;
   created_at: string;
 }
 

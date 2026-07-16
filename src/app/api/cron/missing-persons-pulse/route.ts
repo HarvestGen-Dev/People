@@ -11,18 +11,38 @@ import { NextResponse } from 'next/server';
  *    in the last X days, and NO check-ins/attendance in the last X days.
  * 3. Drop them into the target workflow if they aren't already in it.
  */
-export async function GET(request: Request) {
-  // 1. Verify cron secret if running in production (Vercel)
+export async function GET() {
+  return NextResponse.json({ error: 'Method not allowed' }, { status: 405 });
+}
+
+export async function POST(request: Request) {
   const authHeader = request.headers.get('authorization');
-  if (
-    process.env.CRON_SECRET &&
-    authHeader !== `Bearer ${process.env.CRON_SECRET}`
-  ) {
+  if (!process.env.CRON_SECRET) {
+    console.error('[cron:missing-persons-pulse] CRON_SECRET is not configured');
+    return NextResponse.json({ error: 'Cron is not configured' }, { status: 503 });
+  }
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return new NextResponse('Unauthorized', { status: 401 });
   }
 
+  const lockName = 'cron:missing-persons-pulse';
+  let lockAcquired = false;
+
   try {
     const supabase = createServiceClient();
+    const { data: acquired, error: lockError } = await supabase.rpc(
+      'try_cron_advisory_lock',
+      { p_lock_name: lockName }
+    );
+
+    if (lockError) throw lockError;
+    lockAcquired = Boolean(acquired);
+    if (!lockAcquired) {
+      return NextResponse.json(
+        { success: false, skipped: true, reason: 'already_running' },
+        { status: 409 }
+      );
+    }
     
     // Fetch all active configs
     const { data: configs, error: configError } = await supabase
@@ -122,5 +142,16 @@ export async function GET(request: Request) {
   } catch (error: unknown) {
     console.error('Pulse cron error:', error);
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
+  } finally {
+    if (lockAcquired) {
+      const supabase = createServiceClient();
+      await supabase
+        .rpc('release_cron_advisory_lock', { p_lock_name: lockName })
+        .then(({ error }) => {
+          if (error) {
+            console.error('[cron:missing-persons-pulse] failed to release lock', error);
+          }
+        });
+    }
   }
 }

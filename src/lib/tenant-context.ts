@@ -6,7 +6,15 @@ import { NextResponse } from 'next/server';
 import type { User } from '@supabase/supabase-js';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 
-export type TenantRole = 'owner' | 'admin' | 'workflow_manager' | 'member';
+export type TenantRole =
+  | 'owner'
+  | 'admin'
+  | 'pastoral'
+  | 'workflow_manager'
+  | 'staff'
+  | 'viewer'
+  | 'member';
+export const DEVELOPER_TOOL_ROLES = ['owner', 'admin'] as const;
 
 export type TenantContext = {
   user: User;
@@ -20,6 +28,7 @@ export type TenantContext = {
 type TenantContextOptions = {
   churchId?: string;
   requireManager?: boolean;
+  requireDeveloperTools?: boolean;
   requireWorkflowManager?: boolean;
   requireOwner?: boolean;
 };
@@ -149,12 +158,14 @@ export async function requireTenantContext(
   }
 
   if (
-    options.requireManager &&
+    (options.requireManager || options.requireDeveloperTools) &&
     membership.role !== 'owner' &&
     membership.role !== 'admin'
   ) {
     throw new TenantContextError(
-      'Church administrator access is required',
+      options.requireDeveloperTools
+        ? 'Owner or administrator access is required for developer tools'
+        : 'Church administrator access is required',
       403
     );
   }

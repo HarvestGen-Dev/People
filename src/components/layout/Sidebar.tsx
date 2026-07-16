@@ -73,6 +73,8 @@ export function Sidebar({
     await supabase.auth.signOut();
     router.push('/login');
   };
+  const canAccessDeveloperTools =
+    isPlatformAdmin || role === 'owner' || role === 'admin';
 
   const renderNavItem = (item: (typeof primaryNav)[number]) => {
     const Icon = item.icon;
@@ -191,9 +193,7 @@ export function Sidebar({
             ...(isPlatformAdmin
               ? [{ label: 'Platform', href: '/platform', icon: Network }]
               : []),
-            ...(role === 'member' && !isPlatformAdmin
-              ? []
-              : administrationNav),
+            ...(canAccessDeveloperTools ? administrationNav : []),
           ].map(renderNavItem)}
           </div>
         </nav>

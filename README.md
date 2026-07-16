@@ -2,7 +2,7 @@
 
 People is a comprehensive, multi-tenant church member relationship management system built for Harvest Generation Church. It serves as the central source of truth for all member data, offering a secure, tenant-isolated environment. It seamlessly integrates with external connected systems—such as the Shepherd Learning Management System (LMS) and Drip & Brew Café Point-of-Sale (POS)—via a robust REST API authenticated by securely managed API keys.
 
-**Tech Stack:** Next.js 14/15 (App Router), TypeScript, Tailwind CSS, shadcn/ui, Supabase (Postgres + Auth + Storage), Brevo (Transactional Email).
+**Tech Stack:** Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS, shadcn/ui, Supabase (Postgres + Auth + Storage), Brevo (Transactional Email).
 
 ---
 

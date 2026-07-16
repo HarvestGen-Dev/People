@@ -9,7 +9,7 @@ import { recordAuditLog } from '@/lib/audit-log';
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { churchId, user } = await requireTenantContext({ requireManager: true });
+    const { churchId, user } = await requireTenantContext({ requireDeveloperTools: true });
     const supabase = await createClient();
 
     const { id } = await params;

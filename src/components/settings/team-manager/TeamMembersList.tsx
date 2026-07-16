@@ -7,7 +7,10 @@ import type { TenantRole } from '@/lib/tenant-context';
 const roleStyles: Record<TenantRole, string> = {
   owner: 'border-amber-200 bg-amber-100 text-amber-800',
   admin: 'border-emerald-200 bg-emerald-100 text-emerald-700',
+  pastoral: 'border-rose-200 bg-rose-100 text-rose-700',
   workflow_manager: 'border-purple-200 bg-purple-100 text-purple-700',
+  staff: 'border-sky-200 bg-sky-100 text-sky-700',
+  viewer: 'border-slate-200 bg-slate-100 text-slate-600',
   member: 'border-slate-200 bg-slate-100 text-slate-600',
 };
 

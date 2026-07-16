@@ -14,7 +14,7 @@ export type TeamMemberSummary = {
 export type InvitationSummary = {
   id: string;
   email: string;
-  role: 'owner' | 'admin' | 'member';
+  role: TenantRole;
   expiresAt: string;
   acceptedAt: string | null;
   revokedAt: string | null;
@@ -86,7 +86,7 @@ export async function getChurchTeam(churchId: string): Promise<{
     invitations: (invitations || []).map((invitation) => ({
       id: invitation.id,
       email: invitation.email,
-      role: invitation.role as 'owner' | 'admin' | 'member',
+      role: invitation.role as TenantRole,
       expiresAt: invitation.expires_at,
       acceptedAt: invitation.accepted_at,
       revokedAt: invitation.revoked_at,

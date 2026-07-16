@@ -17,7 +17,7 @@ function safeUrlHost(url: string): string | null {
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { churchId, user } = await requireTenantContext({ requireManager: true })
+    const { churchId, user } = await requireTenantContext({ requireDeveloperTools: true })
     const supabase = await createClient()
     const { id } = await params;
     const body = await req.json()
@@ -59,7 +59,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { churchId, user } = await requireTenantContext({ requireManager: true })
+    const { churchId, user } = await requireTenantContext({ requireDeveloperTools: true })
     const supabase = await createClient()
     const { id } = await params;
 

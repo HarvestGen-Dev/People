@@ -7,6 +7,8 @@ import {
   requireTenantContext,
 } from '@/lib/tenant-context';
 import { recordAuditLog } from '@/lib/audit-log';
+import { z } from 'zod';
+import { readJsonObject, validationErrorResponse } from '@/lib/validation';
 
 const ALLOWED_SCOPES = new Set([
   'people:read',
@@ -16,34 +18,35 @@ const ALLOWED_SCOPES = new Set([
   'events:write',
 ]);
 
+const apiKeyCreateSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  description: z.string().trim().max(500).optional().nullable(),
+  scopes: z.array(z.enum([
+    'people:read',
+    'people:write',
+    'people:lookup',
+    'events:read',
+    'events:write',
+  ])).max(10),
+  expires_at: z.string().datetime().optional().nullable(),
+}).strict();
+
 export async function POST(request: Request) {
   try {
-    const { churchId, user } = await requireTenantContext({ requireManager: true });
+    const { churchId, user } = await requireTenantContext({ requireDeveloperTools: true });
     const supabase = await createClient();
 
-    const body = await request.json();
-    const name = typeof body.name === 'string' ? body.name.trim() : '';
-    const description =
-      typeof body.description === 'string' ? body.description.trim() : '';
-    const scopes = Array.isArray(body.scopes)
-      ? [...new Set(body.scopes.filter((scope: unknown): scope is string => (
-          typeof scope === 'string' && ALLOWED_SCOPES.has(scope)
-        )))]
-      : [];
-
-    if (!name) {
-      return NextResponse.json({ error: 'Name is required' }, { status: 400 });
-    }
-    if (
-      Array.isArray(body.scopes) &&
-      scopes.length !== new Set(body.scopes).size
-    ) {
-      return NextResponse.json({ error: 'One or more scopes are invalid' }, { status: 400 });
-    }
+    const body = await readJsonObject(request);
+    if (body instanceof NextResponse) return body;
+    const parsed = apiKeyCreateSchema.safeParse(body);
+    if (!parsed.success) return validationErrorResponse(parsed.error);
+    const { name, scopes: parsedScopes } = parsed.data;
+    const description = parsed.data.description?.trim() || '';
+    const scopes = [...new Set(parsedScopes)].filter((scope) => ALLOWED_SCOPES.has(scope));
 
     let expiresAt: string | null = null;
-    if (body.expires_at) {
-      const parsedExpiry = new Date(body.expires_at);
+    if (parsed.data.expires_at) {
+      const parsedExpiry = new Date(parsed.data.expires_at);
       if (
         Number.isNaN(parsedExpiry.getTime()) ||
         parsedExpiry.getTime() <= Date.now()

@@ -112,10 +112,13 @@ export function RegistrationList({
               <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
                 <div className="rounded-xl bg-slate-50 p-3 text-slate-500">
                   <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                    Guests
+                    Attending
                   </span>
                   <span className="mt-1 block font-bold text-slate-700">
-                    {registration.guests}
+                    {registration.guests + 1}
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    {registration.guests} additional
                   </span>
                 </div>
                 <div className="rounded-xl bg-slate-50 p-3 text-slate-500">
@@ -172,7 +175,7 @@ export function RegistrationList({
                   </th>
                 )}
                 <th className="px-4 py-4">Registrant</th>
-                <th className="px-4 py-4">Guests</th>
+                <th className="px-4 py-4">Attending</th>
                 <th className="px-4 py-4">Amount</th>
                 <th className="px-4 py-4">Payment</th>
                 <th className="px-4 py-4">Submitted</th>
@@ -215,7 +218,10 @@ export function RegistrationList({
                       </div>
                     </td>
                     <td className="px-4 py-4 font-semibold text-slate-600">
-                      {registration.guests}
+                      {registration.guests + 1}
+                      <span className="ml-1 text-xs font-normal text-slate-400">
+                        ({registration.guests} additional)
+                      </span>
                     </td>
                     <td className="px-4 py-4 font-bold text-slate-900">
                       RM {registration.amount_due}

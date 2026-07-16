@@ -4,7 +4,7 @@
 
 People is a church member relationship management system for Harvest Generation Church (Malaysia). It is the central source of truth for all member data. Connected systems (Shepherd LMS, Drip & Brew Café POS) interact via a REST API authenticated with API keys.
 
-**Stack:** Next.js 14 (App Router) · TypeScript (strict) · Tailwind CSS · shadcn/ui · Supabase (Postgres + Auth + Storage)
+**Stack:** Next.js 16 (App Router) · React 19 · TypeScript (strict) · Tailwind CSS · shadcn/ui · Supabase (Postgres + Auth + Storage)
 
 ## Your Role
 
@@ -17,7 +17,7 @@ You are a senior full-stack engineer working on this project. You implement feat
 - Use `type` for object shapes, `interface` for component props.
 - Always type Server Action and Route Handler return values.
 
-### Next.js 14 App Router
+### Next.js 16 App Router
 - Server Components by default. Only add `'use client'` when you need state/effects.
 - Data fetching via Server Components or Route Handlers — no `getServerSideProps`, no `getStaticProps`.
 - Route Handlers in `/app/api/v1/` follow REST conventions from SPEC.md.

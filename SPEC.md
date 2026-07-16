@@ -80,6 +80,13 @@ membership roles. They may create churches, issue owner invitations, and manage
 any selected tenant. Privileged platform actions are written to
 `platform_audit_log`.
 
+Tenant administrative users are distinct from portal users. Portal access is
+represented by `person_user_links` and does not grant dashboard access.
+Developer and integration tools are restricted to `owner` and `admin` tenant
+roles only. Pastoral, workflow, staff, viewer, legacy member, portal, anonymous,
+and API-key actors must not access API-key management, webhook management,
+delivery logs, integration diagnostics, or in-app developer documentation.
+
 Imported people may opt into verified-email self-claiming through
 `people.allow_self_claim`. A successful claim creates a `person_user_links`
 record, not a `church_memberships` record. Portal accounts can therefore read
@@ -229,6 +236,17 @@ All endpoints require `Authorization: Bearer <api_key>`. The API Key resolution 
 person when email or phone has one unambiguous match, creates a visitor when no
 match exists, and returns HTTP `409` with code `identity_conflict` when a phone
 matches multiple people or email and phone identify different people.
+
+Public event registration stores `event_registrations.guests` as an additional
+guest count excluding the primary registrant. Claimed capacity and payment are
+calculated as `1 + guests`. New clients should send
+`additional_guest_count`; the legacy `guests` request field remains accepted as
+the same additional-guest value. The same family email may register multiple
+different attendees for one event.
+
+Connect-form submissions must resolve identity through the canonical lookup
+path. They may fill empty profile fields, but unauthenticated submissions must
+not overwrite populated staff-maintained values.
 
 ### Admin tenant resolution
 
