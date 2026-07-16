@@ -1,6 +1,7 @@
 // <!-- AGENT: FRONTEND -->
 import { redirect } from 'next/navigation';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { createPeoplePhotoSignedUrl } from '@/lib/people/photos';
 
 export default async function PortalPage() {
   const sessionClient = await createClient();
@@ -17,7 +18,7 @@ export default async function PortalPage() {
     .select(`
       id,
       claimed_at,
-      people(first_name, last_name, email, phone, status, campus),
+      people(id, church_id, first_name, last_name, email, phone, status, campus, photo_path, photo_url),
       churches(name)
     `)
     .eq('user_id', user.id)
@@ -39,9 +40,12 @@ export default async function PortalPage() {
             This account can access only the church profile linked to your verified email.
           </p>
         </header>
-        {links.map((link) => {
+        {await Promise.all(links.map(async (link) => {
           const person = Array.isArray(link.people) ? link.people[0] : link.people;
           const church = Array.isArray(link.churches) ? link.churches[0] : link.churches;
+          const signedPhoto = person
+            ? await createPeoplePhotoSignedUrl(person, person.church_id)
+            : null;
           return (
             <section
               key={link.id}
@@ -50,9 +54,25 @@ export default async function PortalPage() {
               <div className="text-xs font-bold uppercase tracking-wider text-emerald-700">
                 {church?.name || 'Your church'}
               </div>
-              <h2 className="mt-2 text-2xl font-bold text-slate-950">
-                {person?.first_name} {person?.last_name}
-              </h2>
+              <div className="mt-3 flex items-center gap-4">
+                <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-2xl bg-emerald-950 text-lg font-bold text-white">
+                  {signedPhoto?.signedUrl && person ? (
+                    <img
+                      src={signedPhoto.signedUrl}
+                      alt={`${person.first_name} ${person.last_name}`}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <>
+                      {person?.first_name?.[0]}
+                      {person?.last_name?.[0]}
+                    </>
+                  )}
+                </div>
+                <h2 className="text-2xl font-bold text-slate-950">
+                  {person?.first_name} {person?.last_name}
+                </h2>
+              </div>
               <dl className="mt-6 grid gap-5 sm:grid-cols-2">
                 {[
                   ['Email', person?.email],
@@ -72,7 +92,7 @@ export default async function PortalPage() {
               </dl>
             </section>
           );
-        })}
+        }))}
       </div>
     </main>
   );

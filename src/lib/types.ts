@@ -23,6 +23,8 @@ export interface Person {
   marital_status: 'single' | 'married' | 'divorced' | 'widowed' | null;
   anniversary: string | null;
   photo_url: string | null;
+  photo_path: string | null;
+  photo_signed_url?: string | null;
   status: 'active' | 'visitor' | 'inactive' | 'child';
   campus: string | null;
   household_id: string | null;
@@ -77,7 +79,7 @@ export interface PersonWithRelations extends Person {
 
 export type ListPerson = Pick<
   Person,
-  'id' | 'display_id' | 'first_name' | 'last_name' | 'email' | 'phone' | 'status' | 'campus' | 'photo_url'
+  'id' | 'display_id' | 'first_name' | 'last_name' | 'email' | 'phone' | 'status' | 'campus' | 'photo_url' | 'photo_path' | 'photo_signed_url'
 >;
 
 export type ListTag = Pick<Tag, 'id' | 'name' | 'color'>;
@@ -184,7 +186,7 @@ export interface WorkflowCardWithRelations extends WorkflowCard {
 // <!-- AGENT: FRONTEND -->
 export type WorkflowPerson = Pick<
   Person,
-  'id' | 'display_id' | 'first_name' | 'last_name' | 'status' | 'created_at' | 'photo_url'
+  'id' | 'display_id' | 'first_name' | 'last_name' | 'status' | 'created_at' | 'photo_url' | 'photo_path' | 'photo_signed_url'
 >;
 
 export interface WorkflowBoardCard extends WorkflowCard {
@@ -347,6 +349,8 @@ export type PersonSummary = {
   status: Person['status']
   campus: string | null
   photo_url: string | null
+  photo_path: string | null
+  photo_signed_url?: string | null
   tags: Array<{ id: string; name: string; color: string }>
   created_at: string
   updated_at: string

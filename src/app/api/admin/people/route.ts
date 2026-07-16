@@ -7,6 +7,36 @@ import {
 import { recordAuditLog } from '@/lib/audit-log';
 import { assertTenantRecords } from '@/lib/tenant-references';
 import { triggerWorkflowsForTags } from '@/lib/workflows/trigger-tags';
+import { z } from 'zod';
+import { readJsonObject, validationErrorResponse } from '@/lib/validation';
+
+const nullableText = (max: number) =>
+  z.string().trim().max(max).nullable().optional();
+
+const adminPersonCreateSchema = z.object({
+  person: z.object({
+    first_name: z.string().trim().min(1).max(100),
+    last_name: z.string().trim().min(1).max(100),
+    email: z.string().trim().email().max(255).nullable().optional(),
+    phone: nullableText(50),
+    gender: z.enum(['male', 'female', 'other', 'prefer_not_to_say']).nullable().optional(),
+    birthdate: z.string().date().nullable().optional(),
+    marital_status: z.enum(['single', 'married', 'divorced', 'widowed']).nullable().optional(),
+    anniversary: z.string().date().nullable().optional(),
+    status: z.enum(['active', 'visitor', 'inactive', 'child']).optional(),
+    campus: nullableText(100),
+    household_id: z.string().uuid().nullable().optional(),
+    allow_self_claim: z.boolean().optional(),
+  }).strict(),
+  tags: z.array(z.string().uuid()).max(100).optional(),
+  customFields: z.array(
+    z.object({
+      field_definition_id: z.string().uuid(),
+      value: z.union([z.string().max(5000), z.number(), z.boolean(), z.null()]).optional(),
+    }).strict()
+  ).max(100).optional(),
+  household_name: z.string().trim().max(200).optional(),
+}).strict();
 
 export async function POST(request: Request) {
   try {
@@ -14,8 +44,11 @@ export async function POST(request: Request) {
       requireManager: true,
     });
     const supabase = await createClient();
-    const body = await request.json();
-    const { person, tags, customFields, household_name } = body;
+    const body = await readJsonObject(request);
+    if (body instanceof NextResponse) return body;
+    const parsed = adminPersonCreateSchema.safeParse(body);
+    if (!parsed.success) return validationErrorResponse(parsed.error);
+    const { person, tags, customFields, household_name } = parsed.data;
 
     let household_id = person.household_id;
 
@@ -86,10 +119,7 @@ export async function POST(request: Request) {
 
     // 4. Insert custom fields
     if (customFields && customFields.length > 0) {
-      const fieldInserts = customFields.map((field: {
-        field_definition_id: string;
-        value: unknown;
-      }) => ({
+      const fieldInserts = customFields.map((field) => ({
         church_id,
         person_id,
         field_definition_id: field.field_definition_id,

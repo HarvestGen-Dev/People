@@ -39,6 +39,7 @@ export function PersonForm({ person, tags, fieldDefinitions, households }: Perso
     photoUrl,
     setPhotoUrl,
     setPhotoFile,
+    setPhotoRemoved,
     handlePhotoSelect,
     onSubmit,
   } = usePersonForm(person, fieldDefinitions);
@@ -66,11 +67,11 @@ export function PersonForm({ person, tags, fieldDefinitions, households }: Perso
                 <label className="absolute inset-0 bg-black/40 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
                   <Upload className="h-5 w-5 mb-1" />
                   <span className="text-xs font-medium">Upload</span>
-                  <input type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
+                  <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhotoSelect} />
                 </label>
               </div>
               {photoUrl && (
-                <button type="button" onClick={() => { setPhotoFile(null); setPhotoUrl(null); }} className="text-xs text-destructive mt-2 w-full text-center hover:underline">
+                <button type="button" onClick={() => { setPhotoFile(null); setPhotoUrl(null); setPhotoRemoved(true); }} className="text-xs text-destructive mt-2 w-full text-center hover:underline">
                   Remove photo
                 </button>
               )}

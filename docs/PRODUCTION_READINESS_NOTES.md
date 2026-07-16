@@ -62,23 +62,66 @@ preserving TLS hostname verification.
 
 ## People Photos
 
-Current status: not production-complete.
+New people-photo uploads use the private `people-photos` bucket. The database
+stores `people.photo_path` as `{church_id}/{person_id}/{generated_uuid}.webp`;
+`people.photo_url` is legacy-only and must not be written by new photo code.
+Signed URLs are generated server-side for 10 minutes after authorization and
+are never persisted.
 
-The historical schema stores `people.photo_url`, and the admin upload route
-still writes a permanent public URL returned by `getPublicUrl`. Migration 012
-also leaves the `people-photos` bucket public. This does not meet the target
-model for private people photos.
+Upload limits are 5 MB compressed input, 4096 px maximum width, 4096 px maximum
+height, and 16 megapixels. The Node runtime uses `sharp` to decode JPEG, PNG,
+or WebP input, normalize orientation, strip metadata by re-encoding, resize to
+fit within 1024 px, and store WebP output. Browser MIME type, file extension,
+original filename, and client-supplied storage paths are ignored.
 
-Required next phase:
+Photo access rules:
 
-- inventory existing `people.photo_url` values and storage objects;
-- make `people-photos` private after migration planning;
-- store tenant/person-scoped object paths, not permanent URLs;
-- add an image processing dependency or service that verifies signatures,
-  decodes, enforces dimensions, strips EXIF, and re-encodes;
-- generate short-lived signed URLs only after tenant and portal authorization;
-- update list/profile rendering to avoid arbitrary path signing and N+1 URL
-  generation.
+- Owner, admin, pastoral, staff, and viewer roles may retrieve tenant person
+  photos through the server-authorized route.
+- Owner and admin may upload, replace, and remove person photos.
+- Legacy `member`, workflow manager, anonymous users, and API-key callers do
+  not receive broad photo-directory access.
+- Portal users may retrieve only their linked person photo. Household photo
+  access remains future work until household permissions are explicit.
+- Child photos are private, never public, and follow the same portal own-photo
+  restriction.
+
+The application signs photos for the currently rendered people page or list
+result set rather than exposing arbitrary path signing. API v1 person responses
+return `photo_url: null` so integrations do not receive stale public photo
+references.
+
+Legacy migration is staged. Migration 039 adds the private path column, makes
+the `people-photos` bucket private, disables direct client writes to that
+bucket, and adds the service-role-only
+`people_photo_reference_inventory` view. Existing `photo_url` values are not
+rewritten or deleted. The code can sign legacy Supabase `people-photos` public
+URLs only when the decoded object path is tenant/person scoped.
+
+Deployment checklist:
+
+1. Back up the database.
+2. Apply migration 039.
+3. Deploy code that writes `photo_path` and can read scoped legacy references.
+4. Verify one admin upload, one replacement, one removal, and one portal
+   own-photo retrieval.
+5. Query `people_photo_reference_inventory` as `service_role`.
+6. Pilot-copy or reprocess legacy objects for one tenant into private
+   tenant/person paths.
+7. Update copied records to `photo_path` and clear `photo_url` only after
+   verification.
+8. Migrate remaining tenants.
+9. Monitor missing-object and authorization errors.
+10. Remove legacy fallback in a later PR after all tenants are verified.
+
+Rollback plan:
+
+- Schema changes are additive; old code can ignore `photo_path`.
+- `photo_url` values are preserved during rollout.
+- If the deployment must roll back before legacy migration is complete, restore
+  the previous code path. Do not delete private objects.
+- Reopening public bucket access is an emergency privacy tradeoff and should
+  require explicit approval.
 
 ## Tenant Composite Foreign Keys
 
