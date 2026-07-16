@@ -18,6 +18,8 @@ echo "=== Running Integration Tests ==="
 npm run test:integration:lookup
 npm run test:integration:onboarding
 npm run test:integration:authorization
+npm run test:integration:connect-forms
+npm run test:integration:webhooks
 npm run test:integration:events
 
 echo "=== Running Production Build ==="

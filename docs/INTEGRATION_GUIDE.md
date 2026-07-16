@@ -15,15 +15,18 @@ curl -X POST https://people.harvestgen.org/api/admin/invitations \
   -H "Cookie: <authenticated-session-cookie>" \
   -d '{
     "email": "admin@example.com",
-    "role": "member",
+    "role": "staff",
     "expires_in_days": 7
   }'
 ```
 
 The response contains `invite_url`. It is the only response that exposes the
 raw invitation token; the database stores only its SHA-256 hash. Only church
-owners can issue invitations with the `admin` role. Include `church_id` when
-the current user administers more than one church.
+owners can issue invitations with privileged roles. Administrative roles are
+separate from portal users linked through `person_user_links`; a general
+congregant account must not be modeled as an administrative membership.
+Developer tools such as API keys, webhook configuration, delivery logs, and
+integration diagnostics are restricted to `owner` and `admin`.
 
 ## Quick Start
 
@@ -74,6 +77,22 @@ registrant, so claimed capacity is `1 + additional_guest_count`. The legacy
 additional-guest meaning. Multiple family members may register for the same
 event using the same email address when their attendee names differ.
 
+## Connect-form merge and idempotency
+
+Public connect-form submissions are processed through a transactional database
+function. The submission resolves or creates the canonical person, applies
+configured tags and workflow cards idempotently, records a person event, and
+enqueues matching webhook deliveries in the same transaction.
+
+Clients should send an `Idempotency-Key` header for safe retry. A repeated key
+for the same form returns the original stable result and does not create another
+person, tag assignment, workflow card, proposed update, person event, or webhook
+event.
+
+Unauthenticated connect forms only fill empty safe fields. If an existing
+populated value differs from the submitted value, People preserves the current
+value and records a pending `person_proposed_updates` row for staff review.
+
 ## Webhook delivery contract
 
 People treats business-critical outbound webhooks as at-least-once delivery.
@@ -94,10 +113,18 @@ The signature is HMAC-SHA256 over:
 timestamp + "." + raw_request_body
 ```
 
-Only HTTP 2xx responses are recorded as delivered. HTTP 429 and 5xx responses
-are retryable; most other 4xx responses are treated as permanent failures.
-Webhook endpoints must not target localhost, private networks, link-local
-addresses, or metadata services.
+Only HTTP 2xx responses are recorded as delivered. Network failures, timeouts,
+HTTP 408, HTTP 425, HTTP 429, and HTTP 5xx responses are retryable. Most other
+HTTP 4xx responses are treated as permanent failures. The current retry cadence
+is approximately 1 minute, 5 minutes, 30 minutes, 2 hours, 8 hours, and 24 hours
+after the initial attempt, with delivery states of `pending`, `processing`,
+`delivered`, `retry_scheduled`, and `permanently_failed`.
+
+Webhook destinations are validated at creation and again at delivery time.
+Production endpoints must use HTTPS, cannot include embedded credentials, and
+must not resolve to localhost, private networks, link-local addresses,
+multicast/unspecified addresses, or metadata services. Redirects are not
+followed automatically.
 
 ## Shepherd Integration
 

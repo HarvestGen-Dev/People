@@ -7,7 +7,7 @@ import {
   requireTenantContext,
 } from '@/lib/tenant-context'
 import { recordAuditLog } from '@/lib/audit-log'
-import { isUnsafeWebhookUrl } from '@/lib/webhooks'
+import { validateWebhookDestination } from '@/lib/webhooks'
 import { z } from 'zod'
 import { readJsonObject, validationErrorResponse } from '@/lib/validation'
 
@@ -70,7 +70,8 @@ export async function POST(req: Request) {
         { status: 400 }
       )
     }
-    if (isUnsafeWebhookUrl(url)) {
+    const destination = await validateWebhookDestination(url)
+    if (!destination.ok) {
       return NextResponse.json(
         { error: 'Endpoint URL cannot target localhost, private networks, link-local addresses, or metadata services' },
         { status: 400 }

@@ -133,19 +133,37 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: WebhookSu
   const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([])
   const [isLoadingDeliveries, setIsLoadingDeliveries] = useState(false)
 
+  const loadDeliveries = async (webhook: WebhookSummary) => {
+    const res = await fetch(`/api/admin/webhooks/${webhook.id}/deliveries`)
+    if (!res.ok) throw new Error('Failed to fetch deliveries')
+    const data = await res.json()
+    setDeliveries(data)
+  }
+
   const handleViewDeliveries = async (webhook: WebhookSummary) => {
     setSelectedWebhook(webhook)
     setIsDeliveriesOpen(true)
     setIsLoadingDeliveries(true)
     try {
-      const res = await fetch(`/api/admin/webhooks/${webhook.id}/deliveries`)
-      if (!res.ok) throw new Error('Failed to fetch deliveries')
-      const data = await res.json()
-      setDeliveries(data)
+      await loadDeliveries(webhook)
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Failed to load deliveries')
     } finally {
       setIsLoadingDeliveries(false)
+    }
+  }
+
+  const handleRetryDelivery = async (deliveryId: string) => {
+    try {
+      const res = await fetch(`/api/admin/webhook-deliveries/${deliveryId}/retry`, {
+        method: 'POST',
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Failed to retry delivery')
+      toast.success('Webhook delivery queued for retry')
+      if (selectedWebhook) await loadDeliveries(selectedWebhook)
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to retry delivery')
     }
   }
 
@@ -400,6 +418,7 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: WebhookSu
                       <th className="px-4 py-3">Event</th>
                       <th className="px-4 py-3">Status</th>
                       <th className="px-4 py-3">Response</th>
+                      <th className="px-4 py-3 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -410,18 +429,29 @@ export function WebhooksClient({ initialWebhooks }: { initialWebhooks: WebhookSu
                         </td>
                         <td className="px-4 py-3 font-mono text-xs text-slate-700">{d.event_type}</td>
                         <td className="px-4 py-3">
-                          {d.delivered_at ? (
+                          {d.status === 'delivered' ? (
                             <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-1 rounded-full">
                               <Check className="w-3 h-3" /> {d.response_status || 'OK'}
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1.5 text-xs font-medium text-red-700 bg-red-50 px-2 py-1 rounded-full">
-                              <X className="w-3 h-3" /> {d.response_status || 'Error'}
+                              <X className="w-3 h-3" /> {d.status.replace('_', ' ')}
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-xs text-slate-500 max-w-xs truncate" title={d.error_message || 'Success'}>
-                          {d.error_message || '-'}
+                        <td className="px-4 py-3 text-xs text-slate-500 max-w-xs truncate" title={d.last_error || d.error_message || 'Success'}>
+                          {d.last_error || d.error_message || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {['retry_scheduled', 'permanently_failed'].includes(d.status) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleRetryDelivery(d.id)}
+                            >
+                              Retry
+                            </Button>
+                          )}
                         </td>
                       </tr>
                     ))}

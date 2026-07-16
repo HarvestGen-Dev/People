@@ -6,7 +6,7 @@ import {
   requireTenantContext,
 } from '@/lib/tenant-context'
 import { recordAuditLog } from '@/lib/audit-log'
-import { isUnsafeWebhookUrl, signWebhook } from '@/lib/webhooks'
+import { processWebhookDelivery, type ClaimedWebhookDelivery } from '@/lib/webhooks'
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -35,9 +35,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     data: payload,
   }
   
-  const body = JSON.stringify(fullPayload)
-  const timestamp = new Date().toISOString()
-  const signature = signWebhook(webhook.secret, timestamp, body)
   const deliveryId = crypto.randomUUID()
 
   const deliveryRecord = await supabase
@@ -51,58 +48,37 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       payload: fullPayload,
       status: 'processing',
       attempt_count: 1,
+      last_attempted_at: new Date().toISOString(),
+      processing_lease_until: new Date(Date.now() + 60_000).toISOString(),
     })
     .select('id')
     .single()
 
   const startTime = Date.now()
-  let responseStatus = null
-  let errorMessage = null
+  if (deliveryRecord.error || !deliveryRecord.data) throw deliveryRecord.error
 
-  try {
-    if (isUnsafeWebhookUrl(webhook.url)) {
-      throw new Error('unsafe_webhook_destination')
-    }
-    const fetchResponse = await fetch(webhook.url, {
-      method: 'POST',
-      redirect: 'manual',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-People-Signature': `sha256=${signature}`,
-        'X-People-Event': 'webhook.test',
-        'X-People-Event-Id': fullPayload.event_id,
-        'X-People-Delivery-Id': deliveryId,
-        'X-People-Timestamp': timestamp,
-      },
-      body,
-      signal: AbortSignal.timeout(10000),
-    })
-    responseStatus = fetchResponse.status
-    if (!fetchResponse.ok) {
-      errorMessage = await fetchResponse.text().catch(() => 'Unknown error')
-    }
-  } catch (err) {
-    errorMessage = err instanceof Error ? err.message : 'Unknown error'
-  }
+  const result = await processWebhookDelivery({
+    id: deliveryRecord.data.id,
+    church_id: churchId,
+    webhook_id: webhook.id,
+    webhook_url: webhook.url,
+    webhook_secret: webhook.secret,
+    event_type: 'webhook.test',
+    event_id: fullPayload.event_id,
+    delivery_id: deliveryId,
+    payload: fullPayload,
+    attempt_count: 1,
+  } as ClaimedWebhookDelivery)
   
   const duration = Date.now() - startTime
+  const success = result === 'delivered'
+  const { data: finalDelivery } = await supabase
+    .from('webhook_deliveries')
+    .select('last_status_code, last_error')
+    .eq('id', deliveryRecord.data.id)
+    .single()
 
-  if (deliveryRecord.data) {
-    await supabase
-      .from('webhook_deliveries')
-      .update({
-        status: errorMessage ? 'permanently_failed' : 'delivered',
-        response_status: responseStatus,
-        last_status_code: responseStatus,
-        error_message: errorMessage,
-        last_error: errorMessage,
-        delivered_at: !errorMessage ? new Date().toISOString() : null,
-        failed_at: errorMessage ? new Date().toISOString() : null,
-      })
-      .eq('id', deliveryRecord.data.id)
-  }
-
-  if (errorMessage) {
+  if (!success) {
     await recordAuditLog({
       churchId,
       actor: user,
@@ -112,12 +88,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       metadata: {
         success: false,
         duration_ms: duration,
-        response_status: responseStatus,
+        response_status: finalDelivery?.last_status_code ?? null,
       },
       request: req,
     })
 
-    return NextResponse.json({ success: false, error: errorMessage, duration }, { status: 500 })
+    return NextResponse.json({ success: false, error: finalDelivery?.last_error || result, duration }, { status: 500 })
   }
 
     await recordAuditLog({
@@ -129,7 +105,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       metadata: {
         success: true,
         duration_ms: duration,
-        response_status: responseStatus,
+        response_status: finalDelivery?.last_status_code ?? null,
       },
       request: req,
     })
