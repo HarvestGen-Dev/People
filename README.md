@@ -2,7 +2,7 @@
 
 People is a comprehensive, multi-tenant church member relationship management system built for Harvest Generation Church. It serves as the central source of truth for all member data, offering a secure, tenant-isolated environment. It seamlessly integrates with external connected systems—such as the Shepherd Learning Management System (LMS) and Drip & Brew Café Point-of-Sale (POS)—via a robust REST API authenticated by securely managed API keys.
 
-**Tech Stack:** Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS, shadcn/ui, Supabase (Postgres + Auth + Storage), Brevo (Transactional Email).
+**Tech Stack:** Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS, shadcn/ui, Supabase (Postgres + Auth + Storage), Sharp (server-side image processing), Brevo (Transactional Email).
 
 ---
 
@@ -38,7 +38,7 @@ flowchart TD
     UI -- "Auth Tokens" --> Auth
     API -- "Supabase Server Client" --> DB
     API -- "Triggers Emails" --> Email
-    UI -- "Uploads Proofs" --> Storage
+    UI -- "Uploads Proofs and Private Photos" --> Storage
 ```
 
 ### Authentication & Invitation Flow
@@ -145,8 +145,12 @@ This runs:
 - TypeScript type checking (`tsc --noEmit`)
 - Code linting (`eslint`)
 - Supabase schema linting and Postgres validation
-- Node.js native Integration tests (Account Onboarding, People Lookup, Event Registration)
+- Node.js native Integration tests (Account Onboarding, People Lookup, Event Registration, Webhooks, People Photos)
 - A simulated Next.js production build
+
+People-photo upload tests require the local Supabase stack and exercise the
+private `people-photos` bucket, server-side WebP processing, signed URL
+authorization, portal restrictions, and replacement cleanup.
 
 ---
 

@@ -12,6 +12,7 @@ import type {
   WorkflowStep,
 } from '@/lib/types';
 import { applyDisplayOrDatabaseIdFilter } from '@/lib/display-ids';
+import { addSignedPhotoUrls } from '@/lib/people/photos';
 
 export const metadata = {
   title: 'Workflow Board | People',
@@ -44,7 +45,7 @@ export default async function WorkflowDetailPage({ params }: { params: Promise<{
     .from('workflow_cards')
     .select(`
       *,
-      people:person_id(id, display_id, first_name, last_name, status, created_at, photo_url)
+      people:person_id(id, display_id, first_name, last_name, status, created_at, photo_url, photo_path)
     `)
     .eq('workflow_id', workflow.id);
 
@@ -55,6 +56,19 @@ export default async function WorkflowDetailPage({ params }: { params: Promise<{
     .select('user_id, role')
     .eq('church_id', churchId)
     .in('role', ['owner', 'admin']);
+
+  const workflowCards = (cardsData || []) as unknown as WorkflowBoardCard[];
+  const peopleWithSignedPhotos = await addSignedPhotoUrls(
+    workflowCards.map((card) => card.people),
+    churchId
+  );
+  const signedByPersonId = new Map(
+    peopleWithSignedPhotos.map((person) => [person.id, person])
+  );
+  const cardsWithSignedPhotos = workflowCards.map((card) => ({
+    ...card,
+    people: signedByPersonId.get(card.people.id) ?? card.people,
+  }));
 
   return (
     <>
@@ -71,7 +85,7 @@ export default async function WorkflowDetailPage({ params }: { params: Promise<{
         <KanbanBoard
           workflow={workflow as Workflow}
           initialSteps={(steps || []) as WorkflowStep[]}
-          initialCards={(cardsData || []) as unknown as WorkflowBoardCard[]}
+          initialCards={cardsWithSignedPhotos}
           users={(users || []) as WorkflowAdminUser[]}
         />
       </div>

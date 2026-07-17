@@ -7,6 +7,7 @@ import { notFound } from 'next/navigation';
 import { requireTenantContext } from '@/lib/tenant-context';
 import type { ListPerson, SmartListFilters } from '@/lib/types';
 import { applyDisplayOrDatabaseIdFilter } from '@/lib/display-ids';
+import { addSignedPhotoUrls } from '@/lib/people/photos';
 
 export const metadata = {
   title: 'List | People',
@@ -58,18 +59,19 @@ export default async function ListDetailPage({ params }: { params: Promise<{ id:
       .select(`
         person_id,
         people (
-          id, display_id, first_name, last_name, email, phone, status, campus, photo_url
+          id, display_id, first_name, last_name, email, phone, status, campus, photo_url, photo_path
         )
       `)
       .eq('list_id', list.id);
 
-    people = (listMembers || []).flatMap((listMember) =>
+    const rawPeople = (listMembers || []).flatMap((listMember) =>
       Array.isArray(listMember.people)
         ? listMember.people
         : listMember.people
           ? [listMember.people]
           : []
     ) as ListPerson[];
+    people = await addSignedPhotoUrls(rawPeople, churchId);
 
     return (
       <>

@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       phone: person.phone,
       status: person.status,
       campus: person.campus,
-      photo_url: person.photo_url,
+      photo_url: null,
       tags,
       created_at: person.created_at,
       updated_at: person.updated_at,

@@ -79,9 +79,19 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
             Back to directory
           </Link>
           <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
-            <div className="grid h-20 w-20 shrink-0 place-items-center rounded-3xl bg-emerald-950 text-2xl font-bold text-white shadow-lg shadow-emerald-950/15">
-              {person.first_name[0]}
-              {person.last_name[0]}
+            <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-3xl bg-emerald-950 text-2xl font-bold text-white shadow-lg shadow-emerald-950/15">
+              {person.photo_signed_url ? (
+                <img
+                  src={person.photo_signed_url}
+                  alt={`${person.first_name} ${person.last_name}`}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <>
+                  {person.first_name[0]}
+                  {person.last_name[0]}
+                </>
+              )}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-3">

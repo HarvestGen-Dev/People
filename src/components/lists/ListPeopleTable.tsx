@@ -47,10 +47,18 @@ export function ListPeopleTable({
           >
             <div className="flex items-start gap-3">
               <Avatar className="h-10 w-10 border border-emerald-200">
-                <AvatarFallback className="bg-emerald-100 text-xs font-bold text-emerald-700">
-                  {person.first_name[0]}
-                  {person.last_name[0]}
-                </AvatarFallback>
+                {person.photo_signed_url ? (
+                  <img
+                    src={person.photo_signed_url}
+                    alt={`${person.first_name} ${person.last_name}`}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <AvatarFallback className="bg-emerald-100 text-xs font-bold text-emerald-700">
+                    {person.first_name[0]}
+                    {person.last_name[0]}
+                  </AvatarFallback>
+                )}
               </Avatar>
               <div className="min-w-0 flex-1">
                 <Link
@@ -112,10 +120,18 @@ export function ListPeopleTable({
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <Avatar className="h-9 w-9 border border-emerald-200">
-                        <AvatarFallback className="bg-emerald-100 text-[10px] font-bold text-emerald-700">
-                          {person.first_name[0]}
-                          {person.last_name[0]}
-                        </AvatarFallback>
+                        {person.photo_signed_url ? (
+                          <img
+                            src={person.photo_signed_url}
+                            alt={`${person.first_name} ${person.last_name}`}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <AvatarFallback className="bg-emerald-100 text-[10px] font-bold text-emerald-700">
+                            {person.first_name[0]}
+                            {person.last_name[0]}
+                          </AvatarFallback>
+                        )}
                       </Avatar>
                       <Link
                         href={`/people/${personDisplayId}`}

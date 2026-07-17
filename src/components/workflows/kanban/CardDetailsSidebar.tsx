@@ -74,9 +74,9 @@ export function CardDetailsSidebar({
         <div className="flex-1 space-y-6 overflow-y-auto p-5 sm:p-6">
           <div className="flex items-center gap-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
             <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-2xl bg-emerald-200 text-sm font-bold text-emerald-800">
-              {activeCard.people.photo_url ? (
+              {activeCard.people.photo_signed_url ? (
                 <img
-                  src={activeCard.people.photo_url}
+                  src={activeCard.people.photo_signed_url}
                   alt={`${activeCard.people.first_name} ${activeCard.people.last_name}`}
                   className="h-full w-full object-cover"
                 />

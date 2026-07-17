@@ -68,7 +68,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         campus: person.campus,
         gender: person.gender,
         birthdate: person.birthdate,
-        photo_url: person.photo_url,
+        photo_url: null,
         household: person.household,
         tags,
         custom_fields,

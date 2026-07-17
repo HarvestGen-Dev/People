@@ -4,6 +4,7 @@ import {
   SmartListFilters,
   SmartListRule,
 } from '@/lib/types';
+import { addSignedPhotoUrls } from '@/lib/people/photos';
 
 export async function evaluateSmartList(
   filters: SmartListFilters,
@@ -24,7 +25,7 @@ export async function evaluateSmartList(
   
   let query = supabase
     .from('people')
-    .select('id, display_id, first_name, last_name, email, phone, status, campus, photo_url, created_at, updated_at', { count: 'exact' })
+    .select('id, display_id, first_name, last_name, email, phone, status, campus, photo_url, photo_path, created_at, updated_at', { count: 'exact' })
     .eq('church_id', churchId);
 
   // If AND, we can just chain filters.
@@ -74,7 +75,7 @@ export async function evaluateSmartList(
   const { data: allPeople, error } = await supabase
     .from('people')
     .select(`
-      id, display_id, first_name, last_name, email, phone, status, campus, gender, created_at, updated_at, photo_url,
+      id, display_id, first_name, last_name, email, phone, status, campus, gender, created_at, updated_at, photo_url, photo_path,
       person_tags(tag_id)
     `)
     .eq('church_id', churchId);
@@ -151,13 +152,16 @@ export async function evaluateSmartList(
     status: p.status,
     campus: p.campus,
     photo_url: p.photo_url,
+    photo_path: p.photo_path,
     tags: [], // Could join full tags if needed, but summary is usually enough
     created_at: p.created_at,
     updated_at: p.updated_at,
   })) as PersonSummary[];
 
+  const signedPeople = await addSignedPhotoUrls(resultPeople, churchId);
+
   return {
-    people: resultPeople,
+    people: signedPeople,
     total
   };
 }

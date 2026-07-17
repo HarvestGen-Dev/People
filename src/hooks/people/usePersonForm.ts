@@ -45,8 +45,9 @@ export function usePersonForm(
   const [isCreatingHousehold, setIsCreatingHousehold] = useState(false);
   const [householdSearchOpen, setHouseholdSearchOpen] = useState(false);
   
-  const [photoUrl, setPhotoUrl] = useState(person?.photo_url || null);
+  const [photoUrl, setPhotoUrl] = useState(person?.photo_signed_url || null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoRemoved, setPhotoRemoved] = useState(false);
 
   const form = useForm<PersonFormData>({
     resolver: zodResolver(personSchema),
@@ -78,11 +79,12 @@ export function usePersonForm(
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      if (file.size > 2 * 1024 * 1024) {
-        toast.error('File size must be less than 2MB');
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('File size must be less than 5MB');
         return;
       }
       setPhotoFile(file);
+      setPhotoRemoved(false);
       setPhotoUrl(URL.createObjectURL(file));
     }
   };
@@ -97,9 +99,23 @@ export function usePersonForm(
       body: formData,
     });
     
-    if (!res.ok) throw new Error('Failed to upload photo');
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => null);
+      throw new Error(errorData?.error || 'Failed to upload photo');
+    }
     const { data } = await res.json();
-    return data.photo_url;
+    return data.signedUrl;
+  };
+
+  const removePhoto = async (personId: string) => {
+    const res = await fetch(`/api/admin/people/${personId}/photo`, {
+      method: 'DELETE',
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => null);
+      throw new Error(errorData?.error || 'Failed to remove photo');
+    }
   };
 
   const onSubmit = async (data: PersonFormData) => {
@@ -139,6 +155,8 @@ export function usePersonForm(
 
       if (photoFile) {
         await uploadPhoto(personId);
+      } else if (photoRemoved && isEdit) {
+        await removePhoto(personId);
       }
 
       toast.success(isEdit ? 'Person updated successfully' : 'Person created successfully');
@@ -169,6 +187,8 @@ export function usePersonForm(
     setPhotoUrl,
     photoFile,
     setPhotoFile,
+    photoRemoved,
+    setPhotoRemoved,
     handlePhotoSelect,
     onSubmit,
   };

@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import type { PersonWithRelations } from '@/lib/types';
 import { createRequestPerformanceTracker } from '@/lib/performance';
+import { addSignedPhotoUrls } from '@/lib/people/photos';
 
 export type PeopleFilters = {
   church_id: string;
@@ -33,6 +34,7 @@ export async function getPeople(filters: PeopleFilters): Promise<{
       status,
       campus,
       photo_url,
+      photo_path,
       created_at,
       updated_at,
       person_tags(tag:tags(id, name, color)),
@@ -48,6 +50,7 @@ export async function getPeople(filters: PeopleFilters): Promise<{
       status,
       campus,
       photo_url,
+      photo_path,
       created_at,
       updated_at,
       person_tags(tag:tags(id, name, color))
@@ -78,5 +81,10 @@ export async function getPeople(filters: PeopleFilters): Promise<{
   if (error) throw error;
 
   perf.log();
-  return { people: (data as unknown as PersonWithRelations[]) ?? [], total: count ?? 0 };
+  const people = await addSignedPhotoUrls(
+    ((data as unknown as PersonWithRelations[]) ?? []),
+    filters.church_id
+  );
+
+  return { people, total: count ?? 0 };
 }

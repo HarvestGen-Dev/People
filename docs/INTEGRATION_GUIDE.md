@@ -28,6 +28,14 @@ congregant account must not be modeled as an administrative membership.
 Developer tools such as API keys, webhook configuration, delivery logs, and
 integration diagnostics are restricted to `owner` and `admin`.
 
+## People photos and API responses
+
+People photos are private CRM assets. They are not exposed through API-key
+integrations and should not be treated as public profile images. `/api/v1`
+person responses intentionally return `photo_url: null`; authenticated
+dashboard and portal surfaces obtain short-lived signed URLs only after
+server-side authorization.
+
 ## Quick Start
 
 ### Step 1: Get an API key

@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
       phone: p.phone,
       status: p.status,
       campus: p.campus,
-      photo_url: p.photo_url,
+      photo_url: null,
       tags: (p.person_tags || [])
         .map((personTag: { tag: { id: string; display_id?: string | null } }) =>
           personTag.tag

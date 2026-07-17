@@ -6,6 +6,7 @@ import type {
   WorkflowCardWithRelations,
 } from '@/lib/types';
 import { applyDisplayOrDatabaseIdFilter } from '@/lib/display-ids';
+import { createPeoplePhotoSignedUrl } from '@/lib/people/photos';
 
 export async function getPersonById(
   id: string,
@@ -26,7 +27,9 @@ export async function getPersonById(
     .single();
 
   if (error || !data) return null;
-  return data as PersonWithRelations;
+  const person = data as PersonWithRelations;
+  const signed = await createPeoplePhotoSignedUrl(person, churchId);
+  return { ...person, photo_signed_url: signed.signedUrl };
 }
 
 export async function getPersonNotes(

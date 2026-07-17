@@ -130,7 +130,8 @@ CREATE TABLE people (
   birthdate       DATE,
   marital_status  TEXT CHECK (marital_status IN ('single', 'married', 'divorced', 'widowed')),
   anniversary     DATE,
-  photo_url       TEXT,
+  photo_url       TEXT,                   -- Legacy reference only; do not write new people photos here.
+  photo_path      TEXT,                   -- Private people-photos object path: {church_id}/{person_id}/{filename}
   status          TEXT NOT NULL DEFAULT 'visitor'
                   CHECK (status IN ('active', 'visitor', 'inactive', 'child')),
   campus          TEXT,                   -- E.g. "Bandar Sunway"
@@ -155,6 +156,13 @@ Email identity is trimmed and case-insensitive. Malaysian local phone numbers
 beginning with `0` normalize to `+60`; punctuation and spacing are ignored.
 Phones are indexed but not unique because multiple people may legitimately
 share one number.
+
+People photos are private CRM data. New uploads are processed server-side,
+re-encoded to WebP, stored in the private `people-photos` bucket under a
+tenant/person-scoped path, and exposed only through authorized short-lived
+signed URLs. API-key responses do not expose legacy public `photo_url` values.
+Portal users may access only their linked person photo until a secure household
+permission model is implemented.
 
 ### Custom Fields & Tags
 
