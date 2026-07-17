@@ -131,13 +131,18 @@ Rollback plan:
 
 ## Tenant Composite Foreign Keys
 
-Current status: audit required before constraints.
+Current status: audit helpers added; enforcement constraints still pending.
+
+Migration `040` exposes service-role-only audit views:
+
+- `tenant_relationship_integrity_audit`
+- `tenant_relationship_integrity_violations`
 
 Several tables contain both `church_id` and foreign resource IDs while the
-original foreign keys reference only `id`. The important candidates are
+original foreign keys reference only `id`. The audited candidates are
 `person_tags`, `person_field_values`, `notes`, `person_events`,
-`workflow_cards`, `list_people`, `event_registrations`, connect-form target
-tag/workflow references, `webhook_deliveries`, and `person_user_links`.
+`workflow_cards`, `list_people`, `event_registrations`, `person_user_links`,
+connect-form tag/workflow/submission references, and `webhook_deliveries`.
 
 Recommended rollout:
 
