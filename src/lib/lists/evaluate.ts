@@ -76,7 +76,7 @@ export async function evaluateSmartList(
     .from('people')
     .select(`
       id, display_id, first_name, last_name, email, phone, status, campus, gender, created_at, updated_at, photo_url, photo_path,
-      person_tags(tag_id)
+      person_tags!person_tags_church_person_fk(tag_id)
     `)
     .eq('church_id', churchId);
 

@@ -22,6 +22,7 @@ npm run test:integration:connect-forms
 npm run test:integration:webhooks
 npm run test:integration:photos
 npm run test:integration:tenant-fks
+npm run test:integration:tenant-foreign-keys
 npm run test:integration:events
 
 echo "=== Running Production Build ==="

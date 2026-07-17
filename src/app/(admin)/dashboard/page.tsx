@@ -104,10 +104,10 @@ export default async function DashboardPage() {
         email,
         created_at,
         status,
-        person_events(source),
-        workflow_cards!left(
+        person_events!person_events_church_person_fk(source),
+        workflow_cards!workflow_cards_church_person_fk(
           id,
-          workflow_steps(name)
+          workflow_steps!workflow_cards_church_current_step_fk(name)
         )
       `)
       .eq('church_id', churchId)
@@ -121,9 +121,9 @@ export default async function DashboardPage() {
         id,
         due_date,
         person_id,
-        people!inner(first_name, last_name, id, display_id),
-        workflow_steps(name),
-        workflows!inner(name, church_id)
+        people!workflow_cards_church_person_fk!inner(first_name, last_name, id, display_id),
+        workflow_steps!workflow_cards_church_current_step_fk(name),
+        workflows!workflow_cards_church_workflow_fk!inner(name, church_id)
       `)
       .eq('church_id', churchId)
       .eq('workflows.church_id', churchId)

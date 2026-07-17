@@ -26,9 +26,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .from('people')
       .select(`
         *,
-        household:households(id, name, address),
-        person_tags(tag:tags(id, display_id, name, color)),
-        person_field_values(value, field:field_definitions(slug))
+        household:households!people_church_household_fk(id, name, address),
+        person_tags!person_tags_church_person_fk(tag:tags!person_tags_church_tag_fk(id, display_id, name, color)),
+        person_field_values!person_field_values_church_person_fk(value, field:field_definitions!person_field_values_church_field_definition_fk(slug))
       `)
       .eq('church_id', churchId);
 

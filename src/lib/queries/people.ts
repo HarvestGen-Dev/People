@@ -37,7 +37,7 @@ export async function getPeople(filters: PeopleFilters): Promise<{
       photo_path,
       created_at,
       updated_at,
-      person_tags(tag:tags(id, name, color)),
+      person_tags!person_tags_church_person_fk(tag:tags!person_tags_church_tag_fk(id, name, color)),
       tag_filter:person_tags!inner(tag_id)
     `
     : `
@@ -53,7 +53,7 @@ export async function getPeople(filters: PeopleFilters): Promise<{
       photo_path,
       created_at,
       updated_at,
-      person_tags(tag:tags(id, name, color))
+      person_tags!person_tags_church_person_fk(tag:tags!person_tags_church_tag_fk(id, name, color))
     `;
 
   let query = supabase

@@ -15,7 +15,7 @@ export default async function ListsPage() {
     .from('lists')
     .select(`
       *,
-      member_count:list_people(count)
+      member_count:list_people!list_people_church_list_fk(count)
     `)
     .eq('church_id', churchId)
     .order('created_at', { ascending: false });

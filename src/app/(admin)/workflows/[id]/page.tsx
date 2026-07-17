@@ -45,7 +45,7 @@ export default async function WorkflowDetailPage({ params }: { params: Promise<{
     .from('workflow_cards')
     .select(`
       *,
-      people:person_id(id, display_id, first_name, last_name, status, created_at, photo_url, photo_path)
+      people:people!workflow_cards_church_person_fk(id, display_id, first_name, last_name, status, created_at, photo_url, photo_path)
     `)
     .eq('workflow_id', workflow.id);
 

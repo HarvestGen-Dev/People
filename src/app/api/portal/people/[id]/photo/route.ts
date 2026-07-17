@@ -28,7 +28,7 @@ export async function GET(
     const serviceClient = createServiceClient();
     const { data: link, error } = await serviceClient
       .from('person_user_links')
-      .select('people(id, church_id, photo_path, photo_url)')
+      .select('people!person_user_links_church_person_fk(id, church_id, photo_path, photo_url)')
       .eq('user_id', user.id)
       .eq('person_id', id)
       .maybeSingle();
