@@ -89,30 +89,36 @@ Photo access rules:
 The application signs photos for the currently rendered people page or list
 result set rather than exposing arbitrary path signing. API v1 person responses
 return `photo_url: null` so integrations do not receive stale public photo
-references.
+references. Existing API consumers that used `photo_url` must tolerate `null`;
+this PR does not add an authorized integration photo endpoint.
 
 Legacy migration is staged. Migration 039 adds the private path column, makes
 the `people-photos` bucket private, disables direct client writes to that
 bucket, and adds the service-role-only
 `people_photo_reference_inventory` view. Existing `photo_url` values are not
 rewritten or deleted. The code can sign legacy Supabase `people-photos` public
-URLs only when the decoded object path is tenant/person scoped.
+URLs only when the decoded object path is tenant/person scoped. External legacy
+URLs are deliberately not displayed or proxied by the private-photo code because
+they cannot be made private through Supabase bucket policy changes.
 
 Deployment checklist:
 
 1. Back up the database.
-2. Apply migration 039.
+2. Inventory objects and non-null legacy `people.photo_url` categories.
 3. Deploy code that writes `photo_path` and can read scoped legacy references.
-4. Verify one admin upload, one replacement, one removal, and one portal
+4. Verify legacy URL parsing and authorized signing in staging.
+5. Apply migration 039 to make the bucket private.
+6. Immediately verify old legacy Supabase photos and new private uploads.
+7. Verify one admin upload, one replacement, one removal, and one portal
    own-photo retrieval.
-5. Query `people_photo_reference_inventory` as `service_role`.
-6. Pilot-copy or reprocess legacy objects for one tenant into private
+8. Query `people_photo_reference_inventory` as `service_role`.
+9. Pilot-copy or reprocess legacy objects for one tenant into private
    tenant/person paths.
-7. Update copied records to `photo_path` and clear `photo_url` only after
+10. Update copied records to `photo_path` and clear `photo_url` only after
    verification.
-8. Migrate remaining tenants.
-9. Monitor missing-object and authorization errors.
-10. Remove legacy fallback in a later PR after all tenants are verified.
+11. Migrate remaining tenants.
+12. Monitor missing-object and authorization errors.
+13. Remove legacy fallback in a later PR after all tenants are verified.
 
 Rollback plan:
 

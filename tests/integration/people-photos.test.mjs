@@ -45,6 +45,7 @@ let otherChurchId;
 let personId;
 let otherPersonId;
 let portalPersonId;
+let unrelatedChildId;
 let adminCookies = '';
 let viewerCookies = '';
 let memberCookies = '';
@@ -139,14 +140,16 @@ before(async () => {
     .from('people')
     .insert([
       { church_id: churchId, first_name: 'Photo', last_name: 'Person', email: `photo-${suffix}@test.com`, status: 'visitor' },
-      { church_id: otherChurchId, first_name: 'Other', last_name: 'Tenant', email: `other-photo-${suffix}@test.com`, status: 'visitor' },
+      { church_id: otherChurchId, first_name: 'Other', last_name: 'Tenant', email: `other-photo-${suffix}@test.com`, status: 'child' },
       { church_id: churchId, first_name: 'Portal', last_name: 'Owner', email: `portal-photo-${suffix}@test.com`, status: 'child' },
+      { church_id: churchId, first_name: 'Unrelated', last_name: 'Child', email: `unrelated-child-photo-${suffix}@test.com`, status: 'child' },
     ])
     .select('id, church_id');
   if (peopleError) throw peopleError;
   personId = people[0].id;
   otherPersonId = people[1].id;
   portalPersonId = people[2].id;
+  unrelatedChildId = people[3].id;
 
   for (const role of ['admin', 'viewer', 'member']) {
     const email = `${role}-photo-${suffix}@test.com`;
@@ -229,6 +232,87 @@ test('admin uploads are processed to private paths and signed URLs are short liv
   assert.equal(downloaded.data.type, 'image/webp');
 });
 
+test('legacy public people-photo URLs are signed after the bucket becomes private', async () => {
+  const { data: legacyPerson, error: personError } = await admin
+    .from('people')
+    .insert({
+      church_id: churchId,
+      first_name: 'Legacy',
+      last_name: 'Photo',
+      email: `legacy-photo-${suffix}@test.com`,
+      status: 'visitor',
+    })
+    .select('id')
+    .single();
+  if (personError) throw personError;
+
+  const legacyPath = `${churchId}/${legacyPerson.id}/legacy-${suffix}.png`;
+  const legacyBuffer = await sharp({
+    create: {
+      width: 24,
+      height: 24,
+      channels: 3,
+      background: { r: 120, g: 22, b: 90 },
+    },
+  }).png().toBuffer();
+
+  try {
+    const publicBucket = await admin.storage.updateBucket('people-photos', {
+      public: true,
+      fileSizeLimit: 5242880,
+      allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+    });
+    assert.equal(publicBucket.error, null);
+
+    const upload = await admin.storage
+      .from('people-photos')
+      .upload(legacyPath, legacyBuffer, {
+        contentType: 'image/png',
+        upsert: false,
+      });
+    assert.equal(upload.error, null);
+
+    const { data: publicData } = admin.storage
+      .from('people-photos')
+      .getPublicUrl(legacyPath);
+    assert.ok(publicData.publicUrl.includes('/storage/v1/object/public/people-photos/'));
+
+    const { error: updateError } = await admin
+      .from('people')
+      .update({ photo_url: publicData.publicUrl, photo_path: null })
+      .eq('id', legacyPerson.id);
+    assert.equal(updateError, null);
+
+    const privateBucket = await admin.storage.updateBucket('people-photos', {
+      public: false,
+      fileSizeLimit: 5242880,
+      allowedMimeTypes: ['image/webp'],
+    });
+    assert.equal(privateBucket.error, null);
+
+    const originalPublicResponse = await fetch(publicData.publicUrl);
+    assert.notEqual(originalPublicResponse.status, 200);
+
+    const signed = await getPhoto(adminCookies, legacyPerson.id);
+    assert.equal(signed.response.status, 200);
+    assert.ok(signed.body.data.signedUrl);
+    assert.notEqual(signed.body.data.signedUrl, publicData.publicUrl);
+    assert.match(signed.body.data.signedUrl, /\/storage\/v1\/object\/sign\/people-photos\//);
+    assert.equal(signed.body.data.expiresIn, 600);
+
+    const signedFetch = await fetch(signed.body.data.signedUrl);
+    assert.equal(signedFetch.status, 200);
+    assert.equal(signedFetch.headers.get('content-type')?.includes('image/png'), true);
+  } finally {
+    await admin.storage.updateBucket('people-photos', {
+      public: false,
+      fileSizeLimit: 5242880,
+      allowedMimeTypes: ['image/webp'],
+    });
+    await admin.storage.from('people-photos').remove([legacyPath]);
+  }
+});
+
 test('upload rejects spoofed MIME, excessive dimensions, unauthorized role, and cross-tenant people', async () => {
   const spoofed = new File([Buffer.from('not an image')], 'spoof.jpg', { type: 'image/jpeg' });
   const spoofedResult = await uploadPhoto(adminCookies, personId, spoofed);
@@ -285,8 +369,9 @@ test('photo retrieval is authorized for tenant readers but not anonymous or lega
   assert.equal(crossTenant.response.status, 404);
 });
 
-test('portal user can retrieve own child photo but not another person photo', async () => {
+test('portal user can retrieve own child photo but not an unrelated child photo', async () => {
   await uploadPhoto(adminCookies, portalPersonId, await imageFile('jpeg'));
+  await uploadPhoto(adminCookies, unrelatedChildId, await imageFile('jpeg'));
 
   const own = await fetch(`${baseUrl}/api/portal/people/${portalPersonId}/photo`, {
     headers: { Cookie: portalCookies },
@@ -295,7 +380,7 @@ test('portal user can retrieve own child photo but not another person photo', as
   assert.equal(own.status, 200);
   assert.ok(ownBody.data.signedUrl);
 
-  const other = await fetch(`${baseUrl}/api/portal/people/${personId}/photo`, {
+  const other = await fetch(`${baseUrl}/api/portal/people/${unrelatedChildId}/photo`, {
     headers: { Cookie: portalCookies },
   });
   assert.equal(other.status, 404);

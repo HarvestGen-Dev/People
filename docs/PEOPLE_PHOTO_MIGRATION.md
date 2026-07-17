@@ -41,6 +41,12 @@ Categories:
 - `external_url`: non-Supabase HTTP(S) URL.
 - `malformed_or_unknown`: value that needs manual review.
 
+The application can sign scoped legacy Supabase `people-photos` public URLs
+after the bucket becomes private. External URLs are not displayed directly and
+are not proxied by this migration because they remain public outside Supabase
+control. Replace them with fresh authorized uploads or a controlled manual
+reprocessing flow.
+
 ## Tenant Pilot
 
 1. Pick one tenant with a small number of legacy records.
