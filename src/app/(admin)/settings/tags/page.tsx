@@ -14,7 +14,7 @@ export default async function TagsSettingsPage() {
 
   const { data: tags } = await supabase
     .from('tags')
-    .select('*, person_tags(count)')
+    .select('*, person_tags!person_tags_church_tag_fk(count)')
     .eq('church_id', churchId)
     .order('name');
 

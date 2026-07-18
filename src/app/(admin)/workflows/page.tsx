@@ -14,8 +14,8 @@ export default async function WorkflowsPage() {
     .from('workflows')
     .select(`
       *,
-      workflow_steps(id),
-      workflow_cards(id, completed_at)
+      workflow_steps!workflow_steps_church_workflow_fk(id),
+      workflow_cards!workflow_cards_church_workflow_fk(id, completed_at)
     `)
     .eq('church_id', churchId)
     .order('created_at', { ascending: false });

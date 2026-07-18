@@ -131,27 +131,37 @@ Rollback plan:
 
 ## Tenant Composite Foreign Keys
 
-Current status: audit helpers added; enforcement constraints still pending.
+Current status: audit helpers and staged enforcement constraints are present.
 
-Migration `040` exposes service-role-only audit views:
+Migrations `040` through `044` add service-role-only audit views, parent
+`UNIQUE (church_id, id)` keys, child support indexes, and 28 tenant-aware
+composite foreign keys. The foreign keys are intentionally `NOT VALID` until
+production data is audited and each relationship is validated in a controlled
+rollout.
+
+Audit views:
 
 - `tenant_relationship_integrity_audit`
 - `tenant_relationship_integrity_violations`
+- `tenant_relationship_integrity_complete_audit`
+- `tenant_relationship_integrity_complete_violations`
 
 Several tables contain both `church_id` and foreign resource IDs while the
-original foreign keys reference only `id`. The audited candidates are
-`person_tags`, `person_field_values`, `notes`, `person_events`,
-`workflow_cards`, `list_people`, `event_registrations`, `person_user_links`,
-connect-form tag/workflow/submission references, and `webhook_deliveries`.
+original foreign keys reference only `id`. New inserts and updates are now
+rejected when they try to link tenant-owned records across churches, including
+service-role writes. Historical rows should be checked with
+`tenant_relationship_integrity_complete_audit` before validation.
 
 Recommended rollout:
 
-1. Run cross-tenant violation queries in production.
-2. Add parent `UNIQUE (church_id, id)` constraints where missing.
-3. Add supporting child indexes.
-4. Add composite foreign keys as `NOT VALID`.
-5. Repair or explicitly accept invalid historical rows.
-6. Validate constraints during a controlled maintenance window.
+1. Back up the database.
+2. Run `tenant_relationship_integrity_complete_audit` in production with
+   `service_role`.
+3. Confirm zero violations for the relationship group being validated.
+4. Validate the corresponding `NOT VALID` constraints.
+5. Repair or explicitly accept invalid historical rows before validating any
+   relationship with nonzero counts.
+6. Monitor FK errors from service-role writes after validation.
 
 Do not delete or rewrite production rows automatically.
 

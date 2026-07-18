@@ -26,7 +26,7 @@ export async function GET() {
         submitted_at,
         reviewed_at,
         resolution_note,
-        people!inner(id, display_id, first_name, last_name, church_id)
+        people!person_proposed_updates_church_person_fk!inner(id, display_id, first_name, last_name, church_id)
       `)
       .eq('church_id', churchId)
       .order('submitted_at', { ascending: false })

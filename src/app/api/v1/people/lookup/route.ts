@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     // Get tags to format the response
     const { data: personTags } = await supabase
       .from('person_tags')
-      .select('tag:tags(id, display_id, name, color)')
+      .select('tag:tags!person_tags_church_tag_fk(id, display_id, name, color)')
       .eq('person_id', person.id)
       .eq('church_id', auth.apiKey!.church_id);
 

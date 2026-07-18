@@ -29,7 +29,7 @@ export async function approveRegistration(
   // 2. Fetch the registration to process emails
   const { data: registration, error: fetchError } = await supabase
     .from('event_registrations')
-    .select('*, event:events(*)')
+    .select('*, event:events!event_registrations_church_event_fk(*)')
     .eq('id', registrationId)
     .eq('church_id', churchId)
     .single();

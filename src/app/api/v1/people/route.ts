@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('people')
-      .select('*, person_tags(tag:tags(id, display_id, name, color))', { count: 'exact' })
+      .select('*, person_tags!person_tags_church_person_fk(tag:tags!person_tags_church_tag_fk(id, display_id, name, color))', { count: 'exact' })
       .eq('church_id', churchId)
       .order('last_name')
       .order('first_name');
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
       // person_tags!inner(tag_id)
       query = supabase
         .from('people')
-        .select('*, person_tags!inner(tag_id, tag:tags(id, display_id, name, color))', { count: 'exact' })
+        .select('*, person_tags!person_tags_church_person_fk!inner(tag_id, tag:tags!person_tags_church_tag_fk(id, display_id, name, color))', { count: 'exact' })
         .eq('church_id', churchId)
         .eq('person_tags.tag_id', tag.id)
         .order('last_name')

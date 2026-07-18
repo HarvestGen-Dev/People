@@ -17,9 +17,9 @@ export async function getPersonById(
     .from('people')
     .select(`
       *,
-      household:households(*),
-      person_tags(tag:tags(*)),
-      person_field_values(*, field_definition:field_definitions(*))
+      household:households!people_church_household_fk(*),
+      person_tags!person_tags_church_person_fk(tag:tags!person_tags_church_tag_fk(*)),
+      person_field_values!person_field_values_church_person_fk(*, field_definition:field_definitions!person_field_values_church_field_definition_fk(*))
     `)
     .eq('church_id', churchId);
 
@@ -71,7 +71,7 @@ export async function getPersonWorkflowCards(
   const supabase = createServiceClient();
   const { data } = await supabase
     .from('workflow_cards')
-    .select('*, workflows(name), workflow_steps(name)')
+    .select('*, workflows!workflow_cards_church_workflow_fk(name), workflow_steps!workflow_cards_church_current_step_fk(name)')
     .eq('person_id', personId)
     .eq('church_id', churchId)
     .order('created_at', { ascending: false });
