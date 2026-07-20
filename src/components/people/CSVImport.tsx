@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import Papa from 'papaparse';
 import { UploadCloud } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { startNavigationProgress } from '@/lib/navigation-progress';
 
 export function CSVImport() {
   const [isImporting, setIsImporting] = useState(false);
@@ -36,6 +37,7 @@ export function CSVImport() {
           toast.error(res.error);
         } else if (res?.success) {
           toast.success(`Successfully imported ${res.count} people!`);
+          startNavigationProgress();
           router.push('/people');
         }
         setIsImporting(false);

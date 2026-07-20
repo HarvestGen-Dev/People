@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { startNavigationProgress } from '@/lib/navigation-progress';
 
 interface PaginationProps {
   total: number;
@@ -22,6 +23,7 @@ export function Pagination({ total, pageSize }: PaginationProps) {
   const handlePageChange = (newPage: number) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set('page', newPage.toString());
+    startNavigationProgress();
     router.replace(`${pathname}?${params.toString()}`);
   };
 

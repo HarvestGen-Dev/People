@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TabsContent } from '@/components/ui/tabs';
+import { startNavigationProgress } from '@/lib/navigation-progress';
 
 export function ProfileOverviewTab({
   person,
@@ -88,7 +89,10 @@ export function ProfileOverviewTab({
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">Tags</CardTitle>
                 {canManage && (
-                  <Button variant="link" onClick={() => router.push(`${pathname}/edit`)} className="h-auto p-0 text-emerald-700">Manage</Button>
+                  <Button variant="link" onClick={() => {
+                    startNavigationProgress();
+                    router.push(`${pathname}/edit`);
+                  }} className="h-auto p-0 text-emerald-700">Manage</Button>
                 )}
               </div>
             </CardHeader>
@@ -131,7 +135,10 @@ export function ProfileOverviewTab({
                 <div>
                   <span className="mb-3 block text-sm text-muted-foreground">Not part of a household.</span>
                   {canManage && (
-                    <Button variant="outline" size="sm" onClick={() => router.push(`${pathname}/edit`)} className="w-full rounded-xl shadow-sm">Add to household</Button>
+                    <Button variant="outline" size="sm" onClick={() => {
+                      startNavigationProgress();
+                      router.push(`${pathname}/edit`);
+                    }} className="w-full rounded-xl shadow-sm">Add to household</Button>
                   )}
                 </div>
               )}
@@ -156,7 +163,10 @@ export function ProfileOverviewTab({
                       </div>
                     </div>
                   ))}
-                  <Button variant="link" onClick={() => router.push('/workflows')} className="mt-2 h-auto w-full justify-center p-0 text-sm text-emerald-700">View workflow board</Button>
+                  <Button variant="link" onClick={() => {
+                    startNavigationProgress();
+                    router.push('/workflows');
+                  }} className="mt-2 h-auto w-full justify-center p-0 text-sm text-emerald-700">View workflow board</Button>
                 </div>
               ) : (
                 <span className="text-sm text-muted-foreground">No active workflows.</span>

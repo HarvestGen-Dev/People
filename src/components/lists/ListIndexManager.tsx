@@ -31,6 +31,7 @@ import {
 import type { ListWithCount, SmartListFilters } from '@/lib/types';
 import { useAdminPermissions } from '@/components/layout/AdminPermissions';
 import { displayIdFor } from '@/lib/display-ids';
+import { startNavigationProgress } from '@/lib/navigation-progress';
 
 type ListRow = ListWithCount & { filters: SmartListFilters | null };
 
@@ -58,6 +59,7 @@ export function ListIndexManager({
 
   const handleCreate = () => {
     if (!formData.name.trim()) return;
+    startNavigationProgress();
     router.push(
       `/lists/new?type=${formData.type}&name=${encodeURIComponent(formData.name)}`
     );
@@ -167,7 +169,10 @@ export function ListIndexManager({
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-36 rounded-xl">
                         <DropdownMenuItem
-                          onClick={() => router.push(`/lists/${listDisplayId}`)}
+                          onClick={() => {
+                            startNavigationProgress();
+                            router.push(`/lists/${listDisplayId}`);
+                          }}
                         >
                           Open list
                         </DropdownMenuItem>
@@ -183,7 +188,10 @@ export function ListIndexManager({
 
                   <button
                     type="button"
-                    onClick={() => router.push(`/lists/${listDisplayId}`)}
+                    onClick={() => {
+                      startNavigationProgress();
+                      router.push(`/lists/${listDisplayId}`);
+                    }}
                     className="mt-5 block w-full text-left"
                   >
                     <h3 className="truncate text-lg font-bold text-slate-950 group-hover:text-emerald-700">

@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { TenantRole } from '@/lib/tenant-context';
+import { startNavigationProgress } from '@/lib/navigation-progress';
 
 const primaryNav = [
   { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
@@ -71,6 +72,7 @@ export function Sidebar({
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
+    startNavigationProgress();
     router.push('/login');
   };
   const canAccessDeveloperTools =
