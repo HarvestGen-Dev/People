@@ -89,7 +89,7 @@ export default async function DashboardPage() {
         source,
         event_type,
         occurred_at,
-        people(id, display_id, first_name, last_name)
+        people!person_events_church_person_fk(id, display_id, first_name, last_name)
       `)
       .eq('church_id', churchId)
       .order('occurred_at', { ascending: false })

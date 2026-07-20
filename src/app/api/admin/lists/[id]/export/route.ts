@@ -46,7 +46,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     } else {
       const { data: listMembers } = await supabase
         .from('list_people')
-        .select('people(id, display_id, first_name, last_name, email, phone, status, campus)')
+        .select('people!list_people_church_person_fk(id, display_id, first_name, last_name, email, phone, status, campus)')
         .eq('list_id', list.id)
         .eq('church_id', churchId);
       const relatedPeople = (listMembers || []).flatMap((listMember) => {

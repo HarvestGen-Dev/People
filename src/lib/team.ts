@@ -55,7 +55,7 @@ export async function getChurchTeam(churchId: string): Promise<{
       .order('created_at', { ascending: false }),
     supabase
       .from('person_claim_requests')
-      .select('id, email, person_id, created_at, people(first_name, last_name)')
+      .select('id, email, person_id, created_at')
       .eq('church_id', churchId)
       .eq('status', 'pending')
       .order('created_at', { ascending: true }),
@@ -64,6 +64,23 @@ export async function getChurchTeam(churchId: string): Promise<{
   if (membershipError) throw membershipError;
   if (invitationError) throw invitationError;
   if (claimRequestError) throw claimRequestError;
+
+  const claimPersonIds = [
+    ...new Set((claimRequests || []).map((request) => request.person_id)),
+  ];
+  const { data: claimPeople, error: claimPeopleError } = claimPersonIds.length
+    ? await supabase
+        .from('people')
+        .select('id, first_name, last_name')
+        .eq('church_id', churchId)
+        .in('id', claimPersonIds)
+    : { data: [], error: null };
+
+  if (claimPeopleError) throw claimPeopleError;
+
+  const peopleById = new Map(
+    (claimPeople || []).map((person) => [person.id, person])
+  );
 
   const members = await Promise.all(
     (memberships || []).map(async (membership) => {
@@ -94,9 +111,7 @@ export async function getChurchTeam(churchId: string): Promise<{
       createdAt: invitation.created_at,
     })),
     claimRequests: (claimRequests || []).map((request) => {
-      const person = Array.isArray(request.people)
-        ? request.people[0]
-        : request.people;
+      const person = peopleById.get(request.person_id);
       return {
         id: request.id,
         email: request.email,
