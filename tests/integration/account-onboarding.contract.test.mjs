@@ -8,6 +8,7 @@ const migrationPath =
 const invitedProfileMigrationPath =
   'supabase/migrations/016_create_invited_person_profile.sql';
 const signupActionsPath = 'src/app/(auth)/signup/actions.ts';
+const teamPath = 'src/lib/team.ts';
 
 test('onboarding migration keeps portal identity separate from tenant roles', async () => {
   const sql = await readFile(migrationPath, 'utf8');
@@ -75,4 +76,15 @@ test('signup actions clear an existing session before account creation', async (
     source,
     /const sessionClient = await createClient\(\)[\s\S]*?await clearExistingSession\(sessionClient\)[\s\S]*?sessionClient\.auth\.signInWithPassword/
   );
+});
+
+test('team settings avoids ambiguous claim request people embeds', async () => {
+  const source = await readFile(teamPath, 'utf8');
+
+  assert.doesNotMatch(
+    source,
+    /person_claim_requests[\s\S]*?select\([^)]*people\(/,
+    'person_claim_requests must not embed people because tenant composite FKs create multiple PostgREST relationships'
+  );
+  assert.match(source, /\.from\('people'\)[\s\S]*?\.eq\('church_id', churchId\)[\s\S]*?\.in\('id', claimPersonIds\)/);
 });

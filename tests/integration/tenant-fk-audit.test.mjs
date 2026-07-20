@@ -1,6 +1,7 @@
 // <!-- AGENT: INTEGRATION -->
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import { after, before, test } from 'node:test';
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
@@ -209,4 +210,43 @@ test('tenant relationship audit reports zero violations for valid same-tenant ro
     .limit(1);
   if (detailError) throw detailError;
   assert.deepEqual(detailRows, []);
+});
+
+test('source queries disambiguate people embeds after tenant composite FKs', async () => {
+  const riskyEmbeds = [
+    {
+      path: 'src/app/(admin)/dashboard/page.tsx',
+      table: 'person_events',
+      relationship: 'person_events_church_person_fk',
+    },
+    {
+      path: 'src/app/portal/page.tsx',
+      table: 'person_user_links',
+      relationship: 'person_user_links_church_person_fk',
+    },
+    {
+      path: 'src/app/api/admin/lists/[id]/export/route.ts',
+      table: 'list_people',
+      relationship: 'list_people_church_person_fk',
+    },
+    {
+      path: 'src/lib/team.ts',
+      table: 'person_claim_requests',
+      relationship: 'person_claim_requests_church_person_fk',
+    },
+  ];
+
+  for (const { path, table, relationship } of riskyEmbeds) {
+    const source = await readFile(path, 'utf8');
+    const queryPattern = new RegExp(
+      `from\\('${table}'\\)[\\s\\S]*?select\\([\\s\\S]*?people\\(`,
+      'm'
+    );
+    const explicitRelationshipPattern = new RegExp(`people!${relationship}\\(`);
+
+    assert.ok(
+      !queryPattern.test(source) || explicitRelationshipPattern.test(source),
+      `${path} must use people!${relationship}(...) or avoid embedding people from ${table}`
+    );
+  }
 });

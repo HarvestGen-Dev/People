@@ -18,7 +18,7 @@ export default async function PortalPage() {
     .select(`
       id,
       claimed_at,
-      people(id, church_id, first_name, last_name, email, phone, status, campus, photo_path, photo_url),
+      people!person_user_links_church_person_fk(id, church_id, first_name, last_name, email, phone, status, campus, photo_path, photo_url),
       churches(name)
     `)
     .eq('user_id', user.id)
