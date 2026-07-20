@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { startNavigationProgress } from '@/lib/navigation-progress';
 
 export function DeleteEventButton({ eventId, hasRegistrations }: { eventId: string, hasRegistrations: boolean }) {
   const router = useRouter();
@@ -25,6 +26,7 @@ export function DeleteEventButton({ eventId, hasRegistrations }: { eventId: stri
       if (!res.ok) throw new Error('Failed to delete event');
       
       toast.success('Event deleted');
+      startNavigationProgress();
       router.push('/events');
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Failed to delete event');

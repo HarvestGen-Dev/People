@@ -13,6 +13,7 @@ import type {
   SmartListFilters,
   SmartListRule,
 } from '@/lib/types';
+import { startNavigationProgress } from '@/lib/navigation-progress';
 
 interface SmartListBuilderProps {
   listId?: string;
@@ -126,6 +127,7 @@ export function SmartListBuilder({
       
       toast.success('List saved');
       if (!listId) {
+        startNavigationProgress();
         router.push(`/lists/${data.display_id || data.id}`);
       } else {
         router.refresh();

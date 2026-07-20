@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { Tag } from '@/lib/types';
+import { startNavigationProgress } from '@/lib/navigation-progress';
 
 interface PeopleFiltersProps {
   tags: Tag[];
@@ -36,6 +37,7 @@ export function PeopleFilters({ tags, total }: PeopleFiltersProps) {
       }
       params.delete('page');
       const query = params.toString();
+      startNavigationProgress();
       router.replace(query ? `${pathname}?${query}` : pathname);
     },
     [searchParams, pathname, router]

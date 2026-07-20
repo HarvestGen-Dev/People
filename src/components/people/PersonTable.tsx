@@ -22,6 +22,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useAdminPermissions } from '@/components/layout/AdminPermissions';
 import { displayIdFor } from '@/lib/display-ids';
+import { startNavigationProgress } from '@/lib/navigation-progress';
 
 interface PersonTableProps {
   people: PersonWithRelations[];
@@ -252,15 +253,19 @@ export function PersonTable({ people }: PersonTableProps) {
                           className="w-[170px] rounded-xl"
                         >
                           <DropdownMenuItem
-                            onClick={() => router.push(`/people/${personDisplayId}`)}
+                            onClick={() => {
+                              startNavigationProgress();
+                              router.push(`/people/${personDisplayId}`);
+                            }}
                           >
                             View profile
                           </DropdownMenuItem>
                           {canManage && (
                             <DropdownMenuItem
-                              onClick={() =>
-                                router.push(`/people/${personDisplayId}/edit`)
-                              }
+                              onClick={() => {
+                                startNavigationProgress();
+                                router.push(`/people/${personDisplayId}/edit`);
+                              }}
                             >
                               Edit details
                             </DropdownMenuItem>

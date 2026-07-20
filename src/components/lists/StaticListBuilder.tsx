@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Save, Loader2, Folder } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { startNavigationProgress } from '@/lib/navigation-progress';
 
 export function StaticListBuilder({ initialName }: { initialName?: string }) {
   const router = useRouter();
@@ -27,6 +28,7 @@ export function StaticListBuilder({ initialName }: { initialName?: string }) {
       const { data } = await res.json();
       
       toast.success('Static list created');
+      startNavigationProgress();
       router.push(`/lists/${data.display_id || data.id}`);
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Failed to create list');

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Copy, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { startNavigationProgress } from '@/lib/navigation-progress';
 
 export function DuplicateEventButton({ eventId }: { eventId: string }) {
   const router = useRouter();
@@ -20,6 +21,7 @@ export function DuplicateEventButton({ eventId }: { eventId: string }) {
       
       const { data } = await res.json();
       toast.success('Event duplicated');
+      startNavigationProgress();
       router.push(`/events/${data.display_id || data.id}/edit`);
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Failed to duplicate event');
