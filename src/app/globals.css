@@ -132,6 +132,31 @@
   }
 }
 
+@keyframes hg-loading-slide {
+  0% {
+    transform: translateX(-100%) scaleX(0.35);
+  }
+  45% {
+    transform: translateX(15%) scaleX(0.65);
+  }
+  100% {
+    transform: translateX(260%) scaleX(0.35);
+  }
+}
+
+.hg-top-loading-bar {
+  width: 38%;
+  transform-origin: left center;
+  animation: hg-loading-slide 1.15s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hg-top-loading-bar {
+    width: 100%;
+    animation: none;
+  }
+}
+
 @layer utilities {
   .landing-grid {
     background-image:
