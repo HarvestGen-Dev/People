@@ -13,6 +13,7 @@ import {
 import type { WorkflowBoardCard, WorkflowStep, WorkflowAdminUser } from '@/lib/types';
 import type { CardDraft } from '@/hooks/useKanbanBoard';
 import { displayIdFor } from '@/lib/display-ids';
+import { startNavigationProgress } from '@/lib/navigation-progress';
 
 export function CardDetailsSidebar({
   activeCard,
@@ -94,7 +95,13 @@ export function CardDetailsSidebar({
               <button
                 type="button"
                 className="mt-1 text-xs font-bold text-emerald-700 hover:text-emerald-800"
-                onClick={() => personDisplayId && router.push(`/people/${personDisplayId}`)}
+                onClick={() => {
+                  if (!personDisplayId) {
+                    return;
+                  }
+                  startNavigationProgress();
+                  router.push(`/people/${personDisplayId}`);
+                }}
               >
                 View person profile
               </button>

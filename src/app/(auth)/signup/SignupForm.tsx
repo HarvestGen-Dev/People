@@ -21,6 +21,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { startNavigationProgress } from '@/lib/navigation-progress';
 import { signUpAction } from './actions';
 
 interface SignupFormProps {
@@ -75,7 +76,10 @@ export function SignupForm({
         window.location.href = result.redirectTo;
       } else {
         setSuccess('Check your email to verify the account and accept the invitation.');
-        setTimeout(() => router.push('/login'), 2500);
+        setTimeout(() => {
+          startNavigationProgress();
+          router.push('/login');
+        }, 2500);
       }
     } catch {
       setError('An unexpected error occurred. Please try again.');
