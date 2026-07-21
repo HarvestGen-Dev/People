@@ -144,7 +144,7 @@ export default async function DashboardPage() {
             guests,
             amount_due,
             created_at,
-            events!inner(id, display_id, name, start_at, church_id, currency)
+            events!event_registrations_church_event_fk!inner(id, display_id, name, start_at, church_id, currency)
           `, { count: 'exact' })
           .eq('church_id', churchId)
           .eq('events.church_id', churchId)
