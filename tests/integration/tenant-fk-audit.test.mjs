@@ -230,6 +230,11 @@ test('source queries disambiguate people embeds after tenant composite FKs', asy
       relationship: 'list_people_church_person_fk',
     },
     {
+      path: 'src/app/(admin)/lists/[id]/page.tsx',
+      table: 'list_people',
+      relationship: 'list_people_church_person_fk',
+    },
+    {
       path: 'src/lib/team.ts',
       table: 'person_claim_requests',
       relationship: 'person_claim_requests_church_person_fk',

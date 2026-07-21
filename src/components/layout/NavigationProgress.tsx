@@ -65,6 +65,10 @@ export function NavigationProgress() {
     }, MAX_VISIBLE_MS);
   }, [clearTimer]);
 
+  const scheduleStart = useCallback(() => {
+    window.setTimeout(start, 0);
+  }, [start]);
+
   const complete = useCallback(() => {
     if (!startedAtRef.current) {
       return;
@@ -125,7 +129,7 @@ export function NavigationProgress() {
     window.history.pushState = function pushState(data, unused, url) {
       const nextUrl = getSameAppUrl(url);
       if (nextUrl && changesRoute(nextUrl)) {
-        start();
+        scheduleStart();
       }
       return originalPushState.apply(this, [data, unused, url]);
     };
@@ -133,7 +137,7 @@ export function NavigationProgress() {
     window.history.replaceState = function replaceState(data, unused, url) {
       const nextUrl = getSameAppUrl(url);
       if (nextUrl && changesRoute(nextUrl)) {
-        start();
+        scheduleStart();
       }
       return originalReplaceState.apply(this, [data, unused, url]);
     };
@@ -153,7 +157,7 @@ export function NavigationProgress() {
       clearTimer(completeTimerRef);
       clearTimer(fallbackTimerRef);
     };
-  }, [clearTimer, complete, start]);
+  }, [clearTimer, complete, scheduleStart, start]);
 
   useEffect(() => {
     complete();
