@@ -24,6 +24,7 @@ npm run test:integration:photos
 npm run test:integration:tenant-fks
 npm run test:integration:tenant-foreign-keys
 npm run test:integration:events
+npm run test:integration:missing-persons-cron
 
 echo "=== Running End-to-End Tests ==="
 npm run test:e2e

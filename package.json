@@ -17,6 +17,7 @@
     "test:integration:tenant-fks": "node --test tests/integration/tenant-fk-audit.test.mjs",
     "test:integration:tenant-foreign-keys": "node --test tests/integration/tenant-foreign-keys.test.mjs",
     "test:integration:events": "node --test tests/integration/event-registration.test.mjs",
+    "test:integration:missing-persons-cron": "node --test tests/integration/missing-persons-cron.test.mjs",
     "test:e2e": "playwright test",
     "verify": "bash scripts/verify.sh"
   },

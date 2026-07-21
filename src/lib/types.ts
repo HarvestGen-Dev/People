@@ -163,6 +163,10 @@ export interface WorkflowCard {
   notes: string | null;
   due_date: string | null;
   completed_at: string | null;
+  source: string;
+  pulse_config_id: string | null;
+  pulse_run_id: string | null;
+  triggered_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -176,6 +180,28 @@ export interface WorkflowPulseConfig {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+// <!-- AGENT: BACKEND -->
+export type MissingPersonsPulseStatus =
+  | 'running'
+  | 'completed'
+  | 'completed_with_errors'
+  | 'failed'
+  | 'skipped_locked';
+
+export interface MissingPersonsPulseResult {
+  run_id: string;
+  status: MissingPersonsPulseStatus;
+  configs_processed: number;
+  configs_failed: number;
+  configs_skipped: number;
+  people_scanned: number;
+  people_matched: number;
+  cards_created: number;
+  cards_skipped: number;
+  reason: 'already_running' | null;
+  error_code: string | null;
 }
 
 export interface WorkflowCardWithRelations extends WorkflowCard {
