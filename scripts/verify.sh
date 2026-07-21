@@ -25,6 +25,9 @@ npm run test:integration:tenant-fks
 npm run test:integration:tenant-foreign-keys
 npm run test:integration:events
 
+echo "=== Running End-to-End Tests ==="
+npm run test:e2e
+
 echo "=== Running Production Build ==="
 npm run build
 

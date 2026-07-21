@@ -58,7 +58,7 @@ export default async function ListDetailPage({ params }: { params: Promise<{ id:
       .from('list_people')
       .select(`
         person_id,
-        people (
+        people!list_people_church_person_fk (
           id, display_id, first_name, last_name, email, phone, status, campus, photo_url, photo_path
         )
       `)
