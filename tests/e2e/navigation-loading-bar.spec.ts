@@ -2,8 +2,14 @@
 import { expect, test, type Page } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
+import WebSocket from 'ws';
 
 dotenv.config({ path: '.env.local', quiet: true });
+
+type ClientOptions = NonNullable<Parameters<typeof createClient>[2]>;
+type RealtimeTransport = NonNullable<ClientOptions['realtime']>['transport'];
+
+const nodeWebSocket = WebSocket as unknown as RealtimeTransport;
 
 const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const password = 'Password123!';
@@ -34,6 +40,7 @@ function createAdminClient() {
   return createClient(url, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
     global: { fetch },
+    realtime: { transport: nodeWebSocket },
   });
 }
 
