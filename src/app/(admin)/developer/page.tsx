@@ -140,7 +140,7 @@ export default async function DeveloperPage() {
         error_message,
         failed_at,
         created_at,
-        webhooks!inner(name, church_id)
+        webhooks!webhook_deliveries_church_webhook_fk!inner(name, church_id)
       `)
       .eq('church_id', churchId)
       .eq('webhooks.church_id', churchId)
