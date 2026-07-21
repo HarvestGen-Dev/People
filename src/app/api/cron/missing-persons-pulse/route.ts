@@ -1,157 +1,150 @@
-import { createServiceClient } from '@/lib/supabase/server';
+// <!-- AGENT: BACKEND -->
+import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
+import { isAuthorizedCronRequest } from '@/lib/cron-auth';
+import { createServiceClient } from '@/lib/supabase/server';
+import type { MissingPersonsPulseResult } from '@/lib/types';
 
-/**
- * CRON JOB: Missing Person Pulse
- * Triggers every day to find people who have slipped through the cracks.
- * 
- * Logic:
- * 1. Fetch all active pulse configs.
- * 2. For each config, find people matching the status who have NO person_events
- *    in the last X days, and NO check-ins/attendance in the last X days.
- * 3. Drop them into the target workflow if they aren't already in it.
- */
+const RUN_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const PULSE_STATUSES = new Set([
+  'running',
+  'completed',
+  'completed_with_errors',
+  'failed',
+  'skipped_locked',
+]);
+
+function isPulseResult(value: unknown): value is MissingPersonsPulseResult {
+  if (!value || typeof value !== 'object') return false;
+
+  const result = value as Partial<MissingPersonsPulseResult>;
+  return (
+    typeof result.run_id === 'string' &&
+    typeof result.status === 'string' &&
+    PULSE_STATUSES.has(result.status) &&
+    typeof result.configs_processed === 'number' &&
+    typeof result.configs_failed === 'number' &&
+    typeof result.configs_skipped === 'number' &&
+    typeof result.people_scanned === 'number' &&
+    typeof result.people_matched === 'number' &&
+    typeof result.cards_created === 'number' &&
+    typeof result.cards_skipped === 'number'
+  );
+}
+
 export async function GET() {
-  return NextResponse.json({ error: 'Method not allowed' }, { status: 405 });
+  return NextResponse.json(
+    {
+      error: {
+        code: 'method_not_allowed',
+        message: 'Method not allowed.',
+      },
+    },
+    { status: 405, headers: { Allow: 'POST' } }
+  );
 }
 
 export async function POST(request: Request) {
-  const authHeader = request.headers.get('authorization');
-  if (!process.env.CRON_SECRET) {
-    console.error('[cron:missing-persons-pulse] CRON_SECRET is not configured');
-    return NextResponse.json({ error: 'Cron is not configured' }, { status: 503 });
-  }
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return new NextResponse('Unauthorized', { status: 401 });
-  }
-
-  const lockName = 'cron:missing-persons-pulse';
-  let lockAcquired = false;
-
-  try {
-    const supabase = createServiceClient();
-    const { data: acquired, error: lockError } = await supabase.rpc(
-      'try_cron_advisory_lock',
-      { p_lock_name: lockName }
+  const secret = process.env.CRON_SECRET;
+  if (!secret) {
+    console.error('[cron:missing-persons-pulse] configuration_missing');
+    return NextResponse.json(
+      {
+        error: {
+          code: 'cron_not_configured',
+          message: 'Cron is not configured.',
+        },
+      },
+      { status: 503 }
     );
-
-    if (lockError) throw lockError;
-    lockAcquired = Boolean(acquired);
-    if (!lockAcquired) {
-      return NextResponse.json(
-        { success: false, skipped: true, reason: 'already_running' },
-        { status: 409 }
-      );
-    }
-    
-    // Fetch all active configs
-    const { data: configs, error: configError } = await supabase
-      .from('workflow_pulse_configs')
-      .select('*')
-      .eq('is_active', true);
-
-    if (configError) throw configError;
-    if (!configs || configs.length === 0) {
-      return NextResponse.json({ success: true, message: 'No active pulse configs' });
-    }
-
-    let cardsCreated = 0;
-
-    for (const config of configs) {
-      const { church_id, workflow_id, days_inactive, target_person_status } = config;
-
-      // Find people who are missing
-      // We can use an RPC or raw SQL, but we'll use a Supabase query with NOT IN for simplicity.
-      
-      // Calculate the cutoff date
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - days_inactive);
-      const cutoffIso = cutoffDate.toISOString();
-
-      // Find people in the church with the target status
-      // In a very large DB this would be slow without an RPC, but works for MVP.
-      const { data: candidates } = await supabase
-        .from('people')
-        .select('id')
-        .eq('church_id', church_id)
-        .eq('status', target_person_status);
-        
-      if (!candidates || candidates.length === 0) continue;
-
-      const candidateIds = candidates.map(c => c.id);
-
-      // Find who HAS had an event recently
-      const { data: activeEvents } = await supabase
-        .from('person_events')
-        .select('person_id')
-        .eq('church_id', church_id)
-        .gte('occurred_at', cutoffIso)
-        .in('person_id', candidateIds);
-
-      const activePersonIds = new Set((activeEvents || []).map(e => e.person_id));
-
-      // The missing people are candidates who are NOT in activePersonIds
-      const missingPersonIds = candidateIds.filter(id => !activePersonIds.has(id));
-
-      if (missingPersonIds.length === 0) continue;
-
-      // Find first step of the workflow
-      const { data: steps } = await supabase
-        .from('workflow_steps')
-        .select('id, default_days_to_complete')
-        .eq('church_id', church_id)
-        .eq('workflow_id', workflow_id)
-        .order('order_index', { ascending: true })
-        .limit(1);
-
-      if (!steps || steps.length === 0) continue;
-      const firstStep = steps[0];
-
-      // Insert cards for missing people, IF they don't already have an active card in this workflow
-      // Let's do it in a loop for safety
-      for (const personId of missingPersonIds) {
-        const { count: existingCount } = await supabase
-          .from('workflow_cards')
-          .select('*', { count: 'exact', head: true })
-          .eq('church_id', church_id)
-          .eq('workflow_id', workflow_id)
-          .eq('person_id', personId);
-
-        if (existingCount === 0) {
-          let dueDate = null;
-          if (firstStep.default_days_to_complete) {
-            const d = new Date();
-            d.setDate(d.getDate() + firstStep.default_days_to_complete);
-            dueDate = d.toISOString().split('T')[0];
-          }
-
-          await supabase.from('workflow_cards').insert({
-            church_id: church_id,
-            workflow_id,
-            current_step_id: firstStep.id,
-            person_id: personId,
-            due_date: dueDate,
-            notes: `Added automatically by Pulse: ${days_inactive} days inactive.`,
-          });
-          cardsCreated++;
-        }
-      }
-    }
-
-    return NextResponse.json({ success: true, cardsCreated });
-  } catch (error: unknown) {
-    console.error('Pulse cron error:', error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
-  } finally {
-    if (lockAcquired) {
-      const supabase = createServiceClient();
-      await supabase
-        .rpc('release_cron_advisory_lock', { p_lock_name: lockName })
-        .then(({ error }) => {
-          if (error) {
-            console.error('[cron:missing-persons-pulse] failed to release lock', error);
-          }
-        });
-    }
   }
+
+  if (!isAuthorizedCronRequest(request.headers.get('authorization'), secret)) {
+    return NextResponse.json(
+      {
+        error: {
+          code: 'unauthorized',
+          message: 'Unauthorized.',
+        },
+      },
+      { status: 401 }
+    );
+  }
+
+  const requestedRunId = request.headers.get('x-cron-run-id');
+  if (requestedRunId && !RUN_ID_PATTERN.test(requestedRunId)) {
+    return NextResponse.json(
+      {
+        error: {
+          code: 'invalid_run_id',
+          message: 'The run identifier is invalid.',
+        },
+      },
+      { status: 400 }
+    );
+  }
+
+  const runId = requestedRunId ?? randomUUID();
+  const startedAt = performance.now();
+  const supabase = createServiceClient();
+  const { data, error } = await supabase.rpc('run_missing_persons_pulse', {
+    p_run_id: runId,
+  });
+
+  if (error) {
+    console.error('[cron:missing-persons-pulse] rpc_failed', {
+      run_id: runId,
+      duration_ms: Math.round(performance.now() - startedAt),
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+
+    return NextResponse.json(
+      {
+        run_id: runId,
+        status: 'failed',
+        error: {
+          code: 'pulse_execution_failed',
+          message: 'The missing-person pulse could not be completed.',
+        },
+      },
+      { status: 500 }
+    );
+  }
+
+  if (!isPulseResult(data)) {
+    console.error('[cron:missing-persons-pulse] invalid_rpc_result', {
+      run_id: runId,
+      duration_ms: Math.round(performance.now() - startedAt),
+    });
+
+    return NextResponse.json(
+      {
+        run_id: runId,
+        status: 'failed',
+        error: {
+          code: 'invalid_pulse_result',
+          message: 'The missing-person pulse returned an invalid result.',
+        },
+      },
+      { status: 500 }
+    );
+  }
+
+  console.info('[cron:missing-persons-pulse] run_completed', {
+    run_id: data.run_id,
+    status: data.status,
+    duration_ms: Math.round(performance.now() - startedAt),
+    configs_processed: data.configs_processed,
+    configs_failed: data.configs_failed,
+    configs_skipped: data.configs_skipped,
+    cards_created: data.cards_created,
+  });
+
+  return NextResponse.json(data, {
+    status: data.status === 'failed' ? 500 : 200,
+  });
 }
