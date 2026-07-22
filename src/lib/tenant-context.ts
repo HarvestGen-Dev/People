@@ -31,6 +31,7 @@ type TenantContextOptions = {
   requireDeveloperTools?: boolean;
   requireWorkflowManager?: boolean;
   requireOwner?: boolean;
+  requireSelectedChurch?: boolean;
 };
 
 type MembershipRow = {
@@ -55,6 +56,13 @@ export class TenantContextError extends ApiRequestError {
   constructor(message: string, status: 401 | 403) {
     super(message, status);
     this.name = 'TenantContextError';
+  }
+}
+
+export class TenantSelectionRequiredError extends TenantContextError {
+  constructor(message = 'Select a church before viewing tenant operations') {
+    super(message, 403);
+    this.name = 'TenantSelectionRequiredError';
   }
 }
 
@@ -87,6 +95,10 @@ export async function requireTenantContext(
   }
 
   if (platformAdministrator) {
+    if (options.requireSelectedChurch && !selectedChurchId) {
+      throw new TenantSelectionRequiredError();
+    }
+
     let churchQuery = serviceClient
       .from('churches')
       .select('id, name, slug');
@@ -103,6 +115,11 @@ export async function requireTenantContext(
     }
 
     if (!platformChurch) {
+      if (options.requireSelectedChurch) {
+        throw new TenantSelectionRequiredError(
+          'The selected church is unavailable; select another church'
+        );
+      }
       throw new TenantContextError('No church is available to manage', 403);
     }
 

@@ -2,6 +2,8 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { processWebhookDelivery, type ClaimedWebhookDelivery } from '@/lib/webhooks';
+import { getOperationalRequestId } from '@/lib/observability/request-id';
+import { logOperationalEvent, OPERATIONAL_EVENTS } from '@/lib/observability/logger';
 
 const DEFAULT_BATCH_SIZE = 10;
 const MAX_BATCH_SIZE = 50;
@@ -15,9 +17,17 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const requestId = getOperationalRequestId(request);
   const secret = configuredSecret();
   if (!secret) {
-    console.error('[cron:webhook-deliveries] WEBHOOK_WORKER_SECRET or CRON_SECRET is not configured');
+    logOperationalEvent({
+      event: OPERATIONAL_EVENTS.webhookWorkerFailed,
+      severity: 'critical',
+      outcome: 'configuration_missing',
+      requestId,
+      errorCode: 'webhook_worker_not_configured',
+      retryable: false,
+    });
     return NextResponse.json({ error: 'Webhook worker is not configured' }, { status: 503 });
   }
 
@@ -51,7 +61,14 @@ export async function POST(request: Request) {
   });
 
   if (error) {
-    console.error('[cron:webhook-deliveries] claim failed', error);
+    logOperationalEvent({
+      event: OPERATIONAL_EVENTS.webhookWorkerFailed,
+      severity: 'error',
+      outcome: 'claim_failed',
+      requestId,
+      errorCode: 'webhook_claim_failed',
+      retryable: true,
+    }, error);
     return NextResponse.json({ error: 'Unable to claim webhook deliveries' }, { status: 500 });
   }
 
@@ -63,9 +80,24 @@ export async function POST(request: Request) {
     permanently_failed: 0,
   };
 
-  for (const delivery of deliveries) {
-    const result = await processWebhookDelivery(delivery);
-    summary[result] += 1;
+  try {
+    for (const delivery of deliveries) {
+      const result = await processWebhookDelivery(delivery);
+      summary[result] += 1;
+    }
+  } catch (error) {
+    logOperationalEvent({
+      event: OPERATIONAL_EVENTS.webhookWorkerFailed,
+      severity: 'error',
+      outcome: 'processing_failed',
+      requestId,
+      errorCode: 'webhook_processing_failed',
+      retryable: true,
+    }, error);
+    return NextResponse.json(
+      { error: 'Unable to process webhook deliveries', request_id: requestId },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({ success: true, data: summary });

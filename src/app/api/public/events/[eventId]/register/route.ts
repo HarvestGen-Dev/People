@@ -6,6 +6,9 @@ import { enforcePublicRateLimit } from '@/lib/public-rate-limit';
 import { createRequestPerformanceTracker } from '@/lib/performance';
 import { z } from 'zod';
 import { readJsonObject, validationErrorResponse } from '@/lib/validation';
+import { getOperationalRequestId } from '@/lib/observability/request-id';
+import { recordOperationalIncident } from '@/lib/observability/incidents';
+import { logOperationalEvent, OPERATIONAL_EVENTS } from '@/lib/observability/logger';
 
 const MAX_ADDITIONAL_GUESTS = 20;
 
@@ -43,8 +46,12 @@ const registrationSchema = z
   }));
 
 export async function POST(request: Request, { params }: { params: Promise<{ eventId: string }> }) {
+  const requestId = getOperationalRequestId(request);
+  let incidentChurchId: string | null = null;
+  let incidentEventId: string | null = null;
   try {
     const { eventId } = await params;
+    incidentEventId = eventId;
 
     const limited = await enforcePublicRateLimit(request, {
       bucket: 'public:event-register',
@@ -63,7 +70,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
     if (!parsed.success) return validationErrorResponse(parsed.error);
     const registration = parsed.data;
 
-    const { data: event } = await perf.track(
+    const { data: event, error: eventError } = await perf.track(
       'event.lookup',
       supabase
         .from('events')
@@ -72,9 +79,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
         .single()
     );
 
+    if (eventError) throw eventError;
+
     if (!event) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
+    incidentChurchId = event.church_id;
 
     const { data: registrationId, error: rpcError } = await perf.track(
       'registration.insert_rpc',
@@ -108,7 +118,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
     if (isFree && registrationId) {
       const approveRes = await perf.track(
         'registration.auto_approve',
-        approveRegistration(registrationId, event.church_id, null)
+        approveRegistration(registrationId, event.church_id, null, requestId)
       );
       if (!approveRes.success) {
         perf.log();
@@ -136,9 +146,32 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
     });
 
   } catch (error: unknown) {
-    console.error('Registration error:', error instanceof Error ? error.message : String(error));
+    logOperationalEvent({
+      event: OPERATIONAL_EVENTS.registrationSubmitFailed,
+      severity: 'error',
+      outcome: 'technical_failure',
+      requestId,
+      churchId: incidentChurchId ?? undefined,
+      resourceType: 'event',
+      resourceId: incidentEventId ?? undefined,
+      errorCode: 'registration_submit_failed',
+      retryable: true,
+    }, error);
+    if (incidentChurchId) {
+      await recordOperationalIncident({
+        churchId: incidentChurchId,
+        event: OPERATIONAL_EVENTS.registrationSubmitFailed,
+        severity: 'error',
+        resourceType: 'event',
+        resourceId: incidentEventId ?? undefined,
+        requestId,
+        errorCode: 'registration_submit_failed',
+        retryable: true,
+        error,
+      });
+    }
     return NextResponse.json(
-      { error: 'Unable to register for event. Please try again later.' },
+      { error: 'Unable to register for event. Please try again later.', request_id: requestId },
       { status: 500 }
     );
   }

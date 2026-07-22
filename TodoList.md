@@ -1,6 +1,8 @@
-  # People HG — Verification Todo List
+# People HG - Production Release Gate
 
-  Use this document to coordinate the final review before deploying migration `017` or releasing the event-registration changes.
+Use the current gate for every production release. Record reviewer, date, and
+evidence for each checked item. Historical migration-017 evidence is preserved
+below and is not an active deployment checklist.
 
   ## Status legend
 
@@ -10,6 +12,66 @@
   - `[!]` Blocked
 
   When completing an item, add the reviewer's name, date, and a link or short copy of the relevant test output. Do not mark an item complete based only on reading the code.
+
+## Current production release gate
+
+<!-- AGENT: DEVOPS -->
+<!-- AGENT: ARCHITECT -->
+<!-- AGENT: INTEGRATION -->
+
+### Database and rollback
+
+- [ ] Confirm a recent Supabase database backup and record its timestamp.
+- [ ] Record the Storage backup/export plan for private people photos and payment proofs.
+- [ ] Run `supabase db reset --local --yes` through migration `048`.
+- [ ] Run `supabase db lint --local --level warning --fail-on warning`.
+- [ ] Apply all pending migrations to staging and refresh the PostgREST schema cache when required.
+- [ ] Confirm `tenant_relationship_complete_audit` reports zero violations.
+- [ ] Validate tenant composite FKs in controlled groups and record the result.
+- [ ] Confirm both missing-person duplicate audits report zero rows before applying blocking constraints in a new environment.
+- [ ] Verify migrations `045`-`047`, pulse idempotency, and run history in staging.
+- [ ] Review forward and rollback steps with the database reviewer.
+
+### Delivery and integrations
+
+- [ ] Confirm `SMTP_HOST`, `SMTP_PORT`, `BREVO_SMTP_USER`, and `BREVO_SMTP_KEY` in staging and production.
+- [ ] Confirm the Brevo sender or domain is verified.
+- [ ] Deliver one real staging confirmation email to an approved test mailbox.
+- [ ] Verify webhook retry scheduling, lease recovery, permanent failure, and safe manual retry.
+- [ ] Confirm webhook and cron secrets are present without printing their values.
+- [ ] Trigger the pulse cron twice and confirm idempotency, history, and structured outcomes.
+
+### Storage and privacy
+
+- [ ] Confirm `people-photos` and `payment-proofs` remain private.
+- [ ] Verify authorized signed photo access and denied cross-tenant access.
+- [ ] Review the service-only legacy-photo inventory; do not migrate or delete objects as part of this gate.
+- [ ] Confirm operational summaries expose no payloads, credentials, email bodies, notes, or person contact data.
+
+### Application verification
+
+- [ ] Run `npm run verify` with all integration and Playwright suites passing.
+- [ ] Run desktop, Mobile Chrome, and tablet registration coverage.
+- [ ] Verify registration approval, connect form, people/workflow, role, and tenant-tampering journeys.
+- [ ] Run `npm run build` and `git diff --check`.
+- [ ] Open `/developer/operations` in staging as an owner and admin.
+- [ ] Confirm healthy sections are healthy and deliberately seeded warning/critical signals classify correctly.
+- [ ] Confirm restricted roles and another tenant cannot read operational health.
+
+### Operations readiness
+
+- [ ] Confirm Vercel logs contain JSON records for the structured event names in `docs/OPERATIONAL_OBSERVABILITY.md`.
+- [ ] Review alert recommendations and document which alerts are actually configured.
+- [ ] Review backup verification and restoration-drill evidence.
+- [ ] Review operator runbooks and escalation contacts.
+- [ ] Confirm the scheduler can be disabled without deploying code.
+- [ ] Obtain authorization/backend and frontend/integration reviewer approval.
+
+## Historical evidence: migration 017 and performance work
+
+The sections below preserve evidence from the event-registration integrity and
+performance releases. Their unchecked items are historical and must not be used
+as the current release decision.
 
 ## Performance optimization pass
 

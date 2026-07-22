@@ -5,15 +5,23 @@ import {
   adminApiError,
   requireTenantContext,
 } from '@/lib/tenant-context';
+import { getOperationalRequestId } from '@/lib/observability/request-id';
+import { recordOperationalIncident, resolveOperationalIncidents } from '@/lib/observability/incidents';
+import { logOperationalEvent, OPERATIONAL_EVENTS } from '@/lib/observability/logger';
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const requestId = getOperationalRequestId(request);
+  let churchIdForLog: string | undefined;
+  let registrationIdForLog: string | undefined;
   try {
     const { churchId, user } = await requireTenantContext({
       requireManager: true,
     });
+    churchIdForLog = churchId;
     const supabase = createServiceClient();
 
     const { id } = await params;
+    registrationIdForLog = id;
     const body = await request.json();
     
     const { data, error } = await supabase
@@ -50,8 +58,43 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       request,
     });
 
+    await resolveOperationalIncidents({
+      churchId,
+      event: OPERATIONAL_EVENTS.registrationRejectionFailed,
+      resourceId: id,
+    });
+
     return NextResponse.json({ data: { success: true } });
   } catch (error: unknown) {
-    return adminApiError(error);
+    const response = adminApiError(error);
+    if (response.status >= 500 && churchIdForLog) {
+      logOperationalEvent({
+        event: OPERATIONAL_EVENTS.registrationRejectionFailed,
+        severity: 'error',
+        outcome: 'transaction_failed',
+        requestId,
+        churchId: churchIdForLog,
+        resourceType: 'event_registration',
+        resourceId: registrationIdForLog,
+        errorCode: 'rejection_failed',
+        retryable: true,
+      }, error);
+      await recordOperationalIncident({
+        churchId: churchIdForLog,
+        event: OPERATIONAL_EVENTS.registrationRejectionFailed,
+        severity: 'error',
+        resourceType: 'event_registration',
+        resourceId: registrationIdForLog,
+        requestId,
+        errorCode: 'rejection_failed',
+        retryable: true,
+        error,
+      });
+      return NextResponse.json(
+        { error: 'Unable to reject registration.', request_id: requestId },
+        { status: 500 }
+      );
+    }
+    return response;
   }
 }

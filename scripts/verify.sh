@@ -25,6 +25,7 @@ npm run test:integration:tenant-fks
 npm run test:integration:tenant-foreign-keys
 npm run test:integration:events
 npm run test:integration:missing-persons-cron
+npm run test:integration:operational-observability
 
 echo "=== Running End-to-End Tests ==="
 npm run test:e2e
