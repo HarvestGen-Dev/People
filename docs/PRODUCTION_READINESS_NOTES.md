@@ -391,6 +391,22 @@ and diagnostics.
 The following remain manual or follow-up browser work: paid-proof preview dialog
 focus restoration, authorized signed people-photo upload/rendering, invitation
 acceptance through emailed links, connect-form proposed-update review (no admin
-UI currently exposes proposals), and an operational pulse-run history page (the
-current surface is database-only). Existing integration tests continue to cover
-the underlying transactional and security behavior for these areas.
+UI currently exposes proposals), and per-run pulse drill-down beyond the bounded
+operational summary. Existing integration tests continue to cover the underlying
+transactional and security behavior for these areas.
+
+## Operational Observability
+
+Migration `048` and `/developer/operations` add tenant-scoped registration,
+email, webhook, and pulse health for owners/admins. Technical failures that were
+previously log-only use a bounded PII-free incident ledger; existing durable
+webhook and pulse state remains the source of truth. The browser calls no
+service-role function directly. Independent summary failures render as
+Unavailable rather than healthy.
+
+Health thresholds, structured event names, Vercel alert recommendations,
+operator runbooks, backup verification, restoration drills, deployment,
+rollback, and database-outage limitations are maintained in
+`docs/OPERATIONAL_OBSERVABILITY.md`. The active release gate is now the first
+section of `TodoList.md`; migration-017 evidence remains below it as historical
+material.

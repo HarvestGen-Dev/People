@@ -2,6 +2,7 @@ import crypto from 'crypto'
 import net from 'net'
 import dns from 'dns/promises'
 import { createServiceClient } from '@/lib/supabase/server'
+import { logOperationalEvent, OPERATIONAL_EVENTS } from '@/lib/observability/logger'
 
 export type WebhookEvent =
   | 'person.created'
@@ -181,12 +182,24 @@ export async function dispatchWebhook(
 ): Promise<void> {
   const supabase = createServiceClient()
 
-  const { data: webhooks } = await supabase
+  const { data: webhooks, error: webhookError } = await supabase
     .from('webhooks')
     .select('*')
     .eq('church_id', churchId)
     .eq('is_active', true)
     .contains('events', [eventType])
+
+  if (webhookError) {
+    logOperationalEvent({
+      event: OPERATIONAL_EVENTS.webhookWorkerFailed,
+      severity: 'error',
+      outcome: 'subscription_lookup_failed',
+      churchId,
+      errorCode: 'webhook_subscription_lookup_failed',
+      retryable: true,
+    }, webhookError)
+    return
+  }
 
   if (!webhooks?.length) return
 
@@ -200,7 +213,7 @@ export async function dispatchWebhook(
 
   await Promise.all(
     webhooks.map(async (webhook) => {
-      await supabase
+      const { error } = await supabase
         .from('webhook_deliveries')
         .insert({
           church_id: churchId,
@@ -212,14 +225,59 @@ export async function dispatchWebhook(
           status: 'pending',
           attempt_count: 0,
         })
+      if (error) {
+        logOperationalEvent({
+          event: OPERATIONAL_EVENTS.webhookWorkerFailed,
+          severity: 'error',
+          outcome: 'delivery_enqueue_failed',
+          churchId,
+          resourceType: 'webhook',
+          resourceId: webhook.id,
+          errorCode: 'webhook_enqueue_failed',
+          retryable: true,
+        }, error)
+      }
     })
   )
+}
+
+async function persistDeliveryState(
+  delivery: ClaimedWebhookDelivery,
+  values: Record<string, unknown>
+) {
+  const supabase = createServiceClient()
+  const { error } = await supabase
+    .from('webhook_deliveries')
+    .update(values)
+    .eq('id', delivery.id)
+    .eq('church_id', delivery.church_id)
+  if (error) throw error
+}
+
+function logDeliveryFailure(
+  delivery: ClaimedWebhookDelivery,
+  status: 'retry_scheduled' | 'permanently_failed',
+  errorCode: string
+) {
+  logOperationalEvent({
+    event:
+      status === 'retry_scheduled'
+        ? OPERATIONAL_EVENTS.webhookDeliveryRetryScheduled
+        : OPERATIONAL_EVENTS.webhookDeliveryPermanentlyFailed,
+    severity: status === 'retry_scheduled' ? 'warning' : 'error',
+    outcome: status,
+    churchId: delivery.church_id,
+    resourceType: 'webhook_delivery',
+    resourceId: delivery.id,
+    errorCode,
+    retryable: status === 'retry_scheduled',
+    metadata: { attempt_count: delivery.attempt_count },
+  })
 }
 
 export async function processWebhookDelivery(
   delivery: ClaimedWebhookDelivery
 ): Promise<'delivered' | 'retry_scheduled' | 'permanently_failed'> {
-  const supabase = createServiceClient()
   const body = JSON.stringify(delivery.payload)
   const timestamp = new Date().toISOString()
   const validation = await validateWebhookDestination(delivery.webhook_url, {
@@ -229,9 +287,7 @@ export async function processWebhookDelivery(
   if (!validation.ok) {
     const retryable = validation.reason === 'dns_lookup_failed' || validation.reason === 'dns_lookup_timeout'
     const failed = failureState(delivery.attempt_count, retryable)
-    await supabase
-      .from('webhook_deliveries')
-      .update({
+    await persistDeliveryState(delivery, {
         status: failed.status,
         error_message: validation.reason,
         last_error: validation.reason,
@@ -239,8 +295,9 @@ export async function processWebhookDelivery(
         next_attempt_at: failed.nextAttemptAt,
         processing_lease_until: null,
       })
-      .eq('id', delivery.id)
-    return failed.status as 'retry_scheduled' | 'permanently_failed'
+    const status = failed.status as 'retry_scheduled' | 'permanently_failed'
+    logDeliveryFailure(delivery, status, validation.reason)
+    return status
   }
 
   const signature = signWebhook(delivery.webhook_secret, timestamp, body)
@@ -262,9 +319,7 @@ export async function processWebhookDelivery(
     })
 
     if (response.ok) {
-      await supabase
-        .from('webhook_deliveries')
-        .update({
+      await persistDeliveryState(delivery, {
           status: 'delivered',
           response_status: response.status,
           last_status_code: response.status,
@@ -276,7 +331,6 @@ export async function processWebhookDelivery(
           next_attempt_at: null,
           processing_lease_until: null,
         })
-        .eq('id', delivery.id)
       return 'delivered'
     }
 
@@ -286,9 +340,7 @@ export async function processWebhookDelivery(
       await response.text().catch(() => ''),
       response.headers.get('content-type')
     )
-    await supabase
-      .from('webhook_deliveries')
-      .update({
+    await persistDeliveryState(delivery, {
         status: failed.status,
         response_status: response.status,
         last_status_code: response.status,
@@ -299,14 +351,13 @@ export async function processWebhookDelivery(
         next_attempt_at: failed.nextAttemptAt,
         processing_lease_until: null,
       })
-      .eq('id', delivery.id)
-    return failed.status as 'retry_scheduled' | 'permanently_failed'
+    const status = failed.status as 'retry_scheduled' | 'permanently_failed'
+    logDeliveryFailure(delivery, status, `http_${response.status}`)
+    return status
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     const failed = failureState(delivery.attempt_count, true)
-    await supabase
-      .from('webhook_deliveries')
-      .update({
+    await persistDeliveryState(delivery, {
         status: failed.status,
         error_message: message,
         last_error: message,
@@ -314,7 +365,8 @@ export async function processWebhookDelivery(
         next_attempt_at: failed.nextAttemptAt,
         processing_lease_until: null,
       })
-      .eq('id', delivery.id)
-    return failed.status as 'retry_scheduled' | 'permanently_failed'
+    const status = failed.status as 'retry_scheduled' | 'permanently_failed'
+    logDeliveryFailure(delivery, status, 'webhook_request_failed')
+    return status
   }
 }

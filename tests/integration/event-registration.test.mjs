@@ -917,3 +917,54 @@ test('Admin approval idempotency, outbox retry, and exact email counting', async
   assert.equal(approveRes3.status, 200);
   assert.equal(sentEmailsCount, 2, 'Email should retry exactly once more');
 });
+
+test('approval workflow automation uses the first tenant-scoped position and confirms the insert', async () => {
+  const { data: workflow, error: workflowError } = await admin
+    .from('workflows')
+    .insert({ church_id: churchId, name: `Approval Workflow ${suffix}` })
+    .select('id')
+    .single();
+  if (workflowError) throw workflowError;
+  const { data: steps, error: stepError } = await admin
+    .from('workflow_steps')
+    .insert([
+      { church_id: churchId, workflow_id: workflow.id, name: 'Second', position: 2000 },
+      { church_id: churchId, workflow_id: workflow.id, name: 'First', position: 1000 },
+    ])
+    .select('id, position');
+  if (stepError) throw stepError;
+  const firstStep = steps.find((step) => step.position === 1000);
+
+  const event = await insertEvent({ price: 5, target_workflow_id: workflow.id });
+  const proof = `${churchId}/${event.id}/workflow-automation.jpg`;
+  await uploadProof(proof);
+  const registration = await register(event.id, {
+    first_name: 'Workflow',
+    last_name: 'Automation',
+    email: `workflow-automation-${suffix}@test.invalid`,
+    phone: '+60123459999',
+    additional_guest_count: 0,
+    payment_proof_url: proof,
+    paid_checkbox: true,
+  });
+  assert.equal(registration.response.status, 200);
+
+  const approved = await approveRegistrationRequest(registration.body.data.registration_id);
+  assert.equal(approved.response.status, 200);
+  const { data: approvedRegistration, error: registrationError } = await admin
+    .from('event_registrations')
+    .select('person_id')
+    .eq('id', registration.body.data.registration_id)
+    .single();
+  if (registrationError) throw registrationError;
+  const { data: card, error: cardError } = await admin
+    .from('workflow_cards')
+    .select('church_id, workflow_id, current_step_id, person_id')
+    .eq('church_id', churchId)
+    .eq('workflow_id', workflow.id)
+    .eq('person_id', approvedRegistration.person_id)
+    .single();
+  if (cardError) throw cardError;
+  assert.equal(card.current_step_id, firstStep.id);
+  assert.equal(card.church_id, churchId);
+});

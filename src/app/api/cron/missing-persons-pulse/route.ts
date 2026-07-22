@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { isAuthorizedCronRequest } from '@/lib/cron-auth';
 import { createServiceClient } from '@/lib/supabase/server';
 import type { MissingPersonsPulseResult } from '@/lib/types';
+import { logOperationalEvent, OPERATIONAL_EVENTS } from '@/lib/observability/logger';
 
 const RUN_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -48,7 +49,13 @@ export async function GET() {
 export async function POST(request: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret) {
-    console.error('[cron:missing-persons-pulse] configuration_missing');
+    logOperationalEvent({
+      event: OPERATIONAL_EVENTS.missingPersonsRunFailed,
+      severity: 'critical',
+      outcome: 'configuration_missing',
+      errorCode: 'cron_not_configured',
+      retryable: false,
+    });
     return NextResponse.json(
       {
         error: {
@@ -93,14 +100,15 @@ export async function POST(request: Request) {
   });
 
   if (error) {
-    console.error('[cron:missing-persons-pulse] rpc_failed', {
-      run_id: runId,
-      duration_ms: Math.round(performance.now() - startedAt),
-      code: error.code,
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
-    });
+    logOperationalEvent({
+      event: OPERATIONAL_EVENTS.missingPersonsRunFailed,
+      severity: 'error',
+      outcome: 'rpc_failed',
+      runId,
+      errorCode: 'pulse_execution_failed',
+      retryable: true,
+      durationMs: performance.now() - startedAt,
+    }, error);
 
     return NextResponse.json(
       {
@@ -116,9 +124,14 @@ export async function POST(request: Request) {
   }
 
   if (!isPulseResult(data)) {
-    console.error('[cron:missing-persons-pulse] invalid_rpc_result', {
-      run_id: runId,
-      duration_ms: Math.round(performance.now() - startedAt),
+    logOperationalEvent({
+      event: OPERATIONAL_EVENTS.missingPersonsRunFailed,
+      severity: 'error',
+      outcome: 'invalid_rpc_result',
+      runId,
+      errorCode: 'invalid_pulse_result',
+      retryable: true,
+      durationMs: performance.now() - startedAt,
     });
 
     return NextResponse.json(
@@ -134,15 +147,27 @@ export async function POST(request: Request) {
     );
   }
 
-  console.info('[cron:missing-persons-pulse] run_completed', {
-    run_id: data.run_id,
-    status: data.status,
-    duration_ms: Math.round(performance.now() - startedAt),
-    configs_processed: data.configs_processed,
-    configs_failed: data.configs_failed,
-    configs_skipped: data.configs_skipped,
-    cards_created: data.cards_created,
-  });
+  if (data.status === 'failed' || data.status === 'completed_with_errors' || data.status === 'skipped_locked') {
+    const event = data.status === 'failed'
+      ? OPERATIONAL_EVENTS.missingPersonsRunFailed
+      : data.status === 'completed_with_errors'
+        ? OPERATIONAL_EVENTS.missingPersonsRunPartial
+        : OPERATIONAL_EVENTS.missingPersonsRunSkippedLocked;
+    logOperationalEvent({
+      event,
+      severity: data.status === 'failed' ? 'error' : 'warning',
+      outcome: data.status,
+      runId: data.run_id,
+      durationMs: performance.now() - startedAt,
+      retryable: true,
+      metadata: {
+        configs_processed: data.configs_processed,
+        configs_failed: data.configs_failed,
+        configs_skipped: data.configs_skipped,
+        cards_created: data.cards_created,
+      },
+    });
+  }
 
   return NextResponse.json(data, {
     status: data.status === 'failed' ? 500 : 200,

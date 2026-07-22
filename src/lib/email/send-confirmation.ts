@@ -3,6 +3,7 @@ import nodemailer from 'nodemailer';
 import { Event, EventRegistration } from '@/lib/types';
 import { format } from 'date-fns';
 import { escapeHtml } from '@/lib/email/html';
+import { logOperationalEvent, OPERATIONAL_EVENTS } from '@/lib/observability/logger';
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
@@ -47,12 +48,23 @@ function buildConfirmationEmailHtml(registration: RegistrationWithEvent) {
 }
 
 export async function sendEventConfirmationEmail(
-  registration: RegistrationWithEvent
-): Promise<{ success: boolean; error?: string }> {
+  registration: RegistrationWithEvent,
+  context?: { churchId: string; requestId?: string }
+): Promise<{ success: boolean; errorCode?: string }> {
   try {
     if (!process.env.BREVO_SMTP_USER || !process.env.BREVO_SMTP_KEY) {
-      console.error('BREVO_SMTP_USER or BREVO_SMTP_KEY not set.');
-      return { success: false, error: 'SMTP credentials missing' };
+      logOperationalEvent({
+        event: OPERATIONAL_EVENTS.emailSendFailed,
+        severity: 'critical',
+        outcome: 'configuration_missing',
+        churchId: context?.churchId,
+        resourceType: 'event_registration',
+        resourceId: registration.id,
+        requestId: context?.requestId,
+        errorCode: 'smtp_configuration_missing',
+        retryable: false,
+      });
+      return { success: false, errorCode: 'smtp_configuration_missing' };
     }
 
     await transporter.sendMail({
@@ -61,9 +73,28 @@ export async function sendEventConfirmationEmail(
       subject: `You're confirmed for ${registration.event.name}!`,
       html: buildConfirmationEmailHtml(registration),
     });
+    logOperationalEvent({
+      event: OPERATIONAL_EVENTS.emailSendCompleted,
+      severity: 'info',
+      outcome: 'delivered_to_smtp',
+      churchId: context?.churchId,
+      resourceType: 'event_registration',
+      resourceId: registration.id,
+      requestId: context?.requestId,
+    });
     return { success: true };
   } catch (err) {
-    console.error('Failed to send confirmation email', err);
-    return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+    logOperationalEvent({
+      event: OPERATIONAL_EVENTS.emailSendFailed,
+      severity: 'error',
+      outcome: 'smtp_rejected',
+      churchId: context?.churchId,
+      resourceType: 'event_registration',
+      resourceId: registration.id,
+      requestId: context?.requestId,
+      errorCode: 'smtp_send_failed',
+      retryable: true,
+    }, err);
+    return { success: false, errorCode: 'smtp_send_failed' };
   }
 }

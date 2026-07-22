@@ -224,11 +224,11 @@ export default async function DeveloperPage() {
             </p>
           </div>
           <Link
-            href="/settings/api-keys"
+            href="/developer/operations"
             className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 text-sm font-bold text-white transition-colors hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
           >
-            <KeyRound className="h-4 w-4" />
-            Manage API keys
+            <Activity className="h-4 w-4" />
+            Operational health
           </Link>
         </header>
 
