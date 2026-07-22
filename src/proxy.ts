@@ -3,10 +3,11 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function proxy(request: NextRequest) {
-  // Allow API routes and event links to pass through completely without session checks
+  // Allow API routes and public submission pages to pass through without session checks.
   if (
     request.nextUrl.pathname.startsWith('/api/') ||
-    request.nextUrl.pathname.startsWith('/e/')
+    request.nextUrl.pathname.startsWith('/e/') ||
+    request.nextUrl.pathname.startsWith('/connect/')
   ) {
     return NextResponse.next()
   }
@@ -50,6 +51,39 @@ export async function proxy(request: NextRequest) {
     // If logged in, redirect away from landing page and login page
     if (request.nextUrl.pathname === '/' || request.nextUrl.pathname === '/login') {
       return NextResponse.redirect(new URL('/account', request.url))
+    }
+
+    const accountRoutes = ['/account', '/portal', '/claim-pending', '/signup', '/auth/callback']
+    const isAccountRoute = accountRoutes.some((path) =>
+      request.nextUrl.pathname === path || request.nextUrl.pathname.startsWith(`${path}/`)
+    )
+
+    if (!isAccountRoute) {
+      const [
+        { data: membership, error: membershipError },
+        { data: isPlatformAdmin, error: platformAdminError },
+      ] =
+        await Promise.all([
+          supabase
+            .from('church_memberships')
+            .select('id')
+            .eq('user_id', user.id)
+            .limit(1)
+            .maybeSingle(),
+          supabase.rpc('is_platform_admin'),
+        ])
+
+      if (membershipError || platformAdminError) {
+        console.error('[proxy] tenant access lookup failed', {
+          membership_error_code: membershipError?.code ?? null,
+          platform_admin_error_code: platformAdminError?.code ?? null,
+        })
+        return response
+      }
+
+      if (!membership && !isPlatformAdmin) {
+        return NextResponse.redirect(new URL('/account', request.url))
+      }
     }
   }
 

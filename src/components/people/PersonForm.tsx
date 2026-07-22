@@ -79,27 +79,27 @@ export function PersonForm({ person, tags, fieldDefinitions, households }: Perso
             
             <div className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="text-sm font-medium mb-1 block">First Name <span className="text-red-500">*</span></label>
-                <Input {...register('first_name')} className="rounded-xl" />
-                {errors.first_name && <p className="text-xs text-destructive mt-1">{errors.first_name.message as string}</p>}
+                <label htmlFor="person-first-name" className="text-sm font-medium mb-1 block">First Name <span className="text-red-500">*</span></label>
+                <Input id="person-first-name" autoComplete="given-name" aria-invalid={!!errors.first_name} aria-describedby={errors.first_name ? 'person-first-name-error' : undefined} {...register('first_name')} className="rounded-xl" />
+                {errors.first_name && <p id="person-first-name-error" role="alert" className="text-xs text-destructive mt-1">{errors.first_name.message as string}</p>}
               </div>
               <div>
-                <label className="text-sm font-medium mb-1 block">Last Name <span className="text-red-500">*</span></label>
-                <Input {...register('last_name')} className="rounded-xl" />
-                {errors.last_name && <p className="text-xs text-destructive mt-1">{errors.last_name.message as string}</p>}
+                <label htmlFor="person-last-name" className="text-sm font-medium mb-1 block">Last Name <span className="text-red-500">*</span></label>
+                <Input id="person-last-name" autoComplete="family-name" aria-invalid={!!errors.last_name} aria-describedby={errors.last_name ? 'person-last-name-error' : undefined} {...register('last_name')} className="rounded-xl" />
+                {errors.last_name && <p id="person-last-name-error" role="alert" className="text-xs text-destructive mt-1">{errors.last_name.message as string}</p>}
               </div>
             </div>
           </div>
 
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium mb-1 block">Email</label>
-              <Input type="email" {...register('email')} className="rounded-xl" />
-              {errors.email && <p className="text-xs text-destructive mt-1">{errors.email.message as string}</p>}
+              <label htmlFor="person-email" className="text-sm font-medium mb-1 block">Email</label>
+              <Input id="person-email" type="email" autoComplete="email" aria-invalid={!!errors.email} aria-describedby={errors.email ? 'person-email-error' : undefined} {...register('email')} className="rounded-xl" />
+              {errors.email && <p id="person-email-error" role="alert" className="text-xs text-destructive mt-1">{errors.email.message as string}</p>}
             </div>
             <div>
-              <label className="text-sm font-medium mb-1 block">Phone</label>
-              <Input {...register('phone')} className="rounded-xl" />
+              <label htmlFor="person-phone" className="text-sm font-medium mb-1 block">Phone</label>
+              <Input id="person-phone" type="tel" autoComplete="tel" {...register('phone')} className="rounded-xl" />
             </div>
             <div>
               <label className="text-sm font-medium mb-1 block">Gender</label>
@@ -120,13 +120,13 @@ export function PersonForm({ person, tags, fieldDefinitions, households }: Perso
               />
             </div>
             <div>
-              <label className="text-sm font-medium mb-1 block">Status <span className="text-red-500">*</span></label>
+              <label htmlFor="person-status" className="text-sm font-medium mb-1 block">Status <span className="text-red-500">*</span></label>
               <Controller
                 control={control}
                 name="status"
                 render={({ field }) => (
                   <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select status" /></SelectTrigger>
+                    <SelectTrigger id="person-status" className="rounded-xl"><SelectValue placeholder="Select status" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="visitor">Visitor</SelectItem>
                       <SelectItem value="active">Active Member</SelectItem>
@@ -153,8 +153,8 @@ export function PersonForm({ person, tags, fieldDefinitions, households }: Perso
             <Input type="date" {...register('birthdate')} className="rounded-xl" />
           </div>
           <div>
-            <label className="text-sm font-medium mb-1 block">Campus</label>
-            <Input {...register('campus')} className="rounded-xl" />
+            <label htmlFor="person-campus" className="text-sm font-medium mb-1 block">Campus</label>
+            <Input id="person-campus" {...register('campus')} className="rounded-xl" />
           </div>
           <div>
             <label className="text-sm font-medium mb-1 block">Marital Status</label>
@@ -322,7 +322,7 @@ export function PersonForm({ person, tags, fieldDefinitions, households }: Perso
         <Button variant="outline" type="button" onClick={() => window.history.back()} disabled={isSubmitting} className="h-10 rounded-xl px-5">
           Cancel
         </Button>
-        <Button type="submit" disabled={isSubmitting} className="h-10 rounded-xl bg-emerald-700 px-8 font-bold shadow-sm hover:bg-emerald-800">
+        <Button type="submit" disabled={isSubmitting} aria-busy={isSubmitting} className="h-10 rounded-xl bg-emerald-700 px-8 font-bold shadow-sm hover:bg-emerald-800">
           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {isEdit ? 'Save Changes' : 'Create Person'}
         </Button>

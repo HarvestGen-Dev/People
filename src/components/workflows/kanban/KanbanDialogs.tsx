@@ -20,7 +20,8 @@ import type { ListPerson, WorkflowAdminUser } from '@/lib/types';
 import type { CardFormData } from '@/hooks/useKanbanBoard';
 
 export function KanbanDialogs({
-  canManage,
+  canManageStructure,
+  canManageCards,
   users,
   isAddStepOpen,
   setIsAddStepOpen,
@@ -42,7 +43,8 @@ export function KanbanDialogs({
   setCardFormData,
   handleAddCard,
 }: {
-  canManage: boolean;
+  canManageStructure: boolean;
+  canManageCards: boolean;
   users: WorkflowAdminUser[];
   isAddStepOpen: boolean;
   setIsAddStepOpen: (v: boolean) => void;
@@ -64,12 +66,13 @@ export function KanbanDialogs({
   setCardFormData: (v: CardFormData) => void;
   handleAddCard: () => void;
 }) {
-  if (!canManage) return null;
+  if (!canManageStructure && !canManageCards) return null;
 
   return (
     <>
-      <Dialog open={isAddStepOpen} onOpenChange={setIsAddStepOpen}>
-        <DialogContent className="rounded-3xl sm:max-w-md">
+      {canManageStructure && (
+        <Dialog open={isAddStepOpen} onOpenChange={setIsAddStepOpen}>
+          <DialogContent className="rounded-3xl sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">Add workflow step</DialogTitle>
           </DialogHeader>
@@ -115,11 +118,13 @@ export function KanbanDialogs({
               Add step
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
 
-      <Dialog open={isAddCardOpen} onOpenChange={setIsAddCardOpen}>
-        <DialogContent className="rounded-3xl sm:max-w-lg">
+      {canManageCards && (
+        <Dialog open={isAddCardOpen} onOpenChange={setIsAddCardOpen}>
+          <DialogContent className="rounded-3xl sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">
               Add person to workflow
@@ -250,8 +255,9 @@ export function KanbanDialogs({
               Add to workflow
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 }

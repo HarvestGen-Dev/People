@@ -51,13 +51,18 @@ export function CardDetailsSidebar({
         className="absolute inset-0 bg-slate-950/35 backdrop-blur-sm"
         onClick={() => setActiveCard(null)}
       />
-      <aside className="relative flex h-full w-full flex-col bg-white shadow-2xl animate-in slide-in-from-right-8 duration-300 sm:max-w-[460px]">
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="workflow-card-details-heading"
+        className="relative flex h-full w-full flex-col bg-white shadow-2xl animate-in slide-in-from-right-8 duration-300 sm:max-w-[460px]"
+      >
         <header className="flex items-center justify-between border-b border-slate-200 px-5 py-4 sm:px-6">
           <div>
             <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-700">
               Workflow card
             </div>
-            <h2 className="mt-1 text-xl font-bold text-slate-950">
+            <h2 id="workflow-card-details-heading" className="mt-1 text-xl font-bold text-slate-950">
               Card details
             </h2>
           </div>
@@ -110,7 +115,7 @@ export function CardDetailsSidebar({
 
           {!activeCard.completed_at && (
             <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-700">
+              <label htmlFor="workflow-card-current-step" className="mb-2 block text-sm font-semibold text-slate-700">
                 Current step
               </label>
               <Select
@@ -123,7 +128,7 @@ export function CardDetailsSidebar({
                   })
                 }
               >
-                <SelectTrigger className="h-11 rounded-xl bg-white">
+                <SelectTrigger id="workflow-card-current-step" className="h-11 rounded-xl bg-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -138,7 +143,7 @@ export function CardDetailsSidebar({
           )}
 
           <div>
-            <label className="mb-2 block text-sm font-semibold text-slate-700">
+            <label htmlFor="workflow-card-assignee" className="mb-2 block text-sm font-semibold text-slate-700">
               Assigned to
             </label>
             <Select
@@ -151,7 +156,7 @@ export function CardDetailsSidebar({
                 })
               }
             >
-              <SelectTrigger className="h-11 rounded-xl bg-white">
+              <SelectTrigger id="workflow-card-assignee" className="h-11 rounded-xl bg-white">
                 <SelectValue placeholder="Unassigned" />
               </SelectTrigger>
               <SelectContent>
@@ -166,11 +171,12 @@ export function CardDetailsSidebar({
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-semibold text-slate-700">
+            <label htmlFor="workflow-card-due-date" className="mb-2 block text-sm font-semibold text-slate-700">
               Due date
             </label>
             <Input
               disabled={!canManage}
+              id="workflow-card-due-date"
               type="date"
               value={cardDraft.due_date}
               onChange={(event) =>
@@ -184,11 +190,12 @@ export function CardDetailsSidebar({
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-semibold text-slate-700">
+            <label htmlFor="workflow-card-notes" className="mb-2 block text-sm font-semibold text-slate-700">
               Follow-up notes
             </label>
             <Textarea
               disabled={!canManage}
+              id="workflow-card-notes"
               value={cardDraft.notes}
               onChange={(event) =>
                 setCardDraft({ ...cardDraft, notes: event.target.value })

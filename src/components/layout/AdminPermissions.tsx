@@ -6,6 +6,7 @@ import type { TenantRole } from '@/lib/tenant-context';
 type AdminPermissions = {
   role: TenantRole;
   canManage: boolean;
+  canManageWorkflows: boolean;
   isPlatformAdmin: boolean;
 };
 
@@ -26,6 +27,11 @@ export function AdminPermissionsProvider({
         role,
         canManage:
           isPlatformAdmin || role === 'owner' || role === 'admin',
+        canManageWorkflows:
+          isPlatformAdmin ||
+          role === 'owner' ||
+          role === 'admin' ||
+          role === 'workflow_manager',
         isPlatformAdmin,
       }}
     >

@@ -13,7 +13,8 @@ export function KanbanColumn({
   step,
   isDone = false,
   cards,
-  canManage,
+  canManageStructure,
+  canManageCards,
   setInsertAfterId,
   setIsAddStepOpen,
   handleDeleteStep,
@@ -24,7 +25,8 @@ export function KanbanColumn({
   step: Pick<WorkflowStep, 'id' | 'name'>;
   isDone?: boolean;
   cards: WorkflowBoardCard[];
-  canManage: boolean;
+  canManageStructure: boolean;
+  canManageCards: boolean;
   setInsertAfterId: (id: string | null) => void;
   setIsAddStepOpen: (open: boolean) => void;
   handleDeleteStep: (id: string) => void;
@@ -41,6 +43,7 @@ export function KanbanColumn({
   return (
     <section
       key={step.id || 'done'}
+      aria-label={`${step.name} workflow step`}
       className="flex max-h-full w-[86vw] max-w-[340px] shrink-0 flex-col rounded-3xl border border-slate-200/80 bg-slate-100/70 p-3 sm:w-[320px]"
     >
       <header className="mb-3 flex items-center justify-between px-1 py-1">
@@ -55,7 +58,7 @@ export function KanbanColumn({
             {columnCards.length}
           </span>
         </div>
-        {!isDone && canManage && (
+        {!isDone && canManageStructure && (
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label={`Actions for ${step.name}`}
@@ -98,7 +101,7 @@ export function KanbanColumn({
         ))}
       </div>
 
-      {!isDone && canManage && (
+      {!isDone && canManageCards && (
         <Button
           variant="ghost"
           className="mt-1 h-10 w-full justify-start rounded-xl text-slate-500 hover:bg-white hover:text-emerald-700"

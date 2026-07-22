@@ -2,6 +2,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const port = Number(process.env.PLAYWRIGHT_PORT || 3217);
+const baseURL = `http://127.0.0.1:${port}`;
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -11,22 +12,43 @@ export default defineConfig({
   },
   fullyParallel: false,
   workers: 1,
-  reporter: process.env.CI ? [['github'], ['list']] : 'list',
+  retries: process.env.CI ? 1 : 0,
+  reporter: process.env.CI
+    ? [['github'], ['list']]
+    : [['list'], ['html', { open: 'never' }]],
   use: {
-    baseURL: `http://127.0.0.1:${port}`,
+    baseURL,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
   },
   webServer: {
-    command: `npm run dev -- --hostname 127.0.0.1 --port ${port}`,
-    url: `http://127.0.0.1:${port}/login`,
+    command: 'node tests/e2e/support/local-test-server.mjs',
+    url: `${baseURL}/login`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    env: {
+      ...process.env,
+      PLAYWRIGHT_PORT: String(port),
+    },
   },
   projects: [
     {
-      name: 'chromium',
+      name: 'desktop-chromium',
       use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'mobile-chrome',
+      testMatch: /responsive-registration\.spec\.ts/,
+      use: { ...devices['Pixel 7'] },
+    },
+    {
+      name: 'tablet',
+      testMatch: /responsive-registration\.spec\.ts/,
+      use: {
+        browserName: 'chromium',
+        viewport: { width: 768, height: 1024 },
+      },
     },
   ],
 });
