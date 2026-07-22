@@ -21,6 +21,10 @@ below and is not an active deployment checklist.
 
 ### Database and rollback
 
+Rehearsal evidence: `docs/PRODUCTION_MIGRATION_REHEARSAL_2026-07-22.md`.
+This is local production-shaped evidence only; it does not authorize or mark
+the production migration items below complete.
+
 - [ ] Confirm a recent Supabase database backup and record its timestamp.
 - [ ] Record the Storage backup/export plan for private people photos and payment proofs.
 - [ ] Run `supabase db reset --local --yes` through migration `048`.
