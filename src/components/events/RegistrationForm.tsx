@@ -168,40 +168,73 @@ export function RegistrationForm({ event, spotsRemaining }: RegistrationFormProp
           <>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="text-sm font-medium mb-1 block">First Name</label>
-                <Input {...register('first_name')} className="rounded-xl" />
-                {errors.first_name && <p className="text-xs text-red-500 mt-1">{errors.first_name.message}</p>}
+                <label htmlFor="registration-first-name" className="text-sm font-medium mb-1 block">First Name</label>
+                <Input
+                  id="registration-first-name"
+                  autoComplete="given-name"
+                  aria-invalid={!!errors.first_name}
+                  aria-describedby={errors.first_name ? 'registration-first-name-error' : undefined}
+                  {...register('first_name')}
+                  className="rounded-xl"
+                />
+                {errors.first_name && <p id="registration-first-name-error" role="alert" className="text-xs text-red-500 mt-1">{errors.first_name.message}</p>}
               </div>
               <div>
-                <label className="text-sm font-medium mb-1 block">Last Name</label>
-                <Input {...register('last_name')} className="rounded-xl" />
-                {errors.last_name && <p className="text-xs text-red-500 mt-1">{errors.last_name.message}</p>}
+                <label htmlFor="registration-last-name" className="text-sm font-medium mb-1 block">Last Name</label>
+                <Input
+                  id="registration-last-name"
+                  autoComplete="family-name"
+                  aria-invalid={!!errors.last_name}
+                  aria-describedby={errors.last_name ? 'registration-last-name-error' : undefined}
+                  {...register('last_name')}
+                  className="rounded-xl"
+                />
+                {errors.last_name && <p id="registration-last-name-error" role="alert" className="text-xs text-red-500 mt-1">{errors.last_name.message}</p>}
               </div>
             </div>
             
             <div>
-              <label className="text-sm font-medium mb-1 block">Email</label>
-              <Input type="email" {...register('email')} className="rounded-xl" />
-              {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email.message}</p>}
+              <label htmlFor="registration-email" className="text-sm font-medium mb-1 block">Email</label>
+              <Input
+                id="registration-email"
+                type="email"
+                autoComplete="email"
+                aria-invalid={!!errors.email}
+                aria-describedby={errors.email ? 'registration-email-error' : undefined}
+                {...register('email')}
+                className="rounded-xl"
+              />
+              {errors.email && <p id="registration-email-error" role="alert" className="text-xs text-red-500 mt-1">{errors.email.message}</p>}
             </div>
             
             <div>
-              <label className="text-sm font-medium mb-1 block">Phone</label>
-              <Input type="tel" {...register('phone')} className="rounded-xl" />
-              {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone.message}</p>}
+              <label htmlFor="registration-phone" className="text-sm font-medium mb-1 block">Phone</label>
+              <Input
+                id="registration-phone"
+                type="tel"
+                autoComplete="tel"
+                aria-invalid={!!errors.phone}
+                aria-describedby={errors.phone ? 'registration-phone-error' : undefined}
+                {...register('phone')}
+                className="rounded-xl"
+              />
+              {errors.phone && <p id="registration-phone-error" role="alert" className="text-xs text-red-500 mt-1">{errors.phone.message}</p>}
             </div>
 
             <div>
-              <label className="text-sm font-medium mb-1 block">Additional guests</label>
+              <label htmlFor="registration-guests" className="text-sm font-medium mb-1 block">Additional guests</label>
               <Input 
+                id="registration-guests"
                 type="number" 
                 min="0" 
                 max={spotsRemaining !== null ? Math.max(spotsRemaining - 1, 0) : 20} 
                 {...register('additional_guest_count', { valueAsNumber: true })} 
+                aria-invalid={!!errors.additional_guest_count}
+                aria-describedby="registration-guests-help"
                 className="rounded-xl" 
               />
-              <p className="mt-1 text-xs text-slate-500">{totalAttending} total attending including you.</p>
-              {errors.additional_guest_count && <p className="text-xs text-red-500 mt-1">{errors.additional_guest_count.message}</p>}
+              <p id="registration-guests-help" className="mt-1 text-xs text-slate-500">{totalAttending} total attending including you.</p>
+              {errors.additional_guest_count && <p role="alert" className="text-xs text-red-500 mt-1">{errors.additional_guest_count.message}</p>}
             </div>
 
             {!isFree && (
@@ -211,7 +244,7 @@ export function RegistrationForm({ event, spotsRemaining }: RegistrationFormProp
               </div>
             )}
 
-            <Button type="submit" className="mt-4 h-11 w-full rounded-xl bg-emerald-700 text-base font-bold hover:bg-emerald-800" disabled={isSubmitting}>
+            <Button type="submit" aria-busy={isSubmitting} className="mt-4 h-11 w-full rounded-xl bg-emerald-700 text-base font-bold hover:bg-emerald-800" disabled={isSubmitting}>
               {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
               {isFree ? 'Register' : 'Continue to Payment'}
             </Button>
@@ -250,21 +283,21 @@ export function RegistrationForm({ event, spotsRemaining }: RegistrationFormProp
             )}
 
             <div className="border-t border-border pt-4">
-              <label className="text-sm font-medium mb-2 block">Upload Payment Proof</label>
+              <label htmlFor="registration-payment-proof" className="text-sm font-medium mb-2 block">Upload Payment Proof</label>
               <div className="group relative aspect-video w-full overflow-hidden rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 transition-colors hover:bg-slate-100">
                 {proofPreviewUrl ? (
                   <>
                     <img src={proofPreviewUrl} alt="Proof" className="w-full h-full object-contain" />
                     <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
                       <span className="text-white font-medium text-sm">Replace</span>
-                      <input type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
+                      <input id="registration-payment-proof" type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
                     </label>
                   </>
                 ) : (
                   <label className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer text-slate-500 hover:text-slate-700">
                     <Upload className="h-8 w-8 mb-2 opacity-70" />
                     <span className="text-sm font-medium">Upload Screenshot</span>
-                    <input type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
+                    <input id="registration-payment-proof" type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
                   </label>
                 )}
               </div>
@@ -283,6 +316,7 @@ export function RegistrationForm({ event, spotsRemaining }: RegistrationFormProp
 
             <Button
               type="submit" 
+              aria-busy={isSubmitting}
               className="h-11 w-full rounded-xl bg-emerald-700 text-base font-bold hover:bg-emerald-800"
               disabled={!proofFile || !watchPaid || isSubmitting}
             >

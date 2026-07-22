@@ -18,6 +18,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Topbar } from '@/components/layout/Topbar';
 import { requireTenantContext } from '@/lib/tenant-context';
 import { createServiceClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
 
 export const metadata = {
   title: 'Developer API | People',
@@ -92,7 +93,15 @@ const responseExample = `{
 }`;
 
 export default async function DeveloperPage() {
-  const { churchId, churchName } = await requireTenantContext({ requireDeveloperTools: true });
+  const tenant = await requireTenantContext();
+  if (
+    !tenant.isPlatformAdmin &&
+    tenant.role !== 'owner' &&
+    tenant.role !== 'admin'
+  ) {
+    redirect('/dashboard');
+  }
+  const { churchId, churchName } = tenant;
   const supabase = createServiceClient();
   const now = new Date();
   const weekAgo = new Date();

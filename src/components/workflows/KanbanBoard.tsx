@@ -30,7 +30,7 @@ export function KanbanBoard({
   initialCards: cards,
   users,
 }: KanbanBoardProps) {
-  const { canManage } = useAdminPermissions();
+  const { canManage, canManageWorkflows: canManageCards } = useAdminPermissions();
 
   const {
     activeCard, setActiveCard,
@@ -80,11 +80,11 @@ export function KanbanBoard({
             <Plus className="mr-2 h-4 w-4" />
             Add step
           </Button>
-        ) : (
+        ) : !canManageCards ? (
           <Badge variant="outline" className="w-fit bg-slate-50 text-slate-500">
             Read only
           </Badge>
-        )}
+        ) : null}
       </div>
 
       <div className="flex-1 overflow-x-auto p-4 sm:p-6 lg:p-8">
@@ -94,7 +94,8 @@ export function KanbanBoard({
               key={step.id}
               step={step}
               cards={cards}
-              canManage={canManage}
+              canManageStructure={canManage}
+              canManageCards={canManageCards}
               setInsertAfterId={setInsertAfterId}
               setIsAddStepOpen={setIsAddStepOpen}
               handleDeleteStep={handleDeleteStep}
@@ -107,7 +108,8 @@ export function KanbanBoard({
             step={{ id: 'done', name: 'Completed' }}
             isDone
             cards={cards}
-            canManage={canManage}
+            canManageStructure={canManage}
+            canManageCards={canManageCards}
             setInsertAfterId={setInsertAfterId}
             setIsAddStepOpen={setIsAddStepOpen}
             handleDeleteStep={handleDeleteStep}
@@ -122,7 +124,7 @@ export function KanbanBoard({
         <CardDetailsSidebar
           activeCard={activeCard}
           setActiveCard={setActiveCard}
-          canManage={canManage}
+          canManage={canManageCards}
           cardDraft={cardDraft}
           setCardDraft={setCardDraft}
           steps={steps}
@@ -135,7 +137,8 @@ export function KanbanBoard({
       )}
 
       <KanbanDialogs
-        canManage={canManage}
+        canManageStructure={canManage}
+        canManageCards={canManageCards}
         users={users}
         isAddStepOpen={isAddStepOpen}
         setIsAddStepOpen={setIsAddStepOpen}

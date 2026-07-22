@@ -371,3 +371,26 @@ from public.workflow_cards
 where pulse_run_id = :run_id
 group by church_id, pulse_config_id;
 ```
+
+## Automated Browser Journeys
+
+The local Playwright suite now automates the release-critical browser paths
+against migrations through `047`: paid public event registration and approval,
+free registration capacity and closed states, public connect-form submission
+with idempotent replay, person creation/editing, workflow movement/completion,
+developer-tool authorization, representative read-only and workflow-manager
+roles, portal/anonymous routing, cross-tenant URL and card-ID tampering, and the
+high-risk dashboard, developer, team, list, people, workflow, and registration
+Server Component queries. Public registration runs on desktop Chromium, Mobile
+Chrome emulation, and a 768x1024 tablet viewport.
+
+Before release, run `npm run verify` and inspect uploaded Playwright traces for
+any CI failure. See `docs/E2E_TESTING.md` for setup, safety, cleanup, selectors,
+and diagnostics.
+
+The following remain manual or follow-up browser work: paid-proof preview dialog
+focus restoration, authorized signed people-photo upload/rendering, invitation
+acceptance through emailed links, connect-form proposed-update review (no admin
+UI currently exposes proposals), and an operational pulse-run history page (the
+current surface is database-only). Existing integration tests continue to cover
+the underlying transactional and security behavior for these areas.

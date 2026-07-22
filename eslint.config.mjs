@@ -11,6 +11,9 @@ const eslintConfig = defineConfig([
     ".next/**",
     "out/**",
     "build/**",
+    "playwright-report/**",
+    "test-results/**",
+    "coverage/**",
     "next-env.d.ts",
     // Legacy local maintenance scripts are not shipped application code.
     "create-user.js",
