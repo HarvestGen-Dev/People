@@ -101,6 +101,23 @@ URLs only when the decoded object path is tenant/person scoped. External legacy
 URLs are deliberately not displayed or proxied by the private-photo code because
 they cannot be made private through Supabase bucket policy changes.
 
+The operator CLI at `scripts/people-photo-migration.mjs` provides count-only
+inventory, tenant dry-run, confirmed single-tenant migration, verification, and
+read-only rollback planning. It requires an explicit project reference. Write
+mode requires one church ID and `--confirm`; remote writes additionally require
+`--allow-remote`. All-tenant writes are rejected.
+
+Migration uses the same decode, dimension, orientation, metadata stripping,
+resize, and WebP rules as normal admin uploads. The destination is downloaded
+and checked against its SHA-256 and metadata before `people.photo_path` is set
+and `people.photo_url` is cleared. Source objects are never deleted.
+
+The tool writes a protected resumable state file and a separate PII-free audit
+outside Git. Console and audit output contain no photo URL, Storage path, signed
+URL, name, email, phone number, or credential. See
+`docs/PEOPLE_PHOTO_MIGRATION.md` and
+`docs/PEOPLE_PHOTO_MIGRATION_RUNBOOK.md`.
+
 Deployment checklist:
 
 1. Back up the database.
@@ -112,8 +129,8 @@ Deployment checklist:
 7. Verify one admin upload, one replacement, one removal, and one portal
    own-photo retrieval.
 8. Query `people_photo_reference_inventory` as `service_role`.
-9. Pilot-copy or reprocess legacy objects for one tenant into private
-   tenant/person paths.
+9. Run the CLI dry-run, then pilot-reprocess eligible objects for one explicitly
+   selected tenant.
 10. Update copied records to `photo_path` and clear `photo_url` only after
    verification.
 11. Migrate remaining tenants.
