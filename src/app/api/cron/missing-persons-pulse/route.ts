@@ -34,19 +34,7 @@ function isPulseResult(value: unknown): value is MissingPersonsPulseResult {
   );
 }
 
-export async function GET() {
-  return NextResponse.json(
-    {
-      error: {
-        code: 'method_not_allowed',
-        message: 'Method not allowed.',
-      },
-    },
-    { status: 405, headers: { Allow: 'POST' } }
-  );
-}
-
-export async function POST(request: Request) {
+async function handleCronRequest(request: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret) {
     logOperationalEvent({
@@ -172,4 +160,12 @@ export async function POST(request: Request) {
   return NextResponse.json(data, {
     status: data.status === 'failed' ? 500 : 200,
   });
+}
+
+export async function GET(request: Request) {
+  return handleCronRequest(request);
+}
+
+export async function POST(request: Request) {
+  return handleCronRequest(request);
 }

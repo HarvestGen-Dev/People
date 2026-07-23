@@ -292,9 +292,11 @@ order by started_at desc
 limit 50;
 ```
 
-The route accepts `POST` only and requires `Authorization: Bearer
-<CRON_SECRET>`. Vercel invokes it daily through `vercel.json`. An optional valid
-UUID in `X-Cron-Run-Id` makes scheduler retries return the existing run result.
+The route accepts authenticated `GET` for Vercel Cron and authenticated `POST`
+for controlled manual execution. Both methods require `Authorization: Bearer
+<CRON_SECRET>` and use the same private handler. Vercel invokes `GET` daily
+through `vercel.json`. An optional valid UUID in `X-Cron-Run-Id` makes scheduler
+retries return the existing run result.
 Reusing a run ID with a different tenant scope is rejected with the sanitized
 `run_id_scope_conflict` code; the original run and its cards remain unchanged.
 Success, partial success, and lock skips return HTTP 200. A lock-only response

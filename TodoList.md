@@ -23,8 +23,10 @@ below and is not an active deployment checklist.
 
 Rehearsal evidence: `docs/PRODUCTION_MIGRATION_REHEARSAL_2026-07-22.md`.
 Storage evidence: `docs/PRODUCTION_STORAGE_BACKUP_REHEARSAL_2026-07-23.md`.
-This is local production-shaped evidence only; it does not authorize or mark
-the production migration items below complete.
+Cutover evidence: `docs/PRODUCTION_MIGRATION_CUTOVER_2026-07-23.md`.
+The rehearsal and restoration evidence is local production-shaped validation;
+the cutover report records the controlled production migration. None of these
+documents authorizes further production changes.
 
 - [x] Create and verify a fresh encrypted logical database backup outside Git (`20260722T202926Z`).
 - [ ] Confirm the latest managed Supabase backup in the Dashboard and record its timestamp.
@@ -36,7 +38,8 @@ the production migration items below complete.
 - [ ] Confirm `tenant_relationship_complete_audit` reports zero violations.
 - [ ] Validate tenant composite FKs in controlled groups and record the result.
 - [ ] Confirm both missing-person duplicate audits report zero rows before applying blocking constraints in a new environment.
-- [ ] Verify migrations `045`-`047`, pulse idempotency, and run history in staging.
+- [x] Apply production migrations `045`-`048` with the duplicate-audit hold after `045`.
+- [ ] Deploy and verify the authenticated Vercel Cron `GET` compatibility patch.
 - [ ] Review forward and rollback steps with the database reviewer.
 
 ### Delivery and integrations
