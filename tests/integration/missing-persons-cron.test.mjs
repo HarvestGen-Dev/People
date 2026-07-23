@@ -113,12 +113,12 @@ async function runPulse({ churchId = null, now = fixedNow, runId = crypto.random
   return data;
 }
 
-async function requestPulse(authorization, runId) {
+async function requestPulse({ method = 'POST', authorization, runId } = {}) {
   const headers = {};
   if (authorization) headers.Authorization = authorization;
   if (runId) headers['x-cron-run-id'] = runId;
   const response = await fetch(`${baseUrl}/api/cron/missing-persons-pulse`, {
-    method: 'POST',
+    method,
     headers,
   });
   return { response, body: await response.json() };
@@ -195,36 +195,84 @@ after(async () => {
   }
 });
 
-test('cron authentication fails closed, rejects GET and bad secrets, and accepts the configured secret', async () => {
+test('cron GET and POST share fail-closed authentication and idempotent execution', async () => {
   const unconfigured = startNextDevServer({ port, env: { CRON_SECRET: '' } });
   await waitForNextDevServer({ server: unconfigured, baseUrl });
 
-  const unavailable = await fetch(`${baseUrl}/api/cron/missing-persons-pulse`, {
-    method: 'POST',
-  });
-  const unavailableBody = await unavailable.json();
-  assert.equal(unavailable.status, 503);
-  assert.equal(unavailableBody.error.code, 'cron_not_configured');
+  const unavailable = await requestPulse({ method: 'GET' });
+  assert.equal(unavailable.response.status, 503);
+  assert.equal(unavailable.body.error.code, 'cron_not_configured');
+  assert.doesNotMatch(JSON.stringify(unavailable.body), new RegExp(cronSecret));
   await stopServer(unconfigured);
 
   server = startNextDevServer({ port, env: { CRON_SECRET: cronSecret } });
   await waitForNextDevServer({ server, baseUrl });
 
-  const getResponse = await fetch(`${baseUrl}/api/cron/missing-persons-pulse`);
-  assert.equal(getResponse.status, 405);
-  assert.equal(getResponse.headers.get('allow'), 'POST');
-
-  const missing = await requestPulse();
-  const incorrect = await requestPulse('Bearer incorrect');
+  const missing = await requestPulse({ method: 'GET' });
+  const incorrect = await requestPulse({
+    method: 'GET',
+    authorization: 'Bearer incorrect',
+  });
   assert.equal(missing.response.status, 401);
   assert.equal(incorrect.response.status, 401);
 
+  const scenario = await createScenario({ name: 'HTTP Adapter' });
+  const person = await createPerson(scenario.church.id);
   const runId = crypto.randomUUID();
-  const accepted = await requestPulse(`Bearer ${cronSecret}`, runId);
+  const accepted = await requestPulse({
+    method: 'GET',
+    authorization: `Bearer ${cronSecret}`,
+    runId,
+  });
   assert.equal(accepted.response.status, 200);
   assert.equal(accepted.body.run_id, runId);
   assert.ok(['completed', 'completed_with_errors'].includes(accepted.body.status));
+  assert.equal(accepted.body.cards_created, 1);
   assert.doesNotMatch(JSON.stringify(accepted.body), new RegExp(cronSecret));
+
+  const repeated = await requestPulse({
+    method: 'GET',
+    authorization: `Bearer ${cronSecret}`,
+    runId,
+  });
+  assert.equal(repeated.response.status, 200);
+  assert.deepEqual(repeated.body, accepted.body);
+
+  const post = await requestPulse({
+    method: 'POST',
+    authorization: `Bearer ${cronSecret}`,
+    runId: crypto.randomUUID(),
+  });
+  assert.equal(post.response.status, 200);
+  assert.equal(post.body.cards_created, 0);
+  assert.doesNotMatch(JSON.stringify(post.body), new RegExp(cronSecret));
+
+  const { count: runCount, error: runCountError } = await admin
+    .from('missing_persons_pulse_runs')
+    .select('*', { count: 'exact', head: true })
+    .eq('run_id', runId);
+  if (runCountError) throw runCountError;
+  assert.equal(runCount, 1);
+
+  const { count: cardCount, error: cardCountError } = await admin
+    .from('workflow_cards')
+    .select('*', { count: 'exact', head: true })
+    .eq('church_id', scenario.church.id)
+    .eq('person_id', person.id)
+    .is('completed_at', null);
+  if (cardCountError) throw cardCountError;
+  assert.equal(cardCount, 1);
+
+  const { error: deactivateError } = await admin
+    .from('workflow_pulse_configs')
+    .update({ is_active: false })
+    .eq('id', scenario.config.id);
+  if (deactivateError) throw deactivateError;
+
+  const unsupported = await fetch(`${baseUrl}/api/cron/missing-persons-pulse`, {
+    method: 'PUT',
+  });
+  assert.equal(unsupported.status, 405);
 
   const emptyChurch = await insertOne('churches', {
     slug: `pulse-empty-${suffix}`,
@@ -448,7 +496,9 @@ test('a missing workflow step is a scoped failure and does not roll back another
     .eq('id', invalid.config.id);
   if (activateInvalidError) throw activateInvalidError;
 
-  const failedRoute = await requestPulse(`Bearer ${cronSecret}`);
+  const failedRoute = await requestPulse({
+    authorization: `Bearer ${cronSecret}`,
+  });
   assert.equal(failedRoute.response.status, 500);
   assert.equal(failedRoute.body.status, 'failed');
   assert.equal(failedRoute.body.error_code, 'all_configurations_failed');
