@@ -22,12 +22,15 @@ below and is not an active deployment checklist.
 ### Database and rollback
 
 Rehearsal evidence: `docs/PRODUCTION_MIGRATION_REHEARSAL_2026-07-22.md`.
+Storage evidence: `docs/PRODUCTION_STORAGE_BACKUP_REHEARSAL_2026-07-23.md`.
 This is local production-shaped evidence only; it does not authorize or mark
 the production migration items below complete.
 
-- [ ] Confirm a recent Supabase database backup and record its timestamp.
-- [ ] Record the Storage backup/export plan for private people photos and payment proofs.
-- [ ] Run `supabase db reset --local --yes` through migration `048`.
+- [x] Create and verify a fresh encrypted logical database backup outside Git (`20260722T202926Z`).
+- [ ] Confirm the latest managed Supabase backup in the Dashboard and record its timestamp.
+- [x] Export and locally restore all production Storage buckets with encrypted manifests (`20260723T014303Z`).
+- [ ] Copy the encrypted database and Storage backups to approved off-device storage.
+- [x] Run `supabase db reset --local --yes` through migration `048`.
 - [ ] Run `supabase db lint --local --level warning --fail-on warning`.
 - [ ] Apply all pending migrations to staging and refresh the PostgREST schema cache when required.
 - [ ] Confirm `tenant_relationship_complete_audit` reports zero violations.
@@ -47,8 +50,8 @@ the production migration items below complete.
 
 ### Storage and privacy
 
-- [ ] Confirm `people-photos` and `payment-proofs` remain private.
-- [ ] Verify authorized signed photo access and denied cross-tenant access.
+- [x] Confirm `people-photos` and `payment-proofs` remain private.
+- [x] Verify authorized signed photo access and denied cross-tenant access in the disposable local restore.
 - [ ] Review the service-only legacy-photo inventory; do not migrate or delete objects as part of this gate.
 - [ ] Confirm operational summaries expose no payloads, credentials, email bodies, notes, or person contact data.
 
@@ -66,7 +69,7 @@ the production migration items below complete.
 
 - [ ] Confirm Vercel logs contain JSON records for the structured event names in `docs/OPERATIONAL_OBSERVABILITY.md`.
 - [ ] Review alert recommendations and document which alerts are actually configured.
-- [ ] Review backup verification and restoration-drill evidence.
+- [x] Record logical-database and Storage backup verification and disposable restoration evidence.
 - [ ] Review operator runbooks and escalation contacts.
 - [ ] Confirm the scheduler can be disabled without deploying code.
 - [ ] Obtain authorization/backend and frontend/integration reviewer approval.
