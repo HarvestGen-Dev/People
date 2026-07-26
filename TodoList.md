@@ -55,7 +55,12 @@ documents authorizes further production changes.
 
 - [x] Confirm `people-photos` and `payment-proofs` remain private.
 - [x] Verify authorized signed photo access and denied cross-tenant access in the disposable local restore.
-- [ ] Review the service-only legacy-photo inventory; do not migrate or delete objects as part of this gate.
+- [x] Add dry-run-first, single-tenant legacy people-photo inventory and migration tooling.
+- [x] Add local integration coverage for migration idempotency, failure recovery, private access, and source preservation.
+- [ ] Run the count-only production legacy-photo inventory and select one small pilot tenant.
+- [ ] Take fresh database and Storage backups immediately before the approved pilot.
+- [ ] Run the selected tenant dry-run and manually resolve unsupported categories.
+- [ ] Run, verify, and monitor one approved tenant pilot; do not delete legacy objects or remove fallback support.
 - [ ] Confirm operational summaries expose no payloads, credentials, email bodies, notes, or person contact data.
 
 ### Application verification

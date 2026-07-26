@@ -13,7 +13,7 @@
     "test:integration:authorization": "node --test tests/integration/developer-authorization.test.mjs",
     "test:integration:connect-forms": "node --test tests/integration/connect-form-submission.test.mjs",
     "test:integration:webhooks": "node --test tests/integration/webhook-worker.test.mjs",
-    "test:integration:photos": "node --test tests/integration/people-photos.test.mjs",
+    "test:integration:photos": "node --test tests/integration/people-photos.test.mjs && node --test tests/integration/people-photo-migration-tooling.test.mjs",
     "test:integration:tenant-fks": "node --test tests/integration/tenant-fk-audit.test.mjs",
     "test:integration:tenant-foreign-keys": "node --test tests/integration/tenant-foreign-keys.test.mjs",
     "test:integration:events": "node --test tests/integration/event-registration.test.mjs",
@@ -22,6 +22,7 @@
     "test:e2e": "playwright test",
     "test:e2e:journeys": "playwright test --project=desktop-chromium",
     "test:e2e:responsive": "playwright test tests/e2e/responsive-registration.spec.ts",
+    "people-photos:migrate": "node scripts/people-photo-migration.mjs",
     "verify": "bash scripts/verify.sh"
   },
   "dependencies": {
