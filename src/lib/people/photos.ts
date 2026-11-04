@@ -109,16 +109,63 @@ export async function addSignedPhotoUrls<T extends PhotoPersonReference>(
   people: T[],
   churchId: string
 ): Promise<Array<T & { photo_signed_url: string | null }>> {
-  const signed = await Promise.all(
-    people.map((person) => createPeoplePhotoSignedUrl(person, churchId))
-  );
-  const signedByPersonId = new Map(
-    signed.map((item) => [item.personId, item.signedUrl])
-  );
+  if (people.length === 0) return [];
+
+  const pathToPersonIds = new Map<string, string[]>();
+  const validPaths: string[] = [];
+
+  for (const person of people) {
+    const path = resolvePeoplePhotoPath(person, churchId);
+    if (path) {
+      let ids = pathToPersonIds.get(path);
+      if (!ids) {
+        ids = [];
+        pathToPersonIds.set(path, ids);
+        validPaths.push(path);
+      }
+      ids.push(person.id);
+    }
+  }
+
+  const signedUrlByPersonId = new Map<string, string | null>();
+
+  if (validPaths.length > 0) {
+    try {
+      const { data, error } = await createServiceClient()
+        .storage
+        .from(PEOPLE_PHOTOS_BUCKET)
+        .createSignedUrls(validPaths, PEOPLE_PHOTO_SIGNED_URL_TTL_SECONDS);
+
+      if (!error && Array.isArray(data)) {
+        for (const item of data) {
+          if (item?.signedUrl && item.path) {
+            const personIds = pathToPersonIds.get(item.path) ?? [];
+            for (const personId of personIds) {
+              signedUrlByPersonId.set(personId, item.signedUrl);
+            }
+          }
+        }
+      } else if (error) {
+        const fallbackSigned = await Promise.all(
+          people.map((person) => createPeoplePhotoSignedUrl(person, churchId))
+        );
+        for (const item of fallbackSigned) {
+          signedUrlByPersonId.set(item.personId, item.signedUrl);
+        }
+      }
+    } catch {
+      const fallbackSigned = await Promise.all(
+        people.map((person) => createPeoplePhotoSignedUrl(person, churchId))
+      );
+      for (const item of fallbackSigned) {
+        signedUrlByPersonId.set(item.personId, item.signedUrl);
+      }
+    }
+  }
 
   return people.map((person) => ({
     ...person,
-    photo_signed_url: signedByPersonId.get(person.id) ?? null,
+    photo_signed_url: signedUrlByPersonId.get(person.id) ?? null,
   }));
 }
 
