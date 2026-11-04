@@ -1,6 +1,7 @@
 // <!-- AGENT: BACKEND -->
 import 'server-only';
 
+import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import type { User } from '@supabase/supabase-js';
@@ -66,55 +67,110 @@ export class TenantSelectionRequiredError extends TenantContextError {
   }
 }
 
-export async function requireTenantContext(
-  options: TenantContextOptions = {}
-): Promise<TenantContext> {
+// <!-- AGENT: BACKEND -->
+// Request-scoped session user resolution. React.cache ensures auth.getUser() is called
+// at most once per incoming HTTP request render lifecycle, preventing redundant network trips
+// across layout, page, and subcomponents while strictly never caching across requests or users.
+const getSessionUser = cache(async (): Promise<User | null> => {
   const sessionClient = await createClient();
   const {
     data: { user },
   } = await sessionClient.auth.getUser();
+  return user ?? null;
+});
 
-  if (!user) {
-    throw new TenantContextError('Unauthorized', 401);
-  }
+type BaseTenantData = {
+  user: User;
+  isPlatformAdmin: boolean;
+  platformChurch: { id: string; name: string; slug: string } | null;
+  membership: MembershipRow | null;
+  selectedChurchId: string | undefined;
+};
 
-  const cookieStore = await cookies();
-  const selectedChurchId =
-    options.churchId ?? cookieStore.get('people_church_id')?.value;
+// <!-- AGENT: BACKEND -->
+// Request-scoped base tenant authorization resolver.
+// Fetches platform admin status and church memberships in parallel instead of sequentially.
+const resolveBaseTenantData = cache(
+  async (targetChurchId?: string): Promise<BaseTenantData> => {
+    const user = await getSessionUser();
+    if (!user) {
+      throw new TenantContextError('Unauthorized', 401);
+    }
 
-  const serviceClient = createServiceClient();
-  const { data: platformAdministrator, error: platformError } =
-    await serviceClient
-      .from('platform_admins')
-      .select('user_id')
+    const cookieStore = await cookies();
+    const selectedChurchId =
+      targetChurchId ?? cookieStore.get('people_church_id')?.value;
+
+    const serviceClient = createServiceClient();
+
+    let membershipQuery = serviceClient
+      .from('church_memberships')
+      .select('church_id, role, churches!inner(id, name, slug)')
       .eq('user_id', user.id)
-      .maybeSingle();
+      .order('created_at', { ascending: true });
 
-  if (platformError) {
-    throw new Error(`Unable to resolve platform access: ${platformError.message}`);
+    if (selectedChurchId) {
+      membershipQuery = membershipQuery.eq('church_id', selectedChurchId);
+    }
+
+    // Parallelize platform admin check and membership lookup
+    const [platformRes, membershipRes] = await Promise.all([
+      serviceClient
+        .from('platform_admins')
+        .select('user_id')
+        .eq('user_id', user.id)
+        .maybeSingle(),
+      membershipQuery.limit(1).maybeSingle(),
+    ]);
+
+    if (platformRes.error) {
+      throw new Error(`Unable to resolve platform access: ${platformRes.error.message}`);
+    }
+
+    const isPlatformAdmin = !!platformRes.data;
+    let platformChurch: { id: string; name: string; slug: string } | null = null;
+
+    if (isPlatformAdmin) {
+      let churchQuery = serviceClient
+        .from('churches')
+        .select('id, name, slug');
+
+      churchQuery = selectedChurchId
+        ? churchQuery.eq('id', selectedChurchId)
+        : churchQuery.order('created_at', { ascending: true }).limit(1);
+
+      const { data, error: churchError } = await churchQuery.maybeSingle();
+      if (churchError) {
+        throw new Error(`Unable to resolve platform church: ${churchError.message}`);
+      }
+      platformChurch = data;
+    }
+
+    if (!isPlatformAdmin && membershipRes.error) {
+      throw new Error(`Unable to resolve tenant membership: ${membershipRes.error.message}`);
+    }
+
+    return {
+      user,
+      isPlatformAdmin,
+      platformChurch,
+      membership: (membershipRes.data as unknown as MembershipRow) ?? null,
+      selectedChurchId,
+    };
   }
+);
 
-  if (platformAdministrator) {
-    if (options.requireSelectedChurch && !selectedChurchId) {
+export async function requireTenantContext(
+  options: TenantContextOptions = {}
+): Promise<TenantContext> {
+  const base = await resolveBaseTenantData(options.churchId);
+
+  if (base.isPlatformAdmin) {
+    if (options.requireSelectedChurch && !base.selectedChurchId) {
       throw new TenantSelectionRequiredError();
     }
 
-    let churchQuery = serviceClient
-      .from('churches')
-      .select('id, name, slug');
-
-    churchQuery = selectedChurchId
-      ? churchQuery.eq('id', selectedChurchId)
-      : churchQuery.order('created_at', { ascending: true }).limit(1);
-
-    const { data: platformChurch, error: churchError } =
-      await churchQuery.maybeSingle();
-
-    if (churchError) {
-      throw new Error(`Unable to resolve platform church: ${churchError.message}`);
-    }
-
-    if (!platformChurch) {
+    if (!base.platformChurch) {
       if (options.requireSelectedChurch) {
         throw new TenantSelectionRequiredError(
           'The selected church is unavailable; select another church'
@@ -124,41 +180,25 @@ export async function requireTenantContext(
     }
 
     return {
-      user,
-      churchId: platformChurch.id,
-      churchName: platformChurch.name,
-      churchSlug: platformChurch.slug,
+      user: base.user,
+      churchId: base.platformChurch.id,
+      churchName: base.platformChurch.name,
+      churchSlug: base.platformChurch.slug,
       role: 'owner',
       isPlatformAdmin: true,
     };
   }
 
-  let query = serviceClient
-    .from('church_memberships')
-    .select('church_id, role, churches!inner(id, name, slug)')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: true });
-
-  if (selectedChurchId) {
-    query = query.eq('church_id', selectedChurchId);
-  }
-
-  const { data, error } = await query.limit(1).maybeSingle();
-
-  if (error) {
-    throw new Error(`Unable to resolve tenant membership: ${error.message}`);
-  }
-
-  if (!data) {
+  if (!base.membership) {
     throw new TenantContextError(
-      selectedChurchId
+      base.selectedChurchId
         ? 'You do not have access to the selected church'
         : 'No church membership was found for this account',
       403
     );
   }
 
-  const membership = data as MembershipRow;
+  const membership = base.membership;
   const church = Array.isArray(membership.churches)
     ? membership.churches[0]
     : membership.churches;
@@ -167,10 +207,7 @@ export async function requireTenantContext(
     throw new Error('Membership church could not be resolved');
   }
 
-  if (
-    options.requireOwner &&
-    membership.role !== 'owner'
-  ) {
+  if (options.requireOwner && membership.role !== 'owner') {
     throw new TenantContextError('Church owner access is required', 403);
   }
 
@@ -193,14 +230,11 @@ export async function requireTenantContext(
     membership.role !== 'admin' &&
     membership.role !== 'workflow_manager'
   ) {
-    throw new TenantContextError(
-      'Workflow manager access is required',
-      403
-    );
+    throw new TenantContextError('Workflow manager access is required', 403);
   }
 
   return {
-    user,
+    user: base.user,
     churchId: membership.church_id,
     churchName: church.name,
     churchSlug: church.slug,
