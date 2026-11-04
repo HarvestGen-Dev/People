@@ -7,21 +7,15 @@ import { format } from 'date-fns';
 import { Topbar } from '@/components/layout/Topbar';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/server';
 import { requireTenantContext } from '@/lib/tenant-context';
 import { redirect } from 'next/navigation';
-import { applyDisplayOrDatabaseIdFilter, displayIdFor } from '@/lib/display-ids';
+import { displayIdFor } from '@/lib/display-ids';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { churchId } = await requireTenantContext();
-  const supabase = await createClient();
-  const query = supabase
-    .from('people')
-    .select('first_name, last_name')
-    .eq('church_id', churchId);
-  const { data } = await applyDisplayOrDatabaseIdFilter(query, id).single();
-  return { title: data ? `${data.first_name} ${data.last_name} | People` : 'Person Not Found' };
+  const person = await getPersonById(id, churchId);
+  return { title: person ? `${person.first_name} ${person.last_name} | People` : 'Person Not Found' };
 }
 
 export default async function PersonProfilePage({ params }: { params: Promise<{ id: string }> }) {
@@ -35,14 +29,14 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
   const canManage =
     isPlatformAdmin || role === 'owner' || role === 'admin';
 
-  const [person, notes, events, workflowCards] = await Promise.all([
-    getPersonById(id, churchId),
-    getPersonNotes(id, churchId),
-    getPersonEvents(id, churchId),
-    getPersonWorkflowCards(id, churchId)
-  ]);
-
+  const person = await getPersonById(id, churchId);
   if (!person) notFound();
+
+  const [notes, events, workflowCards] = await Promise.all([
+    getPersonNotes(person.id, churchId),
+    getPersonEvents(person.id, churchId),
+    getPersonWorkflowCards(person.id, churchId)
+  ]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
