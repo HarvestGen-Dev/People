@@ -1,6 +1,5 @@
 // <!-- AGENT: BACKEND -->
 import crypto from 'node:crypto';
-import sharp from 'sharp';
 
 export const PEOPLE_PHOTO_MAX_INPUT_BYTES = 5 * 1024 * 1024;
 export const PEOPLE_PHOTO_MAX_WIDTH = 4096;
@@ -45,6 +44,8 @@ export async function processPeoplePhotoBuffer(input) {
   if (input.length > PEOPLE_PHOTO_MAX_INPUT_BYTES) {
     return { error: 'Image must be 5MB or smaller', status: 413 };
   }
+
+  const { default: sharp } = await import('sharp');
 
   let image = sharp(input, {
     failOn: 'warning',

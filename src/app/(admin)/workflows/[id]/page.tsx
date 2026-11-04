@@ -35,27 +35,32 @@ export default async function WorkflowDetailPage({ params }: { params: Promise<{
     notFound();
   }
 
-  const { data: steps } = await supabase
-    .from('workflow_steps')
-    .select('*')
-    .eq('workflow_id', workflow.id)
-    .order('position', { ascending: true });
+  const [stepsRes, cardsRes, usersRes] = await Promise.all([
+    supabase
+      .from('workflow_steps')
+      .select('*')
+      .eq('workflow_id', workflow.id)
+      .order('position', { ascending: true }),
+    supabase
+      .from('workflow_cards')
+      .select(`
+        *,
+        people:people!workflow_cards_church_person_fk(id, display_id, first_name, last_name, status, created_at, photo_url, photo_path)
+      `)
+      .eq('workflow_id', workflow.id)
+      .order('completed_at', { ascending: false, nullsFirst: true })
+      .limit(500),
+    // Memberships are the authoritative tenant access source.
+    supabase
+      .from('church_memberships')
+      .select('user_id, role')
+      .eq('church_id', churchId)
+      .in('role', ['owner', 'admin']),
+  ]);
 
-  const { data: cardsData } = await supabase
-    .from('workflow_cards')
-    .select(`
-      *,
-      people:people!workflow_cards_church_person_fk(id, display_id, first_name, last_name, status, created_at, photo_url, photo_path)
-    `)
-    .eq('workflow_id', workflow.id);
-
-  // <!-- AGENT: BACKEND -->
-  // Memberships are the authoritative tenant access source.
-  const { data: users } = await supabase
-    .from('church_memberships')
-    .select('user_id, role')
-    .eq('church_id', churchId)
-    .in('role', ['owner', 'admin']);
+  const steps = stepsRes.data;
+  const cardsData = cardsRes.data;
+  const users = usersRes.data;
 
   const workflowCards = (cardsData || []) as unknown as WorkflowBoardCard[];
   const peopleWithSignedPhotos = await addSignedPhotoUrls(

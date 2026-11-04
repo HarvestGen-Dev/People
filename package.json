@@ -19,6 +19,7 @@
     "test:integration:events": "node --test tests/integration/event-registration.test.mjs",
     "test:integration:missing-persons-cron": "node --test tests/integration/missing-persons-cron.test.mjs",
     "test:integration:operational-observability": "node --test tests/integration/operational-observability.test.mjs",
+    "test:integration:performance": "node --test tests/integration/performance-refactor.test.mjs",
     "test:e2e": "playwright test",
     "test:e2e:journeys": "playwright test --project=desktop-chromium",
     "test:e2e:responsive": "playwright test tests/e2e/responsive-registration.spec.ts",
