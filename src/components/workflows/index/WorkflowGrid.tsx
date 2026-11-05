@@ -1,84 +1,28 @@
-import { useRouter } from 'next/navigation';
-import { ArrowRight, Layers3 } from 'lucide-react';
+// <!-- AGENT: FRONTEND -->
+import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
 import type { WorkflowSummary } from '@/lib/types';
-import { Button } from '@/components/ui/button';
 import { displayIdFor } from '@/lib/display-ids';
-import { startNavigationProgress } from '@/lib/navigation-progress';
 
 export function WorkflowGrid({ workflows }: { workflows: WorkflowSummary[] }) {
-  const router = useRouter();
-
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {workflows.map((workflow) => {
-        const total = workflow.active_cards + workflow.completed_cards;
-        const completion = total
-          ? Math.round((workflow.completed_cards / total) * 100)
-          : 0;
-
-        return (
-          <article
-            key={workflow.id}
-            className="group flex flex-col rounded-3xl border border-slate-200/80 bg-white p-5 transition-all hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-[0_20px_45px_-35px_rgba(6,78,59,0.45)]"
-          >
-            <div className="flex items-start gap-4">
-              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-emerald-100 text-emerald-700">
-                <Layers3 className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="truncate text-lg font-bold text-slate-950">
-                  {workflow.name}
-                </h2>
-                <p className="mt-1 line-clamp-2 min-h-10 text-sm leading-5 text-slate-500">
-                  {workflow.description || 'No description provided.'}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6 grid grid-cols-3 gap-2">
-              {[
-                ['Steps', workflow.steps_count],
-                ['Active', workflow.active_cards],
-                ['Done', workflow.completed_cards],
-              ].map(([label, value]) => (
-                <div key={String(label)} className="rounded-xl bg-slate-50 p-3">
-                  <div className="text-lg font-bold text-slate-900">
-                    {String(value)}
-                  </div>
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    {String(label)}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-5">
-              <div className="mb-2 flex justify-between text-[11px] font-semibold text-slate-500">
-                <span>Completion</span>
-                <span>{completion}%</span>
-              </div>
-              <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="h-full rounded-full bg-emerald-500"
-                  style={{ width: `${completion}%` }}
-                />
-              </div>
-            </div>
-
-            <Button
-              variant="outline"
-              onClick={() => {
-                startNavigationProgress();
-                router.push(`/workflows/${displayIdFor(workflow)}`);
-              }}
-              className="mt-6 h-10 w-full justify-between rounded-xl border-slate-200 font-bold group-hover:border-emerald-200 group-hover:bg-emerald-50"
-            >
-              Open board
-              <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-emerald-700" />
-            </Button>
-          </article>
-        );
-      })}
-    </div>
+    <ul className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3" aria-label="Workflow boards">
+      {workflows.map((workflow) => (
+        <li key={workflow.id} className="workspace-panel flex flex-col gap-4 p-5">
+          <div className="[overflow-wrap:anywhere]">
+            <h2 className="font-semibold">{workflow.name}</h2>
+            {workflow.description && <p className="mt-1 text-sm text-muted-foreground">{workflow.description}</p>}
+          </div>
+          <dl className="flex flex-wrap gap-x-4 gap-y-1 border-t pt-3 text-sm text-muted-foreground">
+            <div className="flex flex-row-reverse gap-1.5"><dt>steps</dt><dd className="font-semibold text-foreground">{workflow.steps_count}</dd></div>
+            <div className="flex flex-row-reverse gap-1.5"><dt>open</dt><dd className="font-semibold text-foreground">{workflow.active_cards}</dd></div>
+            <div className="flex flex-row-reverse gap-1.5"><dt>completed</dt><dd className="font-semibold text-foreground">{workflow.completed_cards}</dd></div>
+          </dl>
+          <Link href={`/workflows/${displayIdFor(workflow)}`} className="workspace-link mt-auto self-start" prefetch={false}>
+            Open board <ArrowRight size={16} aria-hidden="true" />
+          </Link>
+        </li>
+      ))}
+    </ul>
   );
 }

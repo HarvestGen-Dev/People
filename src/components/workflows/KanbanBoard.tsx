@@ -52,9 +52,9 @@ export function KanbanBoard({
   } = useKanbanBoard(workflow, steps, cards);
 
   return (
-    <div className="flex min-h-[calc(100vh-128px)] flex-col bg-[#f5f7f3]">
+    <div className="flex min-h-[calc(100vh-128px)] flex-col bg-background">
       <div className="flex flex-col justify-between gap-4 border-b border-slate-200/80 bg-white px-5 py-4 sm:flex-row sm:items-center sm:px-8">
-        <div className="flex items-center gap-5">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
             <Layers3 className="h-4 w-4 text-emerald-700" />
             {steps.length} steps
@@ -87,7 +87,7 @@ export function KanbanBoard({
         ) : null}
       </div>
 
-      <div className="flex-1 overflow-x-auto p-4 sm:p-6 lg:p-8">
+      <div className="flex-1 overflow-x-auto p-4 sm:p-6 lg:p-8" tabIndex={0} role="region" aria-label="Workflow board columns">
         <div className="flex min-h-[520px] gap-4 pb-4">
           {steps.map((step) => (
             <KanbanColumn

@@ -27,7 +27,7 @@ export function CreateWorkflowDialog({
 }) {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="rounded-3xl sm:max-w-lg">
+      <DialogContent className="people-workspace rounded-xl sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold tracking-tight">
             Create a workflow
@@ -35,10 +35,11 @@ export function CreateWorkflowDialog({
         </DialogHeader>
         <div className="space-y-4 py-3">
           <div>
-            <label className="mb-2 block text-sm font-semibold text-slate-700">
+            <label htmlFor="workflow-name" className="mb-2 block text-sm font-semibold">
               Workflow name
             </label>
             <Input
+              id="workflow-name"
               value={formData.name}
               onChange={(event) =>
                 setFormData({ ...formData, name: event.target.value })
@@ -49,10 +50,11 @@ export function CreateWorkflowDialog({
             />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-semibold text-slate-700">
+            <label htmlFor="workflow-description" className="mb-2 block text-sm font-semibold">
               Description
             </label>
             <Textarea
+              id="workflow-description"
               value={formData.description}
               onChange={(event) =>
                 setFormData({ ...formData, description: event.target.value })
@@ -73,7 +75,7 @@ export function CreateWorkflowDialog({
           <Button
             onClick={onSave}
             disabled={!formData.name.trim() || isSaving}
-            className="h-11 rounded-xl bg-emerald-700 px-6 font-bold hover:bg-emerald-800"
+            className="h-11 rounded-xl px-6 font-semibold"
           >
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Create workflow
