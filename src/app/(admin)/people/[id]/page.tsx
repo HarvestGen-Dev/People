@@ -1,11 +1,9 @@
 import { getPersonById, getPersonNotes, getPersonEvents, getPersonWorkflowCards } from '@/lib/queries/person';
 import { notFound } from 'next/navigation';
 import { PersonProfile } from '@/components/people/PersonProfile';
-import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Cake, Mail, MapPin, Pencil, Phone } from 'lucide-react';
-import { format } from 'date-fns';
-import { Topbar } from '@/components/layout/Topbar';
-import { Button } from '@/components/ui/button';
+import { ArrowLeft, Pencil } from 'lucide-react';
+import { WorkspacePage } from '@/components/workspace/Workspace';
+import { formatAddedDate, PersonAvatar, PersonStatus } from '@/components/people/PersonIdentity';
 import Link from 'next/link';
 import { requireTenantContext } from '@/lib/tenant-context';
 import { redirect } from 'next/navigation';
@@ -38,94 +36,28 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
     getPersonWorkflowCards(person.id, churchId)
   ]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'bg-emerald-100 text-emerald-700 border-transparent';
-      case 'visitor': return 'bg-blue-100 text-blue-700 border-transparent';
-      case 'child': return 'bg-purple-100 text-purple-700 border-transparent';
-      case 'inactive': return 'bg-slate-100 text-slate-700 border-transparent';
-      default: return 'bg-slate-100 text-slate-700 border-transparent';
-    }
-  };
-
   return (
-    <>
-      <Topbar title="Person profile">
-        <div className="flex items-center gap-2">
-          {canManage && (
-            <Link href={`/people/${displayIdFor(person)}/edit`}>
-              <Button variant="outline" className="h-9 rounded-xl border-slate-200 bg-white font-semibold shadow-sm">
-                <Pencil className="mr-2 h-3.5 w-3.5" />
-                Edit person
-              </Button>
-            </Link>
-          )}
-        </div>
-      </Topbar>
-
-      <div className="border-b border-slate-200/80 bg-white">
-        <div className="mx-auto max-w-[1440px] px-5 py-7 sm:px-8 lg:px-10">
-          <Link
-            href="/people"
-            className="mb-6 inline-flex items-center gap-2 text-xs font-bold text-slate-500 transition-colors hover:text-emerald-700"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Back to directory
-          </Link>
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
-            <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-3xl bg-emerald-950 text-2xl font-bold text-white shadow-lg shadow-emerald-950/15">
-              {person.photo_signed_url ? (
-                <img
-                  src={person.photo_signed_url}
-                  alt={`${person.first_name} ${person.last_name}`}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <>
-                  {person.first_name[0]}
-                  {person.last_name[0]}
-                </>
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-3xl font-bold tracking-[-0.035em] text-slate-950">
-                {person.first_name} {person.last_name}
-              </h1>
-              <Badge className={`capitalize shadow-none font-medium px-2.5 py-0.5 ${getStatusColor(person.status)}`}>
-                {person.status}
-              </Badge>
-              {person.person_tags?.map((personTag) =>
-                personTag.tag ? (
-                  <Badge key={personTag.tag.id} style={{ backgroundColor: personTag.tag.color + '20', color: personTag.tag.color, borderColor: personTag.tag.color + '40' }} className="border shadow-none py-0.5" variant="outline">
-                    {personTag.tag.name}
-                  </Badge>
-                ) : null
-              )}
-            </div>
-            
-            <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-medium text-slate-500">
-              {person.email && <span className="flex items-center gap-1.5"><Mail className="h-4 w-4 text-emerald-600" /> {person.email}</span>}
-              {person.phone && <span className="flex items-center gap-1.5"><Phone className="h-4 w-4 text-emerald-600" /> {person.phone}</span>}
-              {person.campus && <span className="flex items-center gap-1.5"><MapPin className="h-4 w-4 text-emerald-600" /> {person.campus}</span>}
-              {person.birthdate && <span className="flex items-center gap-1.5"><Cake className="h-4 w-4 text-emerald-600" /> Born {format(new Date(person.birthdate), 'd MMM yyyy')}</span>}
-            </div>
-            <div className="mt-3 text-xs text-slate-400">
-              Member since {person.created_at ? format(new Date(person.created_at), 'MMM yyyy') : '—'}
-            </div>
+    <WorkspacePage>
+      <Link href="/people" className="workspace-link mb-3"><ArrowLeft size={16} aria-hidden="true" /> Back to directory</Link>
+      <header className="workspace-panel flex flex-wrap items-start gap-4 p-5 sm:p-6">
+        <PersonAvatar person={person} large />
+        <div className="min-w-0 flex-1 basis-40 [overflow-wrap:anywhere]">
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{person.first_name} {person.last_name}</h1>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <PersonStatus status={person.status} />
+            {person.person_tags?.map(({ tag }) => tag && <span key={tag.id} className="directory-tag">{tag.name}</span>)}
           </div>
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground">
+            {person.email && <a href={`mailto:${person.email}`} className="text-primary underline-offset-2 hover:underline">{person.email}</a>}
+            {person.phone && <a href={`tel:${person.phone}`} className="text-primary underline-offset-2 hover:underline">{person.phone}</a>}
+            {person.campus && <span>{person.campus}</span>}
+            {person.birthdate && <span>Born {formatAddedDate(person.birthdate)}</span>}
           </div>
+          {person.created_at && <p className="mt-2 text-xs text-muted-foreground">Added {formatAddedDate(person.created_at)}</p>}
         </div>
-      </div>
-
-      <div className="mx-auto max-w-[1440px] px-5 pb-10 sm:px-8 lg:px-10">
-        <PersonProfile 
-          person={person}
-          notes={notes} 
-          events={events} 
-          workflowCards={workflowCards} 
-        />
-      </div>
-    </>
+        {canManage && <Link href={`/people/${displayIdFor(person)}/edit`} className="workspace-button"><Pencil size={16} aria-hidden="true" /> Edit person</Link>}
+      </header>
+      <PersonProfile person={person} notes={notes} events={events} workflowCards={workflowCards} />
+    </WorkspacePage>
   );
 }

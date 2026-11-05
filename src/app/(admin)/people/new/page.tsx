@@ -1,7 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { PersonForm } from '@/components/people/PersonForm';
-import { Topbar } from '@/components/layout/Topbar';
-import { Button } from '@/components/ui/button';
+import { PageHeader, WorkspacePage } from '@/components/workspace/Workspace';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { requireTenantContext } from '@/lib/tenant-context';
@@ -25,24 +24,16 @@ export default async function NewPersonPage() {
   ]);
 
   return (
-    <>
-      <Topbar title="New Person">
-        <div className="flex items-center gap-2">
-          <Link href="/people">
-            <Button variant="ghost" className="rounded-xl shadow-none h-9 text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="mr-2 h-4 w-4" /> Back to People
-            </Button>
-          </Link>
-        </div>
-      </Topbar>
-
-      <div className="p-8 max-w-5xl mx-auto animate-in fade-in-50 duration-300">
-        <PersonForm 
-          tags={tags || []} 
-          fieldDefinitions={fieldDefinitions || []} 
-          households={households || []} 
+    <WorkspacePage>
+      <Link href="/people" className="workspace-link mb-2"><ArrowLeft size={16} aria-hidden="true" /> Back to directory</Link>
+      <PageHeader eyebrow="Directory" title="Add person" description="Manage contact details, household, tags, and other profile information." />
+      <div className="max-w-5xl">
+        <PersonForm
+          tags={tags || []}
+          fieldDefinitions={fieldDefinitions || []}
+          households={households || []}
         />
       </div>
-    </>
+    </WorkspacePage>
   );
 }

@@ -50,28 +50,28 @@ export function PersonForm({ person, tags, fieldDefinitions, households }: Perso
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 [&_[data-slot=input]]:h-11 [&_[data-slot=input]]:rounded-xl [&_[data-slot=select-trigger]]:h-11 [&_[data-slot=select-trigger]]:rounded-xl">
-      <Card className="rounded-3xl border-slate-200/80 bg-white shadow-none">
+      <Card className="rounded-xl border bg-card shadow-none">
         <CardHeader className="border-b border-slate-100">
           <CardTitle className="text-lg font-bold text-slate-950">Basic information</CardTitle>
           <CardDescription>Essential details about this person.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 pt-6">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-            <div className="relative group">
-              <div className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl border-2 border-dashed border-emerald-200 bg-emerald-50">
+            <div className="flex shrink-0 flex-col items-start gap-2">
+              <div className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-xl border bg-accent">
                 {photoUrl ? (
                   <img src={photoUrl} alt="Preview" className="w-full h-full object-cover" />
                 ) : (
                   <Camera className="h-8 w-8 text-muted-foreground/50" />
                 )}
-                <label className="absolute inset-0 bg-black/40 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
-                  <Upload className="h-5 w-5 mb-1" />
-                  <span className="text-xs font-medium">Upload</span>
-                  <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhotoSelect} />
-                </label>
               </div>
+              <label className="workspace-button cursor-pointer focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring">
+                <Upload size={16} aria-hidden="true" />
+                {photoUrl ? 'Change photo' : 'Upload photo'}
+                <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={handlePhotoSelect} />
+              </label>
               {photoUrl && (
-                <button type="button" onClick={() => { setPhotoFile(null); setPhotoUrl(null); setPhotoRemoved(true); }} className="text-xs text-destructive mt-2 w-full text-center hover:underline">
+                <button type="button" onClick={() => { setPhotoFile(null); setPhotoUrl(null); setPhotoRemoved(true); }} className="min-h-11 rounded-md px-2 text-sm text-destructive hover:underline">
                   Remove photo
                 </button>
               )}
@@ -142,7 +142,7 @@ export function PersonForm({ person, tags, fieldDefinitions, households }: Perso
         </CardContent>
       </Card>
 
-      <Card className="rounded-3xl border-slate-200/80 bg-white shadow-none">
+      <Card className="rounded-xl border bg-card shadow-none">
         <CardHeader className="border-b border-slate-100">
           <CardTitle className="text-lg font-bold text-slate-950">Additional details</CardTitle>
           <CardDescription>Information that helps teams understand and serve this person well.</CardDescription>
@@ -184,7 +184,7 @@ export function PersonForm({ person, tags, fieldDefinitions, households }: Perso
       </Card>
 
       <div className="grid gap-5 lg:grid-cols-2">
-        <Card className="h-fit rounded-3xl border-slate-200/80 bg-white shadow-none">
+        <Card className="h-fit rounded-xl border bg-card shadow-none">
           <CardHeader className="border-b border-slate-100">
             <CardTitle className="text-lg font-bold text-slate-950">Household & tags</CardTitle>
             <CardDescription>Connect this person to their family and ministry context.</CardDescription>
@@ -274,7 +274,7 @@ export function PersonForm({ person, tags, fieldDefinitions, households }: Perso
         </Card>
 
         {fieldDefinitions.length > 0 && (
-          <Card className="h-fit rounded-3xl border-slate-200/80 bg-white shadow-none">
+          <Card className="h-fit rounded-xl border bg-card shadow-none">
             <CardHeader className="border-b border-slate-100">
               <CardTitle className="text-lg font-bold text-slate-950">Custom fields</CardTitle>
               <CardDescription>Church-specific information configured by your administrators.</CardDescription>
