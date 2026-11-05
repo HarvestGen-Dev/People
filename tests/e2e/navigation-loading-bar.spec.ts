@@ -86,13 +86,14 @@ test('loading bar appears for link and programmatic page navigations', async ({
 
   await expectProgressDuringNavigation(
     page,
-    () => page.getByRole('link', { name: 'Workflows', exact: true }).click(),
+    () => page.getByRole('link', { name: 'Follow-ups', exact: true }).click(),
     '**/workflows'
   );
 
+  await page.getByRole('link', { name: 'Workflow boards', exact: true }).click();
   await expectProgressDuringNavigation(
     page,
-    () => page.getByRole('button', { name: 'Open board' }).click(),
+    () => page.getByRole('link', { name: 'Open board' }).click(),
     /\/workflows\/[^/]+$/
   );
   await expect(page.getByRole('heading', { name: workflowName })).toBeVisible();
@@ -103,12 +104,10 @@ test('loading bar appears for link and programmatic page navigations', async ({
     '**/people'
   );
 
-  await page
-    .getByRole('button', { name: new RegExp(`Actions for ${personName}`) })
-    .click();
+  await page.getByRole('table').getByRole('link', { name: new RegExp(escapeRegExp(personName)) }).click();
   await expectProgressDuringNavigation(
     page,
-    () => page.getByRole('menuitem', { name: 'View profile' }).click(),
+    () => page.getByRole('link', { name: 'View full profile' }).click(),
     /\/people\/[^/]+$/
   );
 
@@ -122,7 +121,7 @@ test('loading bar appears for link and programmatic page navigations', async ({
     page,
     () =>
       page
-        .getByRole('button', { name: new RegExp(`^${escapeRegExp(listName)}`) })
+        .getByRole('link', { name: listName, exact: true })
         .click(),
     /\/lists\/[^/]+$/
   );

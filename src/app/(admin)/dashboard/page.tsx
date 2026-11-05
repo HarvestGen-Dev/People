@@ -1,46 +1,14 @@
 // <!-- AGENT: FRONTEND -->
 import Link from 'next/link';
-import {
-  Activity,
-  ArrowRight,
-  CalendarDays,
-  CheckCircle2,
-  GitBranch,
-  LayoutList,
-  Plus,
-  UserRoundCheck,
-  Users,
-  AlertCircle,
-  ReceiptText,
-} from 'lucide-react';
-import { format, formatDistanceToNow, startOfMonth } from 'date-fns';
+import { ArrowRight, Plus } from 'lucide-react';
+import { EmptyState, PageHeader, PanelHeader, WorkspacePage } from '@/components/workspace/Workspace';
+import { PersonAvatar, PersonStatus } from '@/components/people/PersonIdentity';
+import { FollowUpRows, type FollowUp } from '@/components/workflows/FollowUpRows';
+import { formatDistanceToNow, startOfMonth } from 'date-fns';
 import { createServiceClient } from '@/lib/supabase/server';
 import { requireTenantContext } from '@/lib/tenant-context';
 import { displayIdFor } from '@/lib/display-ids';
 import { createRequestPerformanceTracker } from '@/lib/performance';
-
-const statStyles = [
-  {
-    icon: Users,
-    label: 'Active people',
-    color: 'bg-emerald-100 text-emerald-700',
-  },
-  {
-    icon: UserRoundCheck,
-    label: 'Visitors',
-    color: 'bg-sky-100 text-sky-700',
-  },
-  {
-    icon: Plus,
-    label: 'New this month',
-    color: 'bg-violet-100 text-violet-700',
-  },
-  {
-    icon: Activity,
-    label: 'Activity this week',
-    color: 'bg-amber-100 text-amber-700',
-  },
-];
 
 type DashboardSummary = {
   active_count: number;
@@ -67,13 +35,15 @@ export default async function DashboardPage() {
   const { churchId, role, isPlatformAdmin } = await requireTenantContext();
   const canManage =
     isPlatformAdmin || role === 'owner' || role === 'admin';
+  const canComplete = canManage || role === 'workflow_manager';
+  const canOpenPeople = role !== 'workflow_manager';
   const supabase = createServiceClient();
   const perf = createRequestPerformanceTracker('dashboard');
 
   const [
     summaryRes,
     recentActivityRes,
-    newVisitorsRes,
+    recentPeopleRes,
     overdueCardsRes,
     pendingRegistrationsRes,
   ] = await Promise.all([
@@ -94,7 +64,7 @@ export default async function DashboardPage() {
       .eq('church_id', churchId)
       .order('occurred_at', { ascending: false })
       .limit(8)),
-    perf.track('dashboard.new_visitors', supabase
+    perf.track('dashboard.recent_people', supabase
       .from('people')
       .select(`
         id,
@@ -111,7 +81,6 @@ export default async function DashboardPage() {
         )
       `)
       .eq('church_id', churchId)
-      .eq('status', 'visitor')
       .gte('created_at', startOfMonth(new Date()).toISOString())
       .order('created_at', { ascending: false })
       .limit(8)),
@@ -123,7 +92,7 @@ export default async function DashboardPage() {
         person_id,
         people!workflow_cards_church_person_fk!inner(first_name, last_name, id, display_id),
         workflow_steps!workflow_cards_church_current_step_fk(name),
-        workflows!workflow_cards_church_workflow_fk!inner(name, church_id)
+        workflows!workflow_cards_church_workflow_fk!inner(id, display_id, name, church_id)
       `)
       .eq('church_id', churchId)
       .eq('workflows.church_id', churchId)
@@ -151,19 +120,12 @@ export default async function DashboardPage() {
           .eq('status', 'pending_review')
           .order('created_at', { ascending: true })
           .limit(5))
-      : Promise.resolve({ data: [], count: 0 }),
+      : Promise.resolve({ data: [], count: 0, error: null }),
   ]);
 
   const recentActivity = recentActivityRes.data as unknown as RecentActivityRow[] | null;
-  const newVisitors = newVisitorsRes.data;
-  const overdueCards = overdueCardsRes.data as unknown as { 
-      id: string; 
-      due_date: string; 
-      person_id: string; 
-      people: { first_name: string; last_name: string; id: string; display_id: string };
-      workflow_steps: { name: string } | null;
-      workflows: { name: string };
-    }[] | null;
+  const recentPeople = recentPeopleRes.data;
+  const overdueCards = overdueCardsRes.data as unknown as FollowUp[] | null;
   const pendingRegistrations = pendingRegistrationsRes.data as unknown as {
     id: string;
     display_id: string;
@@ -190,377 +152,117 @@ export default async function DashboardPage() {
   }
 
   const summary = summaryRes.data as DashboardSummary | null;
-  const statValues = [
-    Number(summary?.active_count || 0),
-    Number(summary?.visitor_count || 0),
-    Number(summary?.new_this_month_count || 0),
-    Number(summary?.activity_this_week_count || 0),
-  ];
+  const metrics = [
+    ['Active people', summary?.active_count],
+    ['Visitors', summary?.visitor_count],
+    ['New this month', summary?.new_this_month_count],
+    ['Activity this week', summary?.activity_this_week_count],
+  ] as const;
+  const today = new Intl.DateTimeFormat('en-MY', {
+    weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kuala_Lumpur',
+  }).format(new Date());
 
   perf.log();
 
   return (
-    <div className="mx-auto max-w-[1440px] space-y-8 p-5 sm:p-8 lg:p-10">
-      <header className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
-        <div>
-          <div className="text-xs font-bold uppercase tracking-[0.17em] text-emerald-700">
-            {format(new Date(), 'EEEE, d MMMM')}
-          </div>
-          <h1 className="mt-2 text-3xl font-bold tracking-[-0.035em] text-slate-950 sm:text-4xl">
-            Ministry overview
-          </h1>
-          <p className="mt-2 text-slate-500">
-            The people, follow-ups, and activity that need your attention.
-          </p>
+    <WorkspacePage>
+      <PageHeader eyebrow={today} title="Ministry overview"
+        description="See who’s new and what needs your attention."
+        actions={canManage && <Link href="/people/new" className="workspace-button" data-primary><Plus size={16} aria-hidden="true" /> Add person</Link>}
+      />
+
+      <dl className="workspace-panel workspace-metrics" aria-label="Key metrics">
+        {metrics.map(([label, value]) => <div key={label}>
+          <dt>{label === 'Visitors' && canOpenPeople ? <Link href="/people?status=visitor" className="underline-offset-2 hover:underline">Visitors</Link> : label}</dt>
+          <dd>{value == null ? '—' : Number(value).toLocaleString('en-MY')}</dd>
+        </div>)}
+      </dl>
+
+      <div className="workspace-overview-grid">
+        <div className="space-y-5">
+          <section className="workspace-panel" id="overview-follow-ups" tabIndex={-1} aria-label="Overdue follow-ups">
+            <PanelHeader title="Overdue follow-ups" description="People waiting on a next step."
+              action={<Link className="workspace-link" href="/workflows">View follow-ups <ArrowRight size={16} aria-hidden="true" /></Link>} />
+            {overdueCardsRes.error ? <EmptyState title="Could not load follow-ups" description="Open Follow-ups to try again." />
+              : overdueCards?.length ? <FollowUpRows cards={overdueCards} canComplete={canComplete} canOpenPeople={canOpenPeople} focusTarget="overview-follow-ups" overdueOnly />
+              : <EmptyState title="No overdue follow-ups" description="When a follow-up passes its due date, it will appear here." />}
+          </section>
+          {canManage && <section className="workspace-panel" aria-label="Registration review">
+            <PanelHeader title="Registration review"
+              description={pendingRegistrationCount ? `${pendingRegistrationCount.toLocaleString('en-MY')} awaiting review` : 'Payment and attendance approvals'}
+              action={<Link className="workspace-link" href="/events">View events</Link>} />
+            {pendingRegistrationsRes.error ? <EmptyState title="Could not load registrations" description="Open Events to try again." />
+              : pendingRegistrations?.length ? (
+                <ul className="workspace-rows">
+                  {pendingRegistrations.map((registration) => (
+                    <li key={registration.id} className="workspace-row">
+                      <div className="workspace-row-content">
+                        <Link className="workspace-row-link" href={`/events/${displayIdFor(registration.events)}/registrations?status=pending_review`}>
+                          {registration.first_name} {registration.last_name}
+                        </Link>
+                        <p><span>{registration.events.name}</span> · {registration.guests + 1} attending</p>
+                        <p>{registration.email}</p>
+                      </div>
+                      <div className="text-right text-xs text-muted-foreground">
+                        <p>{Number(registration.amount_due).toLocaleString('en-MY', { style: 'currency', currency: registration.events.currency || 'MYR' })}</p>
+                        <p className="mt-1">{formatDistanceToNow(new Date(registration.created_at), { addSuffix: true })}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : <EmptyState title="No pending registrations" description="New signups that need approval will appear here." />}
+          </section>}
         </div>
-        {canManage && (
-          <Link
-            href="/people/new"
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-emerald-800"
-          >
-            <Plus className="h-4 w-4" />
-            Add person
-          </Link>
-        )}
-      </header>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {statStyles.map((stat, index) => (
-          <div
-            key={stat.label}
-            className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_10px_35px_-30px_rgba(15,23,42,0.5)]"
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm font-semibold text-slate-500">{stat.label}</p>
-                <p className="mt-3 text-3xl font-bold tracking-tight text-slate-950">
-                  {statValues[index].toLocaleString()}
-                </p>
-              </div>
-              <div className={`grid h-10 w-10 place-items-center rounded-xl ${stat.color}`}>
-                <stat.icon className="h-[18px] w-[18px]" />
-              </div>
-            </div>
-            <p className="mt-5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-300">
-              Current snapshot
-            </p>
-          </div>
-        ))}
-      </section>
-
-      {canManage && <section className="grid gap-3 sm:grid-cols-3">
-        {[
-          {
-            icon: LayoutList,
-            href: '/lists/new',
-            label: 'Build a smart list',
-            detail: 'Create a live ministry audience',
-          },
-          {
-            icon: GitBranch,
-            href: '/workflows',
-            label: 'Review follow-up',
-            detail: 'Move people to their next step',
-          },
-          {
-            icon: CalendarDays,
-            href: '/events/new',
-            label: 'Create an event',
-            detail: 'Open a registration page',
-          },
-        ].map((action) => (
-          <Link
-            key={action.label}
-            href={action.href}
-            className="group flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 transition-all hover:border-emerald-200 hover:shadow-sm"
-          >
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600 transition-colors group-hover:bg-emerald-100 group-hover:text-emerald-700">
-              <action.icon className="h-[18px] w-[18px]" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-bold text-slate-900">{action.label}</div>
-              <div className="mt-0.5 truncate text-xs text-slate-500">
-                {action.detail}
-              </div>
-            </div>
-            <ArrowRight className="h-4 w-4 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-emerald-600" />
-          </Link>
-        ))}
-      </section>}
-
-      <div className="grid gap-6 xl:grid-cols-[1.55fr_0.85fr]">
-        <section className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white">
-          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-5 sm:px-6">
-            <div>
-              <h2 className="font-bold text-slate-950">Overdue follow-up</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Workflow cards past their due date
-              </p>
-            </div>
-            <Link
-              href="/workflows"
-              className="text-xs font-bold text-emerald-700 hover:text-emerald-800"
-            >
-              Open workflows
-            </Link>
-          </div>
-
-          {!overdueCards?.length ? (
-            <div className="px-6 py-12 text-center border-b border-slate-100">
-              <CheckCircle2 className="mx-auto h-8 w-8 text-slate-300" />
-              <p className="mt-3 text-sm font-semibold text-slate-700">
-                You&apos;re all caught up!
-              </p>
-              <p className="mt-1 text-xs text-slate-400">
-                There are no overdue workflow follow-ups.
-              </p>
-            </div>
-          ) : (
-            <div className="divide-y divide-slate-100 border-b border-slate-100 bg-red-50/30">
-              {overdueCards.map((card) => (
-                <div
-                  key={card.id}
-                  className="flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-red-50/70 sm:px-6"
-                >
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-red-100 text-red-600">
-                      <AlertCircle className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <Link
-                          href={`/people/${card.person_id}`}
-                          className="truncate text-sm font-bold text-slate-900 hover:text-red-700"
-                        >
-                          {card.people?.first_name} {card.people?.last_name}
-                        </Link>
-                        <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700">
-                          OVERDUE
-                        </span>
-                      </div>
-                      <div className="mt-0.5 text-xs text-slate-600 truncate">
-                        <span className="font-medium text-slate-700">{card.workflows?.name}</span>
-                        <span className="mx-1 text-slate-400">&rarr;</span>
-                        <span>{card.workflow_steps?.name}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="text-xs font-bold text-red-600">
-                      {formatDistanceToNow(new Date(card.due_date), { addSuffix: true })}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-5 sm:px-6 bg-white">
-            <div>
-              <h2 className="font-bold text-slate-950">New visitors</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Added during {format(new Date(), 'MMMM')}
-              </p>
-            </div>
-            <Link
-              href="/people?status=visitor"
-              className="text-xs font-bold text-emerald-700 hover:text-emerald-800"
-            >
-              View all
-            </Link>
-          </div>
-
-          {!newVisitors?.length ? (
-            <div className="px-6 py-16 text-center">
-              <UserRoundCheck className="mx-auto h-8 w-8 text-slate-300" />
-              <p className="mt-3 text-sm font-semibold text-slate-700">
-                No new visitors this month
-              </p>
-              <p className="mt-1 text-xs text-slate-400">
-                New records will appear here automatically.
-              </p>
-            </div>
-          ) : (
-            <div className="divide-y divide-slate-100">
-              {newVisitors.map((visitor) => {
-                const source = visitor.person_events?.[0]?.source;
-                const workflow =
-                  visitor.workflow_cards?.[0]?.workflow_steps?.[0]?.name;
-                const initials =
-                  `${visitor.first_name.charAt(0)}${visitor.last_name.charAt(0)}`.toUpperCase();
-
-                return (
-                  <div
-                    key={visitor.id}
-                    className="grid items-center gap-4 px-5 py-4 transition-colors hover:bg-slate-50/70 sm:grid-cols-[1fr_0.6fr_0.8fr] sm:px-6"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700">
-                        {initials}
-                      </div>
-                      <div className="min-w-0">
-                        <Link
-                          href={`/people/${displayIdFor(visitor)}`}
-                          className="block truncate text-sm font-bold text-slate-900 hover:text-emerald-700"
-                        >
-                          {visitor.first_name} {visitor.last_name}
-                        </Link>
-                        <div className="truncate text-xs text-slate-500">
-                          {visitor.email || 'No email address'}
+        <div className="space-y-5">
+          <section className="workspace-panel" aria-label="Recent visitors">
+            <PanelHeader title="Recently added people" description="New connections this month."
+              action={canOpenPeople && <Link className="workspace-link" href="/people">Directory</Link>} />
+            {recentPeopleRes.error ? <EmptyState title="Could not load recent people" description="Open the directory to try again." />
+              : recentPeople?.length ? (
+                <ul className="workspace-rows">
+                  {recentPeople.map((person) => {
+                    const name = `${person.first_name} ${person.last_name}`;
+                    const source = person.person_events?.[0]?.source?.replaceAll('_', ' ') || 'Manual';
+                    const step = person.workflow_cards?.[0]?.workflow_steps?.[0]?.name;
+                    return (
+                      <li key={person.id} className="workspace-row">
+                        <PersonAvatar person={person} />
+                        <div className="workspace-row-content">
+                          {canOpenPeople ? <Link className="workspace-row-link" href={`/people/${displayIdFor(person)}`}>{name}</Link> : <strong>{name}</strong>}
+                          <p>{person.email || 'No email address'}</p>
+                          <p className="first-letter:uppercase">{source}{step ? ` · ${step}` : ''}</p>
                         </div>
-                      </div>
-                    </div>
-                    <div>
-                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold capitalize text-slate-600">
-                        {source?.replace('_', ' ') || 'Manual'}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="truncate text-xs font-medium text-slate-600">
-                        {workflow || 'Not in workflow'}
-                      </span>
-                      <span className="shrink-0 text-[11px] text-slate-400">
-                        {formatDistanceToNow(new Date(visitor.created_at), {
-                          addSuffix: true,
-                        })}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        <div className="space-y-6">
-          {canManage && (
-            <section className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white">
-              <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-5 sm:px-6">
-                <div>
-                  <h2 className="font-bold text-slate-950">Registration review</h2>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Payment and attendance approvals waiting on staff
-                  </p>
-                </div>
-                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-700">
-                  <ReceiptText className="h-[18px] w-[18px]" />
-                </div>
-              </div>
-
-              {!pendingRegistrations?.length ? (
-                <div className="px-6 py-12 text-center">
-                  <CheckCircle2 className="mx-auto h-8 w-8 text-slate-300" />
-                  <p className="mt-3 text-sm font-semibold text-slate-700">
-                    No pending registrations
-                  </p>
-                  <p className="mt-1 text-xs text-slate-400">
-                    New event signups that need approval will appear here.
-                  </p>
-                </div>
-              ) : (
-                <div>
-                  <div className="border-b border-amber-100 bg-amber-50/60 px-5 py-3 text-xs font-semibold text-amber-800 sm:px-6">
-                    {pendingRegistrationCount.toLocaleString()}{' '}
-                    {pendingRegistrationCount === 1
-                      ? 'registration needs'
-                      : 'registrations need'}{' '}
-                    review
-                  </div>
-                  <div className="divide-y divide-slate-100">
-                    {pendingRegistrations.map((registration) => (
-                      <Link
-                        key={registration.id}
-                        href={`/events/${displayIdFor(registration.events)}/registrations?status=pending_review`}
-                        className="block px-5 py-4 transition-colors hover:bg-slate-50 sm:px-6"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-bold text-slate-900">
-                              {registration.first_name} {registration.last_name}
-                            </p>
-                            <p className="mt-0.5 truncate text-xs text-slate-500">
-                              {registration.events.name}
-                            </p>
-                          </div>
-                          <div className="shrink-0 text-right">
-                            <p className="text-xs font-bold text-slate-700">
-                              {Number(registration.amount_due).toLocaleString('en-MY', {
-                                style: 'currency',
-                                currency: registration.events.currency || 'MYR',
-                              })}
-                            </p>
-                            <p className="mt-0.5 text-[11px] text-slate-400">
-                              {registration.guests + 1} attending
-                            </p>
-                          </div>
+                        <div className="text-right">
+                          <PersonStatus status={person.status as 'active' | 'visitor' | 'inactive' | 'child'} />
+                          <p className="mt-1 text-xs text-muted-foreground">{formatDistanceToNow(new Date(person.created_at), { addSuffix: true })}</p>
                         </div>
-                        <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-slate-400">
-                          <span className="truncate">{registration.email}</span>
-                          <span className="shrink-0">
-                            {formatDistanceToNow(new Date(registration.created_at), {
-                              addSuffix: true,
-                            })}
-                          </span>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </section>
-          )}
-
-          <section className="rounded-3xl border border-slate-200/80 bg-white">
-            <div className="border-b border-slate-100 px-5 py-5 sm:px-6">
-              <h2 className="font-bold text-slate-950">Recent activity</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Updates from People and connected systems
-              </p>
-            </div>
-            <div className="px-5 py-2 sm:px-6">
-              {!recentActivity?.length ? (
-                <p className="py-14 text-center text-sm text-slate-400">
-                  No recent activity.
-                </p>
-              ) : (
-                recentActivity.map((activity, index) => (
-                  <div
-                    key={activity.id}
-                    className="relative flex gap-3 py-4 before:absolute before:bottom-0 before:left-[15px] before:top-10 before:w-px before:bg-slate-100 last:before:hidden"
-                  >
-                    <div className="relative z-10 mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-700 ring-4 ring-white">
-                      {index + 1}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm leading-5 text-slate-600">
-                        <Link
-                          href={`/people/${activity.person_id}`}
-                          className="font-bold text-slate-900 hover:text-emerald-700"
-                        >
-                          {activity.people?.first_name} {activity.people?.last_name}
-                        </Link>{' '}
-                        {activity.event_type?.replaceAll('_', ' ') ||
-                          'completed an action'}
-                      </p>
-                      <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-400">
-                        <span className="capitalize">
-                          {activity.source?.replace('_', ' ')}
-                        </span>
-                        <span>·</span>
-                        <span>
-                          {formatDistanceToNow(new Date(activity.occurred_at), {
-                            addSuffix: true,
-                          })}
-                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : <EmptyState title="No people added this month" description="New records will appear here as they’re added." />}
+          </section>
+          <section className="workspace-panel" aria-label="Recent activity">
+            <PanelHeader title="Recent activity" description="Updates from People and connected systems." />
+            {recentActivityRes.error ? <EmptyState title="Could not load activity" description="Refresh the page to try again." />
+              : recentActivity?.length ? (
+                <ul className="workspace-rows">
+                  {recentActivity.map(({ id, people, event_type, source, occurred_at }) => (
+                    <li key={id} className="workspace-row">
+                      <div className="workspace-row-content">
+                        {people && canOpenPeople ? <Link className="workspace-row-link" href={`/people/${displayIdFor(people)}`}>{people.first_name} {people.last_name}</Link>
+                          : people ? <strong>{people.first_name} {people.last_name}</strong> : <strong>Person unavailable</strong>}
+                        <p className="first-letter:uppercase">{event_type?.replaceAll('_', ' ') || 'Activity recorded'}{source ? ` · ${source.replaceAll('_', ' ')}` : ''}</p>
                       </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+                      <p className="text-right text-xs text-muted-foreground">{formatDistanceToNow(new Date(occurred_at), { addSuffix: true })}</p>
+                    </li>
+                  ))}
+                </ul>
+              ) : <EmptyState title="No recent activity" description="Updates will appear here as people take part." />}
           </section>
         </div>
       </div>
-    </div>
+    </WorkspacePage>
   );
 }

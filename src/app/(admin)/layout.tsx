@@ -1,4 +1,5 @@
 import React from 'react';
+import './workspace.css';
 import { redirect } from 'next/navigation';
 import { AdminShell } from '@/components/layout/AdminShell';
 import { requireTenantContext, TenantContextError } from '@/lib/tenant-context';

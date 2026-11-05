@@ -43,18 +43,18 @@ export function PersonProfile({ person, notes, events, workflowCards }: PersonPr
 
   return (
     <Tabs value={currentTab} onValueChange={handleTabChange} className="mt-6 w-full">
-      <TabsList className="mb-6 inline-flex h-12 w-full justify-start overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1 shadow-none md:w-auto">
-        <TabsTrigger value="overview" className="h-full rounded-xl px-5 font-semibold data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-800">
+      <TabsList variant="line" className="mb-4 flex group-data-horizontal/tabs:h-auto min-h-12 w-full flex-wrap justify-start gap-1 rounded-lg border bg-card p-1 shadow-none sm:w-fit">
+        <TabsTrigger value="overview" className="min-h-11 flex-none rounded-md px-3 font-semibold data-active:font-bold data-active:text-primary">
           Overview
         </TabsTrigger>
-        <TabsTrigger value="notes" className="h-full rounded-xl px-5 font-semibold data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-800">
+        <TabsTrigger value="notes" className="min-h-11 flex-none rounded-md px-3 font-semibold data-active:font-bold data-active:text-primary">
           Notes <span className="ml-1.5 text-xs text-slate-400">{notes.length}</span>
         </TabsTrigger>
-        <TabsTrigger value="activity" className="h-full rounded-xl px-5 font-semibold data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-800">
+        <TabsTrigger value="activity" className="min-h-11 flex-none rounded-md px-3 font-semibold data-active:font-bold data-active:text-primary">
           Activity <span className="ml-1.5 text-xs text-slate-400">{events.length}</span>
         </TabsTrigger>
         {canManage && (
-          <TabsTrigger value="admin" className="h-full rounded-xl px-5 font-semibold data-[state=active]:bg-red-50 data-[state=active]:text-red-700">
+          <TabsTrigger value="admin" className="min-h-11 flex-none rounded-md px-3 font-semibold data-active:font-bold data-active:text-primary">
             Admin
           </TabsTrigger>
         )}

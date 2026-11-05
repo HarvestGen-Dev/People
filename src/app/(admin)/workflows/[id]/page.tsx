@@ -79,7 +79,7 @@ export default async function WorkflowDetailPage({ params }: { params: Promise<{
     <>
       <Topbar title={workflow.name}>
         <Link
-          href="/workflows"
+          href="/workflows?view=boards"
           className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
