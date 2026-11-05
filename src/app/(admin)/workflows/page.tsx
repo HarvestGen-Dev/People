@@ -40,7 +40,14 @@ export default async function WorkflowsPage({ searchParams }: {
       active_cards: w.workflow_cards.filter((card: { completed_at: string | null }) => !card.completed_at).length,
       completed_cards: w.workflow_cards.filter((card: { completed_at: string | null }) => !!card.completed_at).length,
     }));
-    return workflows.length ? <WorkflowGrid workflows={workflows} /> : (
+    return workflows.length ? <>
+      <dl className="workspace-panel workspace-metrics workspace-metrics-three" aria-label="Workflow totals">
+        <div><dt>Boards</dt><dd>{workflows.length}</dd></div>
+        <div><dt>Open</dt><dd>{workflows.reduce((total, workflow) => total + workflow.active_cards, 0)}</dd></div>
+        <div><dt>Completed</dt><dd>{workflows.reduce((total, workflow) => total + workflow.completed_cards, 0)}</dd></div>
+      </dl>
+      <WorkflowGrid workflows={workflows} />
+    </> : (
       <section className="workspace-panel">
         <EmptyState title="No workflow boards" description={canManage ? 'Create a workflow to set up its steps and add people.' : 'Workflow boards will appear here when your team creates them.'} />
       </section>
@@ -72,7 +79,7 @@ export default async function WorkflowsPage({ searchParams }: {
       <section className="workspace-panel" id="follow-up-queue" tabIndex={-1} aria-label="Follow-up queue">
         <PanelHeader title={view === 'completed' ? 'Completed follow-ups' : 'Open follow-ups'}
           description={view === 'completed' ? 'Most recently completed first.' : 'Ordered by due date. Open a person’s workflow to manage their next step.'} />
-        {rows.length ? <FollowUpRows cards={rows.slice(0, pageSize)} canComplete={canComplete} focusTarget="follow-up-queue" />
+        {rows.length ? <FollowUpRows cards={rows.slice(0, pageSize)} canComplete={canComplete} canOpenPeople={role !== 'workflow_manager'} focusTarget="follow-up-queue" />
           : <EmptyState title="No follow-ups on this page" description={view === 'completed' ? 'Completed follow-ups will appear here.' : 'Add someone to a workflow board to start a follow-up.'} />}
         {(page > 1 || rows.length > pageSize) && (
           <nav className="directory-pagination" aria-label="Follow-up pages">

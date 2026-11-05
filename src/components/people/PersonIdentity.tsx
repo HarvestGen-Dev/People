@@ -8,7 +8,6 @@ export function PersonAvatar({ person, large = false }: {
     <span aria-hidden="true" className={`directory-avatar${large ? ' directory-avatar-large' : ''}`}>
       {person.photo_signed_url ? (
         // Signed private URLs should go directly to the browser.
-        // eslint-disable-next-line @next/next/no-img-element
         <img src={person.photo_signed_url} alt="" width={large ? 64 : 36} height={large ? 64 : 36} loading={large ? 'eager' : 'lazy'} />
       ) : `${person.first_name[0] ?? ''}${person.last_name[0] ?? ''}`.toUpperCase()}
     </span>

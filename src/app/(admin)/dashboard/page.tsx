@@ -43,7 +43,7 @@ export default async function DashboardPage() {
   const [
     summaryRes,
     recentActivityRes,
-    newVisitorsRes,
+    recentPeopleRes,
     overdueCardsRes,
     pendingRegistrationsRes,
   ] = await Promise.all([
@@ -64,7 +64,7 @@ export default async function DashboardPage() {
       .eq('church_id', churchId)
       .order('occurred_at', { ascending: false })
       .limit(8)),
-    perf.track('dashboard.new_visitors', supabase
+    perf.track('dashboard.recent_people', supabase
       .from('people')
       .select(`
         id,
@@ -81,7 +81,6 @@ export default async function DashboardPage() {
         )
       `)
       .eq('church_id', churchId)
-      .eq('status', 'visitor')
       .gte('created_at', startOfMonth(new Date()).toISOString())
       .order('created_at', { ascending: false })
       .limit(8)),
@@ -125,7 +124,7 @@ export default async function DashboardPage() {
   ]);
 
   const recentActivity = recentActivityRes.data as unknown as RecentActivityRow[] | null;
-  const newVisitors = newVisitorsRes.data;
+  const recentPeople = recentPeopleRes.data;
   const overdueCards = overdueCardsRes.data as unknown as FollowUp[] | null;
   const pendingRegistrations = pendingRegistrationsRes.data as unknown as {
     id: string;
@@ -173,7 +172,10 @@ export default async function DashboardPage() {
       />
 
       <dl className="workspace-panel workspace-metrics" aria-label="Key metrics">
-        {metrics.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value == null ? '—' : Number(value).toLocaleString('en-MY')}</dd></div>)}
+        {metrics.map(([label, value]) => <div key={label}>
+          <dt>{label === 'Visitors' && canOpenPeople ? <Link href="/people?status=visitor" className="underline-offset-2 hover:underline">Visitors</Link> : label}</dt>
+          <dd>{value == null ? '—' : Number(value).toLocaleString('en-MY')}</dd>
+        </div>)}
       </dl>
 
       <div className="workspace-overview-grid">
@@ -182,7 +184,7 @@ export default async function DashboardPage() {
             <PanelHeader title="Overdue follow-ups" description="People waiting on a next step."
               action={<Link className="workspace-link" href="/workflows">View follow-ups <ArrowRight size={16} aria-hidden="true" /></Link>} />
             {overdueCardsRes.error ? <EmptyState title="Could not load follow-ups" description="Open Follow-ups to try again." />
-              : overdueCards?.length ? <FollowUpRows cards={overdueCards} canComplete={canComplete} focusTarget="overview-follow-ups" overdueOnly />
+              : overdueCards?.length ? <FollowUpRows cards={overdueCards} canComplete={canComplete} canOpenPeople={canOpenPeople} focusTarget="overview-follow-ups" overdueOnly />
               : <EmptyState title="No overdue follow-ups" description="When a follow-up passes its due date, it will appear here." />}
           </section>
           {canManage && <section className="workspace-panel" aria-label="Registration review">
@@ -214,32 +216,32 @@ export default async function DashboardPage() {
 
         <div className="space-y-5">
           <section className="workspace-panel" aria-label="Recent visitors">
-            <PanelHeader title="Recently added visitors" description="New connections this month."
-              action={canOpenPeople && <Link className="workspace-link" href="/people?status=visitor">Directory</Link>} />
-            {newVisitorsRes.error ? <EmptyState title="Could not load visitors" description="Open the directory to try again." />
-              : newVisitors?.length ? (
+            <PanelHeader title="Recently added people" description="New connections this month."
+              action={canOpenPeople && <Link className="workspace-link" href="/people">Directory</Link>} />
+            {recentPeopleRes.error ? <EmptyState title="Could not load recent people" description="Open the directory to try again." />
+              : recentPeople?.length ? (
                 <ul className="workspace-rows">
-                  {newVisitors.map((visitor) => {
-                    const name = `${visitor.first_name} ${visitor.last_name}`;
-                    const source = visitor.person_events?.[0]?.source?.replaceAll('_', ' ') || 'Manual';
-                    const step = visitor.workflow_cards?.[0]?.workflow_steps?.[0]?.name;
+                  {recentPeople.map((person) => {
+                    const name = `${person.first_name} ${person.last_name}`;
+                    const source = person.person_events?.[0]?.source?.replaceAll('_', ' ') || 'Manual';
+                    const step = person.workflow_cards?.[0]?.workflow_steps?.[0]?.name;
                     return (
-                      <li key={visitor.id} className="workspace-row">
-                        <PersonAvatar person={visitor} />
+                      <li key={person.id} className="workspace-row">
+                        <PersonAvatar person={person} />
                         <div className="workspace-row-content">
-                          {canOpenPeople ? <Link className="workspace-row-link" href={`/people/${displayIdFor(visitor)}`}>{name}</Link> : <strong>{name}</strong>}
-                          <p>{visitor.email || 'No email address'}</p>
+                          {canOpenPeople ? <Link className="workspace-row-link" href={`/people/${displayIdFor(person)}`}>{name}</Link> : <strong>{name}</strong>}
+                          <p>{person.email || 'No email address'}</p>
                           <p className="first-letter:uppercase">{source}{step ? ` · ${step}` : ''}</p>
                         </div>
                         <div className="text-right">
-                          <PersonStatus status="visitor" />
-                          <p className="mt-1 text-xs text-muted-foreground">{formatDistanceToNow(new Date(visitor.created_at), { addSuffix: true })}</p>
+                          <PersonStatus status={person.status as 'active' | 'visitor' | 'inactive' | 'child'} />
+                          <p className="mt-1 text-xs text-muted-foreground">{formatDistanceToNow(new Date(person.created_at), { addSuffix: true })}</p>
                         </div>
                       </li>
                     );
                   })}
                 </ul>
-              ) : <EmptyState title="No new visitors this month" description="New visitors will appear here as they’re added." />}
+              ) : <EmptyState title="No people added this month" description="New records will appear here as they’re added." />}
           </section>
           <section className="workspace-panel" aria-label="Recent activity">
             <PanelHeader title="Recent activity" description="Updates from People and connected systems." />

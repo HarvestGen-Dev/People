@@ -77,7 +77,7 @@ function SidebarContents({ account, collapsed = false, close }: {
             <span className="block text-lg font-bold tracking-tight">People</span>
           </span>
         </Link>
-        {close && <button type="button" aria-label="Close navigation" className="workspace-button ml-auto size-11 p-0" onClick={close}><X size={18} /></button>}
+        {close && <button type="button" aria-label="Close navigation" className="workspace-button workspace-icon-button ml-auto size-11 p-0" onClick={close}><X size={18} /></button>}
       </div>
       <nav aria-label="Main navigation" className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
         <p className={collapsed ? 'sr-only' : 'mb-2 px-3 text-[10px] font-bold uppercase tracking-[.1em] text-muted-foreground'}>Workspace</p>
@@ -97,7 +97,7 @@ function SidebarContents({ account, collapsed = false, close }: {
             <p className="mt-0.5 text-xs text-muted-foreground">Church workspace</p>
           </div>
         </>}
-        <button type="button" onClick={handleSignOut} aria-label="Sign out" title="Sign out" className="workspace-link size-11 shrink-0 p-0">
+        <button type="button" onClick={handleSignOut} aria-label="Sign out" title="Sign out" className="workspace-link workspace-icon-button size-11 shrink-0 p-0">
           <LogOut size={16} />
         </button>
       </div>
@@ -111,7 +111,7 @@ export function Sidebar(account: Account) {
     <aside className={cn('sticky top-0 hidden h-dvh shrink-0 flex-col border-r bg-card md:flex', collapsed ? 'w-[4.5rem]' : 'w-48 xl:w-[14.75rem]')}>
       <SidebarContents account={account} collapsed={collapsed} />
       <div className="flex shrink-0 justify-center border-t px-2">
-        <button type="button" className="workspace-link" aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'} onClick={() => setCollapsed(!collapsed)}>
+        <button type="button" className="workspace-link" aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'} aria-expanded={!collapsed} onClick={() => setCollapsed(!collapsed)}>
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
       </div>
@@ -127,7 +127,7 @@ export function WorkspaceTopbar(account: Account) {
   const close = () => dialog.current?.close();
   return (
     <header className="flex min-h-16 items-center gap-3 border-b bg-card px-[var(--workspace-gutter)] md:min-h-[4.75rem]">
-      <button type="button" className="workspace-button size-11 p-0 md:hidden" aria-label="Open navigation" aria-haspopup="dialog" onClick={() => dialog.current?.showModal()}>
+      <button type="button" className="workspace-button workspace-icon-button workspace-mobile-menu size-11" aria-label="Open navigation" aria-haspopup="dialog" onClick={() => dialog.current?.showModal()}>
         <Menu size={18} />
       </button>
       <span className="hidden text-xs text-muted-foreground md:inline">Workspace <span aria-hidden="true" className="ms-2">/</span></span>

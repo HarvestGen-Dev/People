@@ -44,7 +44,7 @@ export default async function ListsPage() {
           return (
             <section key={type} className="workspace-panel" aria-label={smart ? 'Smart lists' : 'Static lists'}>
               <PanelHeader title={smart ? 'Smart lists' : 'Static lists'}
-                description={smart ? 'People who match a set of rules.' : 'People selected and managed by your team.'} />
+                description={`${group.length} ${group.length === 1 ? 'list' : 'lists'} · ${smart ? 'People who match a set of rules.' : 'People selected and managed by your team.'}`} />
               {group.length ? <ul className="workspace-rows">
                 {group.map((list) => {
                   const id = displayIdFor(list);

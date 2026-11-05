@@ -1,4 +1,5 @@
 // <!-- AGENT: FRONTEND -->
+import Link from 'next/link';
 import { Search } from 'lucide-react';
 import type { Tag } from '@/lib/types';
 import { DirectoryForm } from './DirectoryForm';
@@ -20,21 +21,21 @@ export function PeopleFilters({ tags, search, status, tag }: {
       </label>
       <label className="min-w-0">
         <span className="sr-only">Filter by status</span>
-        <select key={status} name="status" defaultValue={status ?? ''}>
+        <select name="status" defaultValue={status ?? ''}>
           <option value="">All statuses</option>
           {statuses.map((value) => <option key={value} value={value}>{value[0].toUpperCase() + value.slice(1)}</option>)}
         </select>
       </label>
       <label className="min-w-0">
         <span className="sr-only">Filter by tag</span>
-        <select key={tag} name="tag" defaultValue={tag ?? ''}>
+        <select name="tag" defaultValue={tag ?? ''}>
           <option value="">All tags</option>
           {tags.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
         </select>
       </label>
       <div className="directory-filter-actions">
         <button className="workspace-button" type="submit">Search</button>
-        {(search || status || tag) && <a className="workspace-link" href="/people">Clear filters</a>}
+        {(search || status || tag) && <Link className="workspace-link" href="/people" data-clear-filters>Clear filters</Link>}
       </div>
     </DirectoryForm>
   );
