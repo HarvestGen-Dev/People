@@ -1,30 +1,13 @@
 'use client';
 
 // <!-- AGENT: FRONTEND -->
-import { useMemo, useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { createBrowserClient } from '@supabase/ssr';
 import {
-  CalendarDays,
-  ChevronLeft,
-  ChevronRight,
-  Code2,
-  GitBranch,
-  LayoutDashboard,
-  LayoutList,
-  Network,
-  LogOut,
-  Settings,
-  Users,
-  X,
+  CalendarDays, ChevronLeft, ChevronRight, Code2, GitBranch, LayoutDashboard,
+  LayoutList, LogOut, Menu, Network, Settings, Users, X,
 } from 'lucide-react';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { TenantRole } from '@/lib/tenant-context';
 import { startNavigationProgress } from '@/lib/navigation-progress';
@@ -32,224 +15,129 @@ import { startNavigationProgress } from '@/lib/navigation-progress';
 const primaryNav = [
   { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
   { label: 'People', href: '/people', icon: Users },
-  { label: 'Lists', href: '/lists', icon: LayoutList },
-  { label: 'Workflows', href: '/workflows', icon: GitBranch },
+  { label: 'Follow-ups', href: '/workflows', icon: GitBranch },
   { label: 'Events', href: '/events', icon: CalendarDays },
+  { label: 'Lists', href: '/lists', icon: LayoutList },
 ];
 
 const administrationNav = [
-  { label: 'Developer', href: '/developer', icon: Code2 },
   { label: 'Settings', href: '/settings', icon: Settings },
+  { label: 'Developer', href: '/developer', icon: Code2 },
+  { label: 'Platform', href: '/platform', icon: Network },
 ];
 
-interface SidebarProps {
-  mobileOpen?: boolean;
-  onMobileClose?: () => void;
-  userEmail: string;
-  role: TenantRole;
-  isPlatformAdmin: boolean;
-}
+type Account = { userEmail: string; role: TenantRole; isPlatformAdmin: boolean };
 
-export function Sidebar({
-  mobileOpen = false,
-  onMobileClose,
-  userEmail,
-  role,
-  isPlatformAdmin,
-}: SidebarProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+function SidebarContents({ account, collapsed = false, close }: {
+  account: Account; collapsed?: boolean; close?: () => void;
+}) {
   const pathname = usePathname();
   const router = useRouter();
+  const { userEmail, role, isPlatformAdmin } = account;
+  const canAccessDeveloperTools = isPlatformAdmin || role === 'owner' || role === 'admin';
+  const adminNav = administrationNav.filter(({ href }) =>
+    href === '/platform' ? isPlatformAdmin : canAccessDeveloperTools);
 
-  const supabase = useMemo(
-    () =>
-      createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      ),
-    []
-  );
-
-  const handleSignOut = async () => {
+  async function handleSignOut() {
+    const { createBrowserClient } = await import('@supabase/ssr');
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
     await supabase.auth.signOut();
+    close?.();
     startNavigationProgress();
     router.push('/login');
-  };
-  const canAccessDeveloperTools =
-    isPlatformAdmin || role === 'owner' || role === 'admin';
+  }
 
-  const renderNavItem = (item: (typeof primaryNav)[number]) => {
-    const Icon = item.icon;
-    const isActive =
-      pathname === item.href || pathname.startsWith(`${item.href}/`);
-    const content = (
-      <Link
-        href={item.href}
-        onClick={onMobileClose}
-        className={cn(
-          'group flex h-10 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition-colors',
-          isActive
-            ? 'bg-white/12 text-white shadow-sm'
-            : 'text-emerald-50/62 hover:bg-white/[0.07] hover:text-white',
-          isCollapsed && 'md:justify-center md:px-0'
-        )}
-      >
-        <Icon
-          className={cn(
-            'h-[18px] w-[18px] shrink-0 transition-colors',
-            isActive
-              ? 'text-emerald-300'
-              : 'text-emerald-100/45 group-hover:text-emerald-200'
-          )}
-        />
-        <span className={cn(isCollapsed && 'md:hidden')}>{item.label}</span>
-        {isActive && !isCollapsed && (
-          <span className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-300" />
-        )}
-      </Link>
-    );
-
-    if (!isCollapsed) {
-      return <div key={item.href}>{content}</div>;
-    }
-
-    return (
-      <Tooltip key={item.href}>
-        <TooltipTrigger render={content} className="hidden md:flex" />
-        <TooltipContent side="right">{item.label}</TooltipContent>
-      </Tooltip>
-    );
-  };
+  function renderLinks(items: typeof primaryNav) {
+    return items.map(({ label, href, icon: Icon }) => {
+      const active = pathname === href || pathname.startsWith(`${href}/`);
+      return (
+        <Link key={href} href={href} prefetch={false} onNavigate={close}
+          aria-current={active ? 'page' : undefined}
+          title={collapsed ? label : undefined}
+          className={cn('flex min-h-11 items-center gap-3 rounded-lg px-3 text-[13px] font-semibold',
+            active ? 'bg-accent text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+            collapsed && 'justify-center px-0')}>
+          <Icon size={18} aria-hidden="true" className="shrink-0" />
+          <span className={collapsed ? 'sr-only' : undefined}>{label}</span>
+        </Link>
+      );
+    });
+  }
 
   return (
     <>
-      {mobileOpen && (
-        <button
-          type="button"
-          aria-label="Close navigation"
-          className="fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-sm md:hidden"
-          onClick={onMobileClose}
-        />
-      )}
-
-      <aside
-        className={cn(
-          'fixed inset-y-0 left-0 z-50 flex shrink-0 flex-col border-r border-sidebar-border bg-sidebar shadow-2xl transition-all duration-300 md:static md:translate-x-0 md:shadow-none',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full',
-          isCollapsed ? 'w-[272px] md:w-[72px]' : 'w-[272px]'
+      <div className={cn('flex min-h-20 shrink-0 items-center gap-2 px-4', collapsed && 'justify-center px-0')}>
+        <Link href="/dashboard" onNavigate={close} className="flex min-w-0 items-center gap-3 rounded-md" aria-label="Harvest Generation People">
+          <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-primary text-lg font-bold tracking-tight text-white">hg</span>
+          <span className={collapsed ? 'sr-only' : 'min-w-0'}>
+            <span className="block text-[10px] font-semibold uppercase tracking-[.09em] text-muted-foreground">Harvest Generation</span>
+            <span className="block text-lg font-bold tracking-tight">People</span>
+          </span>
+        </Link>
+        {close && <button type="button" aria-label="Close navigation" className="workspace-button ml-auto size-11 p-0" onClick={close}><X size={18} /></button>}
+      </div>
+      <nav aria-label="Main navigation" className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+        <p className={collapsed ? 'sr-only' : 'mb-2 px-3 text-[10px] font-bold uppercase tracking-[.1em] text-muted-foreground'}>Workspace</p>
+        <div className="space-y-1">{renderLinks(primaryNav)}</div>
+        {!!adminNav.length && (
+          <div className="mt-6">
+            <p className={collapsed ? 'sr-only' : 'mb-2 px-3 text-[10px] font-bold uppercase tracking-[.1em] text-muted-foreground'}>Administration</p>
+            <div className="space-y-1">{renderLinks(adminNav)}</div>
+          </div>
         )}
-      >
-        <div className="flex h-[72px] shrink-0 items-center border-b border-white/[0.07] px-4">
-          <Link
-            href="/dashboard"
-            onClick={onMobileClose}
-            className={cn(
-              'flex min-w-0 items-center gap-3',
-              isCollapsed && 'md:mx-auto'
-            )}
-          >
-            <div className="relative grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-xl bg-emerald-400 text-emerald-950 shadow-lg shadow-emerald-950/20">
-              <span className="absolute h-7 w-3 rotate-45 rounded-full bg-white/35" />
-              <span className="relative text-[10px] font-black">HG</span>
-            </div>
-            <div className={cn('min-w-0', isCollapsed && 'md:hidden')}>
-              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-300">
-                HarvestGen
-              </div>
-              <div className="mt-1 text-sm font-bold text-white">People</div>
-            </div>
-          </Link>
-          <button
-            type="button"
-            aria-label="Close navigation"
-            onClick={onMobileClose}
-            className="ml-auto grid h-9 w-9 place-items-center rounded-xl text-emerald-100/60 hover:bg-white/10 hover:text-white md:hidden"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <nav className="flex-1 overflow-y-auto px-3 py-5">
-          <div
-            className={cn(
-              'mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-200/35',
-              isCollapsed && 'md:text-center md:text-[0]'
-            )}
-          >
-            Workspace
+      </nav>
+      <div className={cn('flex shrink-0 items-center gap-2 border-t p-3', collapsed && 'flex-col')}>
+        {!collapsed && <>
+          <span aria-hidden="true" className="grid size-8 shrink-0 place-items-center rounded-full bg-accent text-xs font-bold text-primary">{userEmail[0]?.toUpperCase()}</span>
+          <div className="min-w-0 flex-1">
+            <p title={userEmail} className="truncate text-xs font-semibold">{userEmail}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Church workspace</p>
           </div>
-          <div className="space-y-1">{primaryNav.map(renderNavItem)}</div>
-
-          <div className="my-5 border-t border-white/[0.07]" />
-
-          <div
-            className={cn(
-              'mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-200/35',
-              isCollapsed && 'md:text-center md:text-[0]'
-            )}
-          >
-            Administration
-          </div>
-          <div className="space-y-1">
-          {[
-            ...(isPlatformAdmin
-              ? [{ label: 'Platform', href: '/platform', icon: Network }]
-              : []),
-            ...(canAccessDeveloperTools ? administrationNav : []),
-          ].map(renderNavItem)}
-          </div>
-        </nav>
-
-        <div className="border-t border-white/[0.07] p-3">
-          <div
-            className={cn(
-              'flex items-center gap-3 rounded-2xl bg-white/[0.05] p-2',
-              isCollapsed && 'md:justify-center md:bg-transparent md:p-0'
-            )}
-          >
-            <Avatar className="h-9 w-9 border border-white/10">
-              <AvatarFallback className="bg-emerald-400 text-xs font-bold text-emerald-950">
-                {userEmail ? userEmail.charAt(0).toUpperCase() : 'U'}
-              </AvatarFallback>
-            </Avatar>
-            <div className={cn('min-w-0 flex-1', isCollapsed && 'md:hidden')}>
-              <div className="truncate text-xs font-semibold text-white">
-                {userEmail || 'Loading account'}
-              </div>
-              <div className="mt-0.5 text-[10px] text-emerald-100/45">
-                Church workspace
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className={cn(
-                'grid h-8 w-8 shrink-0 place-items-center rounded-lg text-emerald-100/45 transition-colors hover:bg-white/10 hover:text-white',
-                isCollapsed && 'md:hidden'
-              )}
-              title="Sign out"
-              aria-label="Sign out"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-
-        <div className="hidden border-t border-white/[0.07] p-2 md:flex md:justify-center">
-          <button
-            type="button"
-            onClick={() => setIsCollapsed((value) => !value)}
-            className="grid h-8 w-8 place-items-center rounded-lg text-emerald-100/40 transition-colors hover:bg-white/10 hover:text-white"
-            aria-label={isCollapsed ? 'Expand navigation' : 'Collapse navigation'}
-          >
-            {isCollapsed ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
-              <ChevronLeft className="h-4 w-4" />
-            )}
-          </button>
-        </div>
-      </aside>
+        </>}
+        <button type="button" onClick={handleSignOut} aria-label="Sign out" title="Sign out" className="workspace-link size-11 shrink-0 p-0">
+          <LogOut size={16} />
+        </button>
+      </div>
     </>
+  );
+}
+
+export function Sidebar(account: Account) {
+  const [collapsed, setCollapsed] = useState(false);
+  return (
+    <aside className={cn('sticky top-0 hidden h-dvh shrink-0 flex-col border-r bg-card md:flex', collapsed ? 'w-[4.5rem]' : 'w-48 xl:w-[14.75rem]')}>
+      <SidebarContents account={account} collapsed={collapsed} />
+      <div className="flex shrink-0 justify-center border-t px-2">
+        <button type="button" className="workspace-link" aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'} onClick={() => setCollapsed(!collapsed)}>
+          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+export function WorkspaceTopbar(account: Account) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const pathname = usePathname();
+  const section = [...primaryNav, ...administrationNav].find(({ href }) =>
+    pathname === href || pathname.startsWith(`${href}/`));
+  const close = () => dialog.current?.close();
+  return (
+    <header className="flex min-h-16 items-center gap-3 border-b bg-card px-[var(--workspace-gutter)] md:min-h-[4.75rem]">
+      <button type="button" className="workspace-button size-11 p-0 md:hidden" aria-label="Open navigation" aria-haspopup="dialog" onClick={() => dialog.current?.showModal()}>
+        <Menu size={18} />
+      </button>
+      <span className="hidden text-xs text-muted-foreground md:inline">Workspace <span aria-hidden="true" className="ms-2">/</span></span>
+      <span className="text-[13px] font-semibold">{section?.label ?? 'People'}</span>
+      <dialog ref={dialog} className="workspace-dialog" data-side="left" aria-label="Workspace navigation"
+        onClick={(event) => { if (event.target === event.currentTarget) close(); }}>
+        <div className="flex min-h-full flex-col">
+          <SidebarContents account={account} close={close} />
+        </div>
+      </dialog>
+    </header>
   );
 }
