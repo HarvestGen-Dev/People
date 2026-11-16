@@ -22,7 +22,7 @@ const emptyForm: FormState = {
   campus: '',
 };
 
-export function PublicConnectForm({ slug, title }: { slug: string; title: string }) {
+export function PublicConnectForm({ submitPath, title }: { submitPath: string; title: string }) {
   const idempotencyKey = useRef(crypto.randomUUID());
   const [values, setValues] = useState(emptyForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -40,7 +40,7 @@ export function PublicConnectForm({ slug, title }: { slug: string; title: string
     setError(null);
 
     try {
-      const response = await fetch(`/api/public/connect-forms/${slug}/submit`, {
+      const response = await fetch(submitPath, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
