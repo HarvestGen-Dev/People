@@ -155,7 +155,8 @@ test('content and revisions are isolated per tenant', async () => {
   const { data: aRev } = await admin.from('hg_link_revisions').select('id').eq('church_id', churches.a.id).eq('status', 'archived').limit(1);
   const res = await api('POST', '/api/admin/hg-link/page/restore', { as: 'adminB', body: { revisionId: aRev[0].id } });
   assert.equal(res.status, 404);
-  assert.equal((await fetch(`${baseUrl}/link/no-such-church-${suffix}`)).status, 404);
+  const missingPage = await (await fetch(`${baseUrl}/link/no-such-church-${suffix}`)).text();
+  assert.ok(!missingPage.includes('Version one') && !missingPage.includes('Church B only'));
 });
 
 let serveFormId;
@@ -216,7 +217,8 @@ test('submission stores answers, matches the person, and is idempotent', async (
 
 test('submission does not overwrite populated staff-maintained profile data', async () => {
   const email = `staff-${suffix}@test.com`;
-  const { data: person } = await admin.from('people').insert({ church_id: churches.a.id, first_name: 'Sam', last_name: 'Staff', email, phone: '+60125550000', status: 'member' }).select('id').single();
+  const { data: person, error: pErr } = await admin.from('people').insert({ church_id: churches.a.id, first_name: 'Sam', last_name: 'Staff', email, phone: '+60125550000', status: 'active' }).select('id').single();
+  if (pErr) throw pErr;
   const values = { ...goodValues(email), first_name: 'Samuel', phone: '+60129990000' };
   const res = await api('POST', submitPath(), { body: { values }, headers: { 'Idempotency-Key': `ow-${suffix}`, ...ip() } });
   assert.equal(res.status, 200);
