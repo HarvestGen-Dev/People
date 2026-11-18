@@ -144,6 +144,7 @@ npm run verify
 This runs:
 - TypeScript type checking (`tsc --noEmit`)
 - Code linting (`eslint`)
+- Unit tests for HG Link schemas and validation (`npm run test:unit`, needs Node 22.6+)
 - Supabase schema linting and Postgres validation
 - Node.js native Integration tests (Account Onboarding, People Lookup, Event Registration, Webhooks, People Photos)
 - A simulated Next.js production build
@@ -151,6 +152,12 @@ This runs:
 People-photo upload tests require the local Supabase stack and exercise the
 private `people-photos` bucket, server-side WebP processing, signed URL
 authorization, portal restrictions, and replacement cleanup.
+
+### HG Link
+
+HG Link (public connections hub at `/link`, edited under **Settings → HG Link**) is
+part of this app. Set `HG_LINK_CHURCH_SLUG` to serve a church at `/link`; every church
+is also reachable at `/link/<church-slug>`. See [docs/HG_LINK.md](docs/HG_LINK.md).
 
 ---
 

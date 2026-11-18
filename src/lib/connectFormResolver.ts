@@ -2,12 +2,17 @@
 import 'server-only';
 
 import { createServiceClient } from '@/lib/supabase/server';
+import { formDefinitionSchema, type FormDefinition } from '@/lib/hg-link/formSchema';
 
 export type ResolvedConnectForm = {
   churchId: string;
   slug: string;
   title: string;
   description: string | null;
+  /** Published definition; null for legacy forms that use the original fixed fields. */
+  definition: FormDefinition | null;
+  definitionVersion: number;
+  notifyEmail: string | null;
 };
 
 /**
@@ -44,15 +49,29 @@ export async function resolveLegacyConnectForm(
   return loadForm(churchId, formSlug);
 }
 
+export async function resolveConnectFormById(churchId: string, formSlug: string) {
+  return loadForm(churchId, formSlug);
+}
+
 async function loadForm(churchId: string, formSlug: string): Promise<ResolvedConnectForm | null> {
   const supabase = createServiceClient();
   const { data: form } = await supabase
     .from('connect_forms')
-    .select('slug, title, description')
+    .select('slug, title, description, definition, definition_version, notify_email')
     .eq('church_id', churchId)
     .eq('slug', formSlug)
     .eq('is_active', true)
     .maybeSingle();
   if (!form) return null;
-  return { churchId, slug: form.slug, title: form.title, description: form.description };
+  // Re-validate stored JSON so a bad row can never reach a public renderer.
+  const parsed = form.definition ? formDefinitionSchema.safeParse(form.definition) : null;
+  return {
+    churchId,
+    slug: form.slug,
+    title: form.title,
+    description: form.description,
+    definition: parsed?.success ? parsed.data : null,
+    definitionVersion: form.definition_version ?? 0,
+    notifyEmail: form.notify_email ?? null,
+  };
 }

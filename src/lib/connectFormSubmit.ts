@@ -1,12 +1,17 @@
 // <!-- AGENT: BACKEND -->
 import 'server-only';
 import { createServiceClient } from '@/lib/supabase/server';
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { readJsonObject, validationErrorResponse } from '@/lib/validation';
 import crypto from 'crypto';
+import { resolveConnectFormById } from '@/lib/connectFormResolver';
+import { resolveFormOptions } from '@/lib/hg-link/formOptions';
+import { validateSubmission } from '@/lib/hg-link/formSchema';
+import { notifyStaffOfSubmission } from '@/lib/email/send-submission-notice';
 
-const connectFormSubmissionSchema = z.object({
+// Legacy fixed-field submissions (forms without a stored definition).
+const legacySubmissionSchema = z.object({
   first_name: z.string().trim().min(1).max(100),
   last_name: z.string().trim().min(1).max(100),
   email: z.string().trim().email().max(255).optional().nullable(),
@@ -16,6 +21,22 @@ const connectFormSubmissionSchema = z.object({
   campus: z.string().trim().max(100).optional().nullable(),
   idempotency_key: z.string().trim().min(8).max(160).optional(),
 }).strict();
+
+// Definition-driven submissions: { values: { <field id>: answer }, idempotency_key? }
+const dynamicEnvelopeSchema = z.object({
+  values: z.record(z.string().max(60), z.unknown()),
+  idempotency_key: z.string().trim().min(8).max(160).optional(),
+}).strict();
+
+type Core = {
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  phone: string | null;
+  gender: string | null;
+  birthdate: string | null;
+  campus: string | null;
+};
 
 type ConnectFormRpcResult =
   | { success: true; person_id: string; found: boolean; idempotency_key: string }
@@ -32,21 +53,20 @@ function clientIp(request: Request) {
   );
 }
 
-function submissionHash(submission: z.infer<typeof connectFormSubmissionSchema>) {
-  const fingerprint = {
-    first_name: submission.first_name,
-    last_name: submission.last_name,
-    email: submission.email?.toLowerCase() ?? null,
-    phone: submission.phone ?? null,
-    gender: submission.gender ?? null,
-    birthdate: submission.birthdate ?? null,
-    campus: submission.campus ?? null,
-  };
+function sha256(value: unknown) {
+  return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
 
-  return crypto
-    .createHash('sha256')
-    .update(JSON.stringify(fingerprint))
-    .digest('hex');
+/** Same-origin guard for browser submissions (CSRF / cross-site automation). */
+function isCrossSiteBrowserRequest(request: Request): boolean {
+  const origin = request.headers.get('origin');
+  if (!origin) return false; // non-browser clients (curl, server-to-server) send no Origin
+  try {
+    const host = request.headers.get('x-forwarded-host') || request.headers.get('host');
+    return new URL(origin).host !== host;
+  } catch {
+    return true;
+  }
 }
 
 export async function handleConnectFormSubmit(
@@ -55,18 +75,66 @@ export async function handleConnectFormSubmit(
   slug: string
 ): Promise<NextResponse> {
   try {
+    if (isCrossSiteBrowserRequest(request)) {
+      return NextResponse.json({ error: 'Cross-site submissions are not allowed' }, { status: 403 });
+    }
+
     const supabase = createServiceClient();
+    const form = await resolveConnectFormById(churchId, slug);
+    if (!form) {
+      return NextResponse.json({ error: 'Connect form not found or inactive' }, { status: 404 });
+    }
 
     const body = await readJsonObject(request);
     if (body instanceof NextResponse) return body;
-    const parsed = connectFormSubmissionSchema.safeParse(body);
-    if (!parsed.success) return validationErrorResponse(parsed.error);
-    const submission = parsed.data;
+
+    let core: Core;
+    let answers: Record<string, unknown> = {};
+    let hashInput: unknown;
+    let bodyKey: string | undefined;
+
+    if (form.definition) {
+      const envelope = dynamicEnvelopeSchema.safeParse(body);
+      if (!envelope.success) return validationErrorResponse(envelope.error);
+      const resolved = await resolveFormOptions(churchId, form.definition);
+      const result = validateSubmission(form.definition, resolved, envelope.data.values);
+      if (!result.ok) {
+        return NextResponse.json(
+          { error: 'Please correct the highlighted answers', fields: result.errors },
+          { status: 400 }
+        );
+      }
+      core = {
+        first_name: result.data.core.first_name ?? '',
+        last_name: result.data.core.last_name ?? '',
+        email: result.data.core.email ?? null,
+        phone: result.data.core.phone ?? null,
+        gender: result.data.core.gender ?? null,
+        birthdate: result.data.core.birthdate ?? null,
+        campus: null,
+      };
+      answers = result.data.answers;
+      hashInput = { core, answers, v: form.definitionVersion };
+      bodyKey = envelope.data.idempotency_key;
+    } else {
+      const parsed = legacySubmissionSchema.safeParse(body);
+      if (!parsed.success) return validationErrorResponse(parsed.error);
+      const s = parsed.data;
+      core = {
+        first_name: s.first_name,
+        last_name: s.last_name,
+        email: s.email?.toLowerCase() ?? null,
+        phone: s.phone ?? null,
+        gender: s.gender ?? null,
+        birthdate: s.birthdate ?? null,
+        campus: s.campus ?? null,
+      };
+      hashInput = core;
+      bodyKey = s.idempotency_key;
+    }
 
     const idempotencyKey =
-      request.headers.get('idempotency-key')?.trim() ||
-      submission.idempotency_key ||
-      crypto.randomUUID();
+      request.headers.get('idempotency-key')?.trim() || bodyKey || crypto.randomUUID();
     // Rate-limit subject includes the church so one tenant's traffic cannot exhaust another's.
     const rateLimitSubject = `${clientIp(request)}:${churchId}:${slug}`;
 
@@ -74,15 +142,17 @@ export async function handleConnectFormSubmit(
       p_church_id: churchId,
       p_slug: slug,
       p_idempotency_key: idempotencyKey,
-      p_request_body_hash: submissionHash(submission),
+      p_request_body_hash: sha256(hashInput),
       p_rate_limit_subject: rateLimitSubject,
-      p_first_name: submission.first_name,
-      p_last_name: submission.last_name,
-      p_email: submission.email?.toLowerCase() ?? null,
-      p_phone: submission.phone ?? null,
-      p_gender: submission.gender ?? null,
-      p_birthdate: submission.birthdate ?? null,
-      p_campus: submission.campus ?? null,
+      p_first_name: core.first_name,
+      p_last_name: core.last_name,
+      p_email: core.email,
+      p_phone: core.phone,
+      p_gender: core.gender,
+      p_birthdate: core.birthdate,
+      p_campus: core.campus,
+      p_answers: answers,
+      p_form_version: form.definition ? form.definitionVersion : null,
     });
 
     if (error) throw error;
@@ -123,9 +193,32 @@ export async function handleConnectFormSubmit(
       }
     }
 
-    return NextResponse.json(result);
+    // Notification is best effort: a failure must never lose or fail the submission.
+    if (result.success && form.notifyEmail) {
+      const notice = {
+        churchId,
+        formTitle: form.title,
+        notifyEmail: form.notifyEmail,
+        idempotencyKey,
+      };
+      // after() keeps the work alive on serverless hosts once the response is sent.
+      after(async () => {
+        try {
+          await notifyStaffOfSubmission(notice);
+        } catch (notifyError: unknown) {
+          console.error('HG Link notification failed:', notifyError instanceof Error ? notifyError.message : 'unknown');
+        }
+      });
+    }
+
+    // Public response never echoes answers; only the minimum needed by the client.
+    return NextResponse.json(
+      result.success
+        ? { success: true, found: result.found, idempotency_key: result.idempotency_key, person_id: result.person_id }
+        : result
+    );
   } catch (error: unknown) {
-    console.error('Connect form error:', error);
+    console.error('Connect form error:', error instanceof Error ? error.message : 'unknown');
     return NextResponse.json(
       { error: 'An error occurred submitting the form' },
       { status: 500 }
