@@ -1,0 +1,30 @@
+.booking-page { margin: 0; background: #f3f4ea; color: #253327; font: 1rem system-ui, sans-serif; }
+.calendar-preview { --accent: #375938; --event: #eee3c3; max-width: 85rem; margin: auto; padding: clamp(1rem, 3vw, 2.5rem); }
+.calendar-office { --accent: #08614b; --event: #e3f4eb; }
+.calendar-preview h1 { margin: 0; font-size: clamp(1.65rem, 4vw, 2.5rem); font-weight: 700; }
+.calendar-preview h2 { font-size: 1.25rem; font-weight: 700; }
+.calendar-preview button, .calendar-preview input:not([type=checkbox],[type=radio]), .calendar-preview select { font: inherit; padding: .45rem .65rem; color: inherit; border: 1px solid #bdc7bc; border-radius: .55rem; background: white; }
+.calendar-preview button { cursor: pointer; }
+.calendar-preview button:disabled { opacity: .55; cursor: default; }
+.calendar-preview :is(button, input, select):focus-visible { outline: 3px solid #a36515; outline-offset: 2px; }
+.calendar-preview button.calendar-primary, .calendar-preview button[aria-pressed=true] { background: var(--accent); border-color: var(--accent); color: white; }
+.calendar-controls { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: .8rem 0; }
+.calendar-scroll { overflow: auto; background: white; border: 1px solid #d4dbd2; border-radius: .8rem; }
+.calendar-preview table { width: 100%; border-collapse: collapse; min-width: 41rem; }
+.calendar-preview caption { font-weight: 700; padding: .6rem; }
+.calendar-preview :is(td, th) { border: 1px solid #dbe0d8; padding: .4rem; text-align: left; vertical-align: top; }
+.month-grid { table-layout: fixed; }
+.month-grid td { height: 5.5rem; }
+.month-grid td[data-outside=true] { background: #f4f5f1; }
+.calendar-preview button.calendar-day, .calendar-preview button.calendar-slot { width: 100%; border-color: transparent; text-align: left; }
+.calendar-preview button.calendar-slot { min-height: 2rem; user-select: none; }
+.calendar-preview button.calendar-slot:hover, .calendar-preview button.calendar-day:hover { background: #edf0e9; }
+.calendar-preview button.calendar-event { display: block; width: 100%; margin-top: .2rem; background: var(--event); text-align: left; overflow-wrap: anywhere; }
+.calendar-event span { display: block; font-size: .81rem; }
+.calendar-preview dialog { margin: auto; width: min(34rem, calc(100% - 2rem)); max-height: 90dvh; overflow: auto; padding: 1rem 1.25rem; border: 1px solid #d4dbd2; border-radius: .85rem; background: white; color: #253327; }
+.calendar-preview dialog::backdrop { background: #14201999; }
+.calendar-form, .calendar-fields { display: grid; gap: .75rem; }
+.calendar-fields { grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); }
+.calendar-form label { display: block; }
+.calendar-form :is(input, select):not([type=checkbox],[type=radio]) { display: block; width: 100%; box-sizing: border-box; }
+.calendar-form fieldset { border: 1px solid #d4dbd2; border-radius: .5rem; padding: .5rem; }

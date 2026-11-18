@@ -3,6 +3,12 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function proxy(request: NextRequest) {
+  if (request.nextUrl.pathname === '/preview/church-office/events') {
+    return process.env.NODE_ENV === 'development'
+      ? NextResponse.next()
+      : new NextResponse(null, { status: 404 })
+  }
+
   // Allow API routes and public submission pages to pass through without session checks.
   if (
     request.nextUrl.pathname.startsWith('/api/') ||

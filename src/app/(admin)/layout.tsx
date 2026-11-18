@@ -1,5 +1,6 @@
 import React from 'react';
 import './workspace.css';
+import { canAccessChurchOffice } from '../../../church-office/access';
 import { redirect } from 'next/navigation';
 import { AdminShell } from '@/components/layout/AdminShell';
 import { requireTenantContext, TenantContextError } from '@/lib/tenant-context';
@@ -18,6 +19,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       userEmail={tenant.user.email || 'Signed-in account'}
       role={tenant.role}
       isPlatformAdmin={tenant.isPlatformAdmin}
+      showChurchOffice={canAccessChurchOffice(tenant)}
     >
       {children}
     </AdminShell>

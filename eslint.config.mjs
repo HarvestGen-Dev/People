@@ -8,7 +8,8 @@ const eslintConfig = defineConfig([
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
-    ".next/**",
+    "**/.next/**",
+    "hg-connect/dist/**",
     "out/**",
     "build/**",
     "playwright-report/**",
