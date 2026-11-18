@@ -35,4 +35,4 @@ createServer(async (request, response) => {
   } catch {
     return response.writeHead(500).end('Page unavailable');
   }
-}).listen(port, '127.0.0.1', () => console.log('HG Link preview listening on http://127.0.0.1:' + port));
+}).listen(port, '127.0.0.1', () => console.log('HG Links preview listening on http://127.0.0.1:' + port));

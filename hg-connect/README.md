@@ -1,6 +1,6 @@
-# HG Link
+# HG Links
 
-HG Link is the standalone Harvest Generation Church connections hub. Its four
+HG Links is the standalone Harvest Generation Church connections hub. Its four
 forms are local previews. Use fictional details. Form checks run in the browser
 and no responses are sent or stored.
 
@@ -12,7 +12,7 @@ With Node 24, run these commands from this folder:
 npm run dev
 ```
 
-Open [HG Link locally](http://127.0.0.1:4310/). The server binds to loopback and
+Open [HG Links locally](http://127.0.0.1:4310/). The server binds to loopback and
 serves only the assets listed in `assets.mjs`. Set `PORT` to use a different
 local port.
 
