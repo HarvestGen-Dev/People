@@ -3,13 +3,14 @@ import { Sidebar, WorkspaceTopbar } from '@/components/layout/Sidebar';
 import { AdminPermissionsProvider } from '@/components/layout/AdminPermissions';
 import type { TenantRole } from '@/lib/tenant-context';
 
-export function AdminShell({ children, userEmail, role, isPlatformAdmin }: {
+export function AdminShell({ children, userEmail, role, isPlatformAdmin, showChurchOffice }: {
   children: React.ReactNode;
   userEmail: string;
   role: TenantRole;
   isPlatformAdmin: boolean;
+  showChurchOffice?: boolean;
 }) {
-  const account = { userEmail, role, isPlatformAdmin };
+  const account = { userEmail, role, isPlatformAdmin, showChurchOffice };
   return (
     <AdminPermissionsProvider role={role} isPlatformAdmin={isPlatformAdmin}>
       <div className="people-workspace flex min-h-dvh min-w-0">

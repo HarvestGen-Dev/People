@@ -26,7 +26,7 @@ const administrationNav = [
   { label: 'Platform', href: '/platform', icon: Network },
 ];
 
-type Account = { userEmail: string; role: TenantRole; isPlatformAdmin: boolean };
+type Account = { userEmail: string; role: TenantRole; isPlatformAdmin: boolean; showChurchOffice?: boolean };
 
 function SidebarContents({ account, collapsed = false, close }: {
   account: Account; collapsed?: boolean; close?: () => void;
@@ -35,6 +35,9 @@ function SidebarContents({ account, collapsed = false, close }: {
   const router = useRouter();
   const { userEmail, role, isPlatformAdmin } = account;
   const canAccessDeveloperTools = isPlatformAdmin || role === 'owner' || role === 'admin';
+  const workspaceNav = account.showChurchOffice
+    ? [...primaryNav, { label: 'Church Office', href: '/church-office', icon: CalendarDays }]
+    : primaryNav;
   const adminNav = administrationNav.filter(({ href }) =>
     href === '/platform' ? isPlatformAdmin : canAccessDeveloperTools);
 
@@ -81,7 +84,7 @@ function SidebarContents({ account, collapsed = false, close }: {
       </div>
       <nav aria-label="Main navigation" className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
         <p className={collapsed ? 'sr-only' : 'mb-2 px-3 text-[10px] font-bold uppercase tracking-[.1em] text-muted-foreground'}>Workspace</p>
-        <div className="space-y-1">{renderLinks(primaryNav)}</div>
+        <div className="space-y-1">{renderLinks(workspaceNav)}</div>
         {!!adminNav.length && (
           <div className="mt-6">
             <p className={collapsed ? 'sr-only' : 'mb-2 px-3 text-[10px] font-bold uppercase tracking-[.1em] text-muted-foreground'}>Administration</p>
