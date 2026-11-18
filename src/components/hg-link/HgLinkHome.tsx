@@ -59,7 +59,7 @@ export function HgLinkHome({ content, formHref, preview = false, compact = false
         ) : (
           <section
             aria-label="Ways to connect"
-            className={cn('mt-3.5 grid gap-3.5', list ? 'grid-cols-1' : 'grid-cols-1 min-[544px]:grid-cols-2 min-[832px]:grid-cols-3')}
+            className={cn('mt-3.5 grid gap-3.5', list ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3')}
           >
             {cards.map((card) => (
               <CardLink key={card.id} card={card} accentDark={accent.dark} preview={preview} formHref={formHref} />

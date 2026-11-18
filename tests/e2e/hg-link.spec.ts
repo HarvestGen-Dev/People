@@ -40,18 +40,25 @@ test('public HG Link page renders all seven cards without signing in', async ({ 
   await expect(page.getByRole('link', { name: 'Drip & Brew' })).toHaveAttribute('href', 'https://dripnbrew.harvestgen.org/');
 });
 
-test('layout works on desktop and mobile widths', async ({ page }) => {
+test('layout works on desktop and mobile widths', async ({ page, browser }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(`/link/${tenant.churchSlug}`);
+  await expect(page.getByRole('heading', { level: 1, name: 'HG Link' })).toBeVisible();
   const desktopTops = await page.locator('section[aria-label="Ways to connect"] > a').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
   expect(new Set(desktopTops).size).toBeLessThan(desktopTops.length); // several cards share a row
   await expectNoHorizontalOverflow(page);
 
-  await page.setViewportSize({ width: 375, height: 800 });
-  await page.goto(`/link/${tenant.churchSlug}`);
-  const mobileTops = await page.locator('section[aria-label="Ways to connect"] > a').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
-  expect(new Set(mobileTops).size).toBe(mobileTops.length); // one column
-  await expectNoHorizontalOverflow(page);
+  const mobileContext = await browser.newContext({ viewport: { width: 375, height: 800 }, isMobile: true });
+  try {
+    const mobilePage = await mobileContext.newPage();
+    await mobilePage.goto(`/link/${tenant.churchSlug}`);
+    await expect(mobilePage.getByRole('heading', { level: 1, name: 'HG Link' })).toBeVisible();
+    const mobileTops = await mobilePage.locator('section[aria-label="Ways to connect"] > a').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
+    expect(new Set(mobileTops).size).toBe(mobileTops.length); // one column
+    await expectNoHorizontalOverflow(mobilePage);
+  } finally {
+    await mobileContext.close();
+  }
 });
 
 test('keyboard users can skip to content and reach the cards', async ({ page }) => {
@@ -91,7 +98,7 @@ test('administrator edits a card: preview updates immediately, draft stays priva
   await expectNoServerComponentError(page);
 
   await page.getByRole('button', { name: 'Edit Kids Gen' }).click();
-  await page.getByLabel('Title').fill('Kids Gen Updated');
+  await page.getByLabel('Title', { exact: true }).fill('Kids Gen Updated');
   await expect(page.locator('#preview-heading').locator('xpath=ancestor::section').getByText('Kids Gen Updated')).toBeVisible();
 
   await page.getByRole('button', { name: 'Save draft' }).click();
