@@ -1,7 +1,7 @@
 'use client';
 
 // <!-- AGENT: FRONTEND -->
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -30,12 +30,13 @@ export function HgLinkEditor({ initialContent, publishedContent, hasServerDraft,
   const [baseline, setBaseline] = useState(JSON.stringify(initialContent));
   const [hasDraft, setHasDraft] = useState(hasServerDraft);
   const [pending, setPending] = useState<Pending>(null);
+  const [refreshing, startRefresh] = useTransition();
   const [confirm, setConfirm] = useState<'publish' | 'discard' | null>(null);
 
   const dirty = JSON.stringify(content) !== baseline;
   const validation = useMemo(() => contentSchema.safeParse(content), [content]);
   const problem = validation.success ? null : `${validation.error.issues[0].path.join(' › ')}: ${validation.error.issues[0].message}`;
-  const busy = pending !== null;
+  const busy = pending !== null || refreshing;
 
   const run = async (kind: Exclude<Pending, null>, task: () => Promise<void>, success: string) => {
     setPending(kind);
@@ -68,7 +69,7 @@ export function HgLinkEditor({ initialContent, publishedContent, hasServerDraft,
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
-        <div className="space-y-4">
+        <fieldset disabled={busy} className="min-w-0 space-y-4">
           <PageSettingsPanel content={content} onChange={setContent} />
           <CardsPanel content={content} forms={forms} onChange={setContent} />
           <RevisionHistory
@@ -76,11 +77,11 @@ export function HgLinkEditor({ initialContent, publishedContent, hasServerDraft,
             busy={busy}
             onRestore={(id) => run('restore', async () => {
               await sendJson('POST', '/api/admin/hg-link/page/restore', { revisionId: id });
-              router.refresh();
+              startRefresh(() => router.refresh());
             }, 'Version restored and published')}
           />
           {publicUrl && <p className="text-sm text-muted-foreground">Public page: <a className="underline" href={publicUrl} target="_blank" rel="noopener noreferrer">{publicUrl}</a></p>}
-        </div>
+        </fieldset>
         <PreviewPane content={content} />
       </div>
 
@@ -96,7 +97,7 @@ export function HgLinkEditor({ initialContent, publishedContent, hasServerDraft,
             if (dirty || !hasDraft) await saveDraft();
             await sendJson('POST', '/api/admin/hg-link/page/publish');
             setHasDraft(false);
-            router.refresh();
+            startRefresh(() => router.refresh());
           }, 'Published');
           setConfirm(null);
         }}

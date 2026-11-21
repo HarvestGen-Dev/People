@@ -32,7 +32,7 @@ Key decisions
 - **Tenant scoping everywhere.** Public lookups use `(church_id, slug)`. Migration 050 fixed the earlier
   slug-only resolution. The legacy `/connect/<slug>` URL resolves only while the slug is unique across churches.
 
-## Database (migrations 050, 051)
+## Database (migrations 050–052)
 
 | Object | Purpose |
 | --- | --- |
@@ -45,6 +45,15 @@ Key decisions
 
 The anonymous "Public can view active connect forms" policy was dropped; public pages read server-side.
 Rollback notes are at the top of `051_hg_link.sql`.
+
+Migration 052 must ship with the updated publish Route Handler: the service-only
+`hg_link_publish` RPC now requires `p_expected_content`, the exact saved JSON
+validated by the server. A concurrent draft replacement returns `draft_changed`
+(HTTP 409); publish and restore reject visible destinations whose forms are missing,
+inactive, or belong to another church (HTTP 400). Failed operations preserve the live
+revision. Rollback instructions are in `052_hg_link_publication_integrity.sql`.
+Database failures and invalid saved content raise an error; built-in defaults are
+used only when the church has no published revision.
 
 ## Roles
 
@@ -60,10 +69,15 @@ Checks are in the Route Handlers (`src/lib/hg-link/access.ts`); browser mutation
 ## Administrative workflow
 
 1. **Settings → HG Link → Forms → Set up standard forms** (once per church). Creates the four forms.
-2. **Page tab**: edit text, accent, layout, cards (add, edit, hide, delete, reorder with the arrow buttons,
-   form or external destination). The right pane previews unsaved edits (desktop or mobile).
+2. **Page tab**: edit the banner image address, welcome text, title, introduction, accent, layout,
+   and up to 24 cards (title, description, button label, icon, colour, form or external website address;
+   add, edit, hide, delete, reorder with the arrow buttons).
+   The right pane previews unsaved edits (desktop or mobile). Banner images use a public HTTPS
+   image address; incomplete addresses stay out of the preview until valid.
 3. **Save draft** keeps edits private. **Publish changes** validates (cards must point to active forms in this
-   church) and goes live. **Discard changes** drops the draft. **Restore** republishes an earlier version.
+   church) and goes live. **Discard changes** drops the draft. **Restore** validates and republishes an earlier version.
+   Editing pauses during saving and until the page refresh after publish/restore finishes, so a refresh
+   cannot overwrite the next edit.
 
 ## Form publishing
 
@@ -105,3 +119,16 @@ npm run verify                                      # full gate, includes all of
 
 Troubleshooting: `/link` 404 → `HG_LINK_CHURCH_SLUG` unset or wrong. A card 400s on publish → its form is missing
 or inactive for that church. Connect Group dropdown empty → no static lists exist.
+
+## Migration verification
+
+PR [#48](https://github.com/HarvestGen-Dev/People/pull/48) merged the static preview's
+replacement into People, including migration 051, the admin editor, and persisted forms.
+Its original description still refers to a static preview; the code uses the backend
+workflow above. Apply migrations through 052 before testing this follow-up.
+
+The HG Link integration suite covers banner/description/link round-trips, private drafts,
+publish and restore, concurrent edits, long history, malformed content, role checks and
+tenant isolation. The browser suite also edits the banner, introduction and card destination,
+reloads the draft, publishes it, discards later edits, and checks the visitor page.
+These local checks do not establish whether a hosted database has the migrations applied.

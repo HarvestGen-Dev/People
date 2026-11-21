@@ -63,6 +63,7 @@ test('layout works on desktop and mobile widths', async ({ page, browser }) => {
 
 test('keyboard users can skip to content and reach the cards', async ({ page }) => {
   await page.goto(`/link/${tenant.churchSlug}`);
+  await expect(page.getByRole('heading', { level: 1, name: 'HG Link' })).toBeVisible();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused();
   await page.keyboard.press('Tab');
@@ -122,4 +123,52 @@ test('card reordering is keyboard accessible', async ({ page }) => {
   await down.focus();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('status').filter({ hasText: 'moved to position 2' })).toHaveCount(1);
+});
+
+test('banner, descriptions and links survive saving, publishing and discarding later edits', async ({ page }) => {
+  const bannerUrl = 'https://assets.example.com/hg-banner.png';
+  await page.route(bannerUrl, (route) => route.fulfill({
+    contentType: 'image/png',
+    body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1h8AAAAASUVORK5CYII=', 'base64'),
+  }));
+  await loginThroughUi(page, admin);
+  await page.goto('/settings/hg-link');
+  await page.getByLabel('Banner image address (optional)').fill('https://');
+  await expectNoServerComponentError(page);
+  await expect(page.getByRole('button', { name: 'Save draft' })).toBeDisabled();
+
+  await page.getByLabel('Banner image address (optional)').fill(bannerUrl);
+  await page.getByLabel('Page title', { exact: true }).fill('Connect with HarvestGen');
+  await page.getByLabel('Introduction (optional)').fill('Find your next step with us.');
+  await page.getByText('Single column', { exact: true }).click();
+  await expect(page.getByRole('radio', { name: 'Single column' })).toBeChecked();
+  await page.getByRole('button', { name: /^Edit Kids Gen(?: Updated)?$/ }).click();
+  await page.getByLabel('Title', { exact: true }).fill('Kids Gen Updated');
+  await page.getByLabel('Short description (optional)').fill('Sunday activities for children');
+  await page.getByLabel('Website address').fill('https://example.com/kids');
+  await page.getByLabel('Button label (optional)').fill('Explore Kids Gen');
+  await page.getByRole('button', { name: 'Save draft' }).click();
+  await expect(page.getByText('Draft saved. Not live yet.')).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel('Page title', { exact: true })).toHaveValue('Connect with HarvestGen');
+  await expect(page.getByLabel('Banner image address (optional)')).toHaveValue(bannerUrl);
+  await page.getByRole('button', { name: 'Publish changes' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Publish', exact: true }).click();
+  await expect(page.getByText('Showing the live page.')).toBeVisible();
+
+  await page.getByLabel('Page title', { exact: true }).fill('Unpublished title');
+  await page.getByRole('button', { name: 'Discard changes', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Discard changes', exact: true }).click();
+  await expect(page.getByLabel('Page title', { exact: true })).toHaveValue('Connect with HarvestGen');
+
+  await page.goto(`/link/${tenant.churchSlug}`);
+  await expect(page.getByRole('heading', { level: 1, name: 'Connect with HarvestGen' })).toBeVisible();
+  await expect(page.getByText('Find your next step with us.')).toBeVisible();
+  await expect(page.locator('main img')).toHaveAttribute('src', bannerUrl);
+  const kids = page.getByRole('link', { name: /Kids Gen Updated/ });
+  await expect(kids).toHaveAttribute('href', 'https://example.com/kids');
+  await expect(kids).toContainText('Sunday activities for children');
+  await expect(kids).toContainText('Explore Kids Gen');
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: test.info().outputPath('published-hg-link.png'), fullPage: true });
 });

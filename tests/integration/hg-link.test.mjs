@@ -1,6 +1,6 @@
 // <!-- AGENT: INTEGRATION -->
 // HG Link: admin editing, publishing, tenant isolation, form submission, submission access.
-// Requires the local Supabase stack and migrations through 051 (see docs/HG_LINK.md).
+// Requires the local Supabase stack and migrations through 052 (see docs/HG_LINK.md).
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import { after, before, test } from 'node:test';
@@ -76,7 +76,7 @@ const content = (title) => ({
 });
 
 before(async () => {
-  for (const key of ['a', 'b']) {
+  for (const key of ['a', 'b', 'c']) {
     const { data, error } = await admin.from('churches').insert({ slug: `hg-${key}-${suffix}`, name: `HG ${key} ${suffix}` }).select('id, slug').single();
     if (error) throw error;
     churches[key] = data;
@@ -86,6 +86,7 @@ before(async () => {
   await makeUser('staffA', 'a', 'staff');
   await makeUser('viewerA', 'a', 'viewer');
   await makeUser('adminB', 'b', 'admin');
+  await makeUser('adminC', 'c', 'admin');
   server = startNextDevServer({ port, env: { HG_LINK_CHURCH_SLUG: churches.a.slug } });
   await waitForNextDevServer({ server, baseUrl });
 });
@@ -113,6 +114,8 @@ test('invalid content and unsafe external URLs are rejected server-side', async 
   assert.equal((await api('PUT', '/api/admin/hg-link/page', { as: 'adminA', body: { content: bad } })).status, 400);
   const extra = { ...content('Extra'), html: '<script>x</script>' };
   assert.equal((await api('PUT', '/api/admin/hg-link/page', { as: 'adminA', body: { content: extra } })).status, 400);
+  const unsafeBanner = { ...content('Unsafe banner'), heroImageUrl: 'javascript:alert(1)' };
+  assert.equal((await api('PUT', '/api/admin/hg-link/page', { as: 'adminA', body: { content: unsafeBanner } })).status, 400);
   const cross = await api('PUT', '/api/admin/hg-link/page', {
     as: 'adminA', body: { content: content('X') }, headers: { Origin: 'https://evil.example' },
   });
@@ -269,4 +272,161 @@ test('rate limiting applies to HG Link form submissions', async () => {
   }
   assert.ok(limited, 'expected a 429 after exceeding the hourly limit');
   assert.ok(serveFormId);
+});
+
+// Church C keeps revision regression fixtures separate from the submission journeys above.
+async function resetContentRevisions() {
+  const { error } = await admin.from('hg_link_revisions').delete().eq('church_id', churches.c.id);
+  if (error) throw error;
+}
+
+function externalContent(title) {
+  const page = content(title);
+  page.cards[0].destination = { type: 'external', url: 'https://harvestgen.org/connect' };
+  return page;
+}
+
+test('banner, descriptions and external links persist through draft, publish and restore', async () => {
+  await resetContentRevisions();
+  const edited = {
+    ...externalContent('Editable connections'),
+    wordmark: 'Welcome to our church',
+    description: 'Find your next step with us.',
+    heroImageUrl: 'https://images.example.com/church-banner.jpg',
+    accent: 'forest',
+    layout: 'list',
+  };
+  Object.assign(edited.cards[0], {
+    title: 'Visit this Sunday', description: 'Service times and directions', buttonLabel: 'Plan a visit',
+  });
+  edited.cards.push({ ...edited.cards[0], id: 'hidden', title: 'Hidden announcement', visible: false });
+
+  assert.equal((await api('PUT', '/api/admin/hg-link/page', { as: 'adminC', body: { content: edited } })).status, 200);
+  const draft = await api('GET', '/api/admin/hg-link/page', { as: 'adminC' });
+  assert.equal(draft.status, 200);
+  assert.deepEqual(draft.json.data.draftContent, edited);
+  const before = await (await fetch(`${baseUrl}/link/${churches.c.slug}`)).text();
+  assert.ok(!before.includes(edited.title), 'the editable draft must remain private');
+
+  assert.equal((await api('POST', '/api/admin/hg-link/page/publish', { as: 'adminC' })).status, 200);
+  const published = await api('GET', '/api/admin/hg-link/page', { as: 'adminC' });
+  assert.deepEqual(published.json.data.publishedContent, edited);
+  assert.equal(published.json.data.draftContent, null);
+  const firstRevisionId = published.json.data.history.find((r) => r.status === 'published').id;
+  const live = await fetch(`${baseUrl}/link/${churches.c.slug}`);
+  assert.equal(live.status, 200);
+  const html = await live.text();
+  for (const text of [edited.title, edited.wordmark, edited.description, edited.heroImageUrl,
+    edited.cards[0].description, edited.cards[0].buttonLabel]) {
+    assert.ok(html.includes(text), `published page must contain ${text}`);
+  }
+  assert.ok(html.includes('href="https://harvestgen.org/connect"'));
+  assert.ok(!html.includes('Hidden announcement'));
+  assert.match(html, /<section[^>]*class="[^"]*grid-cols-1[^"]*"/);
+
+  assert.equal((await api('PUT', '/api/admin/hg-link/page', {
+    as: 'adminC', body: { content: externalContent('Replacement page') },
+  })).status, 200);
+  assert.equal((await api('POST', '/api/admin/hg-link/page/publish', { as: 'adminC' })).status, 200);
+  assert.equal((await api('POST', '/api/admin/hg-link/page/restore', {
+    as: 'adminC', body: { revisionId: firstRevisionId },
+  })).status, 200);
+  const restored = await api('GET', '/api/admin/hg-link/page', { as: 'adminC' });
+  assert.deepEqual(restored.json.data.publishedContent, edited);
+  const restoredHtml = await (await fetch(`${baseUrl}/link/${churches.c.slug}`)).text();
+  assert.ok(restoredHtml.includes(edited.description) && restoredHtml.includes(edited.heroImageUrl));
+});
+
+test('publication rejects a draft changed after validation and preserves the newer draft', async () => {
+  await resetContentRevisions();
+  const validated = externalContent('Validated snapshot');
+  const newer = externalContent('Another administrator changed this');
+  for (const page of [validated, newer]) {
+    assert.equal((await api('PUT', '/api/admin/hg-link/page', { as: 'adminC', body: { content: page } })).status, 200);
+  }
+  const { data, error } = await admin.rpc('hg_link_publish', {
+    p_church_id: churches.c.id, p_user_id: userIds.adminC, p_expected_content: validated,
+  });
+  assert.ifError(error);
+  assert.deepEqual(data, { success: false, code: 'draft_changed' });
+  const state = await api('GET', '/api/admin/hg-link/page', { as: 'adminC' });
+  assert.equal(state.json.data.hasPublished, false);
+  assert.deepEqual(state.json.data.draftContent, newer);
+  assert.equal((await api('POST', '/api/admin/hg-link/page/publish', { as: 'adminC' })).status, 200);
+});
+
+test('an old live revision remains editable when more than thirty newer archived revisions exist', async () => {
+  await resetContentRevisions();
+  const liveContent = externalContent('The actual live page');
+  const draftContent = externalContent('The actual draft');
+  const rows = [
+    { church_id: churches.c.id, status: 'published', version: 1, content: liveContent, created_at: '2000-01-01T00:00:00Z', published_at: '2000-01-01T00:00:00Z' },
+    ...Array.from({ length: 31 }, (_, index) => ({
+      church_id: churches.c.id, status: 'archived', version: index + 2,
+      content: externalContent(`Archived ${index}`), created_at: '2001-01-01T00:00:00Z', published_at: '2001-01-01T00:00:00Z',
+    })),
+    { church_id: churches.c.id, status: 'draft', version: null, content: draftContent, created_at: '1999-01-01T00:00:00Z' },
+  ];
+  const { error } = await admin.from('hg_link_revisions').insert(rows);
+  assert.ifError(error);
+  const state = await api('GET', '/api/admin/hg-link/page', { as: 'adminC' });
+  assert.equal(state.status, 200);
+  assert.equal(state.json.data.hasPublished, true);
+  assert.deepEqual(state.json.data.publishedContent, liveContent);
+  assert.deepEqual(state.json.data.draftContent, draftContent);
+  assert.ok(state.json.data.history.some((r) => r.status === 'published' && r.version === 1));
+});
+
+test('invalid saved content fails visibly and cannot be restored over the live page', async () => {
+  await resetContentRevisions();
+  const liveContent = externalContent('Keep this live page');
+  const { data: revisions, error } = await admin.from('hg_link_revisions').insert([
+    { church_id: churches.c.id, status: 'published', version: 1, content: liveContent },
+    { church_id: churches.c.id, status: 'archived', version: 2, content: { title: 'Invalid saved revision' } },
+  ]).select('id, status');
+  assert.ifError(error);
+  const archived = revisions.find((r) => r.status === 'archived');
+  assert.equal((await api('POST', '/api/admin/hg-link/page/restore', {
+    as: 'adminC', body: { revisionId: archived.id },
+  })).status, 400);
+  const state = await api('GET', '/api/admin/hg-link/page', { as: 'adminC' });
+  assert.deepEqual(state.json.data.publishedContent, liveContent);
+  const liveRevision = revisions.find((r) => r.status === 'published');
+  const { error: updateError } = await admin.from('hg_link_revisions')
+    .update({ content: { title: 'Invalid live revision' } }).eq('id', liveRevision.id);
+  assert.ifError(updateError);
+  const response = await fetch(`${baseUrl}/link/${churches.c.slug}`);
+  // App Router can flush a 200 shell before a server component fails.
+  const html = await response.text();
+  assert.ok(response.status === 500 || html.includes('digest'), 'the page must report a rendering error');
+  assert.ok(!html.includes('aria-label="Ways to connect"'), 'malformed content must not render the default links');
+  assert.equal((await api('GET', '/api/admin/hg-link/page', { as: 'adminC' })).status, 500);
+});
+
+test('restore rejects inactive or other-tenant form destinations without replacing live content', async () => {
+  await resetContentRevisions();
+  const liveContent = externalContent('Keep the valid links');
+  const { data: form, error: formError } = await admin.from('connect_forms').insert({
+    church_id: churches.c.id, slug: 'inactive-restore', title: 'Inactive form', is_active: false,
+  }).select('id').single();
+  assert.ifError(formError);
+  const inactiveContent = content('Inactive form links');
+  inactiveContent.cards[0].destination.formSlug = 'inactive-restore';
+  const otherTenantContent = content('Other tenant form links'); // "serve" exists only in church A.
+  const { data: revisions, error } = await admin.from('hg_link_revisions').insert([
+    { church_id: churches.c.id, status: 'published', version: 1, content: liveContent },
+    { church_id: churches.c.id, status: 'archived', version: 2, content: inactiveContent },
+    { church_id: churches.c.id, status: 'archived', version: 3, content: otherTenantContent },
+  ]).select('id, status');
+  assert.ifError(error);
+  for (const revision of revisions.filter((r) => r.status === 'archived')) {
+    const result = await api('POST', '/api/admin/hg-link/page/restore', {
+      as: 'adminC', body: { revisionId: revision.id },
+    });
+    assert.equal(result.status, 400);
+  }
+  const state = await api('GET', '/api/admin/hg-link/page', { as: 'adminC' });
+  assert.deepEqual(state.json.data.publishedContent, liveContent);
+  const { error: deleteError } = await admin.from('connect_forms').delete().eq('id', form.id);
+  assert.ifError(deleteError);
 });
