@@ -5,6 +5,7 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { adminApiError } from '@/lib/tenant-context';
 import { recordAuditLog } from '@/lib/audit-log';
 import { assertSameOrigin, requireHgLinkEditor } from '@/lib/hg-link/access';
+import { contentSchema } from '@/lib/hg-link/contentSchema';
 import { readJsonObject, validationErrorResponse } from '@/lib/validation';
 
 export async function POST(request: Request) {
@@ -17,6 +18,18 @@ export async function POST(request: Request) {
     if (!parsed.success) return validationErrorResponse(parsed.error);
 
     const supabase = createServiceClient();
+    const { data: revision, error: revisionError } = await supabase
+      .from('hg_link_revisions')
+      .select('content')
+      .eq('id', parsed.data.revisionId)
+      .eq('church_id', churchId)
+      .in('status', ['published', 'archived'])
+      .maybeSingle();
+    if (revisionError) throw revisionError;
+    if (!revision) return NextResponse.json({ error: 'Revision not found' }, { status: 404 });
+    if (!contentSchema.safeParse(revision.content).success) {
+      return NextResponse.json({ error: 'This revision is invalid and cannot be restored.' }, { status: 400 });
+    }
     // The SQL function re-checks that the revision belongs to this church.
     const { data, error } = await supabase.rpc('hg_link_restore', {
       p_church_id: churchId,
@@ -24,7 +37,10 @@ export async function POST(request: Request) {
       p_user_id: user.id,
     });
     if (error) throw error;
-    const result = data as { success: boolean; version?: number; restored_from?: number };
+    const result = data as { success: boolean; code?: string; version?: number; restored_from?: number };
+    if (!result.success && result.code === 'form_not_found') {
+      return NextResponse.json({ error: 'This revision opens forms that do not exist or are inactive. Reactivate the forms before restoring.' }, { status: 400 });
+    }
     if (!result.success) return NextResponse.json({ error: 'Revision not found' }, { status: 404 });
 
     await recordAuditLog({

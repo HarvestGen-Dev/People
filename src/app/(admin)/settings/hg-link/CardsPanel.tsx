@@ -56,7 +56,7 @@ export function CardsPanel({ content, forms, onChange }: CardsPanelProps) {
     <section aria-labelledby="cards-heading" className="space-y-3 rounded-xl border bg-card p-4">
       <div className="flex items-center justify-between gap-2">
         <h2 id="cards-heading" className="text-base font-semibold">Cards</h2>
-        <Button size="sm" variant="outline" onClick={add}><Plus /> Add card</Button>
+        <Button size="sm" variant="outline" disabled={cards.length >= 24} onClick={add}><Plus /> Add card</Button>
       </div>
       <p role="status" aria-live="polite" className="sr-only">{announcement}</p>
 

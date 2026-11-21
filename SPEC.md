@@ -277,6 +277,28 @@ or cross-tenant reference is rejected as a whole with HTTP `400`.
 
 ---
 
+## HG Link
+
+<!-- AGENT: ARCHITECT -->
+
+HG Link is an editable public connection hub, replacing the standalone static
+preview. Migration 051 stores versioned, data-only page snapshots in
+`hg_link_revisions`: banner image, title, introduction, layout, and ordered cards
+with descriptions and form or external destinations. The public page and admin
+preview use one renderer. Owner/admin users edit drafts and publish; public
+reads select only the published revision for the resolved church. Form lookups
+always use church and slug together.
+
+Migration 052 closes the gap between route validation and publication: publish
+must compare the locked draft with the exact JSON snapshot validated by the
+server, returning `draft_changed` if another editor saved meanwhile. Publish and
+restore also verify visible internal destinations against active forms belonging
+to that church inside the transaction, returning `form_not_found` without
+changing the live revision. This changes the service-only publish RPC contract
+to require `p_expected_content JSONB`; it adds no tables or content fields.
+
+---
+
 ## The Multi-Tenant Pivot
 
 1. **Schema Migration:** Introduce the `churches` table. Add `church_id` to all existing tables (`people`, `households`, `api_keys`, etc.).

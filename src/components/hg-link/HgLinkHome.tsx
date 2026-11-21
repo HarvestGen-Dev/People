@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { HgLinkCard, HgLinkContent } from '@/lib/hg-link/contentSchema';
+import { normalizeSafeExternalUrl } from '@/lib/hg-link/safeUrl';
 import { cn } from '@/lib/utils';
 import { bricolage, inter } from './fonts';
 import { ACCENT_STYLES, CARD_THEME_STYLES, ICON_COMPONENTS } from './theme';
@@ -23,6 +24,8 @@ export function HgLinkHome({ content, formHref, preview = false, compact = false
   const accent = ACCENT_STYLES[content.accent];
   const cards = content.cards.filter((card) => card.visible);
   const list = content.layout === 'list' || compact;
+  // The editor also previews incomplete addresses while an administrator types.
+  const heroImageUrl = content.heroImageUrl && normalizeSafeExternalUrl(content.heroImageUrl);
 
   return (
     <div className={cn(bricolage.variable, inter.variable, 'min-h-full bg-[#fdf6ef] font-[family-name:var(--font-hg-body)] text-[#3a3a3a]')}>
@@ -41,9 +44,9 @@ export function HgLinkHome({ content, formHref, preview = false, compact = false
           </div>
         </header>
 
-        {content.heroImageUrl && (
+        {heroImageUrl && (
           <Image
-            src={content.heroImageUrl}
+            src={heroImageUrl}
             alt=""
             width={1024}
             height={480}
