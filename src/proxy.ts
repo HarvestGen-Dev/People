@@ -13,7 +13,9 @@ export async function proxy(request: NextRequest) {
   if (
     request.nextUrl.pathname.startsWith('/api/') ||
     request.nextUrl.pathname.startsWith('/e/') ||
-    request.nextUrl.pathname.startsWith('/connect/')
+    request.nextUrl.pathname.startsWith('/connect/') ||
+    request.nextUrl.pathname === '/link' ||
+    request.nextUrl.pathname.startsWith('/link/')
   ) {
     return NextResponse.next()
   }

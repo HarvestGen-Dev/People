@@ -291,3 +291,56 @@ test('proposal access is manager-only and acceptance applies the reviewed field'
     .single();
   assert.equal(person.campus, 'Submitted Campus');
 });
+
+// <!-- AGENT: INTEGRATION -->
+// Cross-tenant regression: the same form slug may exist in two churches.
+test('duplicate form slugs resolve per tenant and never across tenants', async () => {
+  const { data: otherForm, error } = await admin
+    .from('connect_forms')
+    .insert({ church_id: otherChurchId, slug: form.slug, title: 'Other church form', is_active: true })
+    .select('id')
+    .single();
+  if (error) throw error;
+
+  const post = (path, payload, key) =>
+    fetch(`${baseUrl}${path}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': key,
+        'x-forwarded-for': `198.51.100.${Math.floor(Math.random() * 200) + 1}`,
+      },
+      body: JSON.stringify(payload),
+    });
+  const email = `tenant-scope-${suffix}@test.com`;
+  const payload = { first_name: 'Tenant', last_name: 'Scope', email };
+
+  // Legacy slug-only URL is ambiguous now, so it must refuse rather than guess a church.
+  const legacy = await post(`/api/public/connect-forms/${form.slug}/submit`, payload, `legacy-${suffix}`);
+  assert.equal(legacy.status, 404);
+
+  // Tenant-scoped URL lands in the other church only.
+  const scoped = await post(
+    `/api/public/connect-forms/connect-other-${suffix}/${form.slug}/submit`,
+    payload,
+    `scoped-${suffix}`
+  );
+  assert.equal(scoped.status, 200);
+
+  const [{ count: otherCount }, { count: homeCount }] = await Promise.all([
+    admin.from('people').select('id', { count: 'exact', head: true }).eq('church_id', otherChurchId).eq('email', email),
+    admin.from('people').select('id', { count: 'exact', head: true }).eq('church_id', churchId).eq('email', email),
+  ]);
+  assert.equal(otherCount, 1);
+  assert.equal(homeCount, 0);
+
+  // A church slug cannot be paired with another church's form slug.
+  const wrong = await post(
+    `/api/public/connect-forms/connect-other-${suffix}/does-not-exist/submit`,
+    payload,
+    `wrong-${suffix}`
+  );
+  assert.equal(wrong.status, 404);
+
+  await admin.from('connect_forms').delete().eq('id', otherForm.id);
+});
