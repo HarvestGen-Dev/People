@@ -24,6 +24,11 @@
 
 ---
 
+### HG Link ownership
+- ARCHITECT: `hg_link_revisions`, `connect_forms.definition`, and the zod schemas in `src/lib/hg-link/` (content and form definitions are data-only, versioned).
+- BACKEND: `/api/admin/hg-link/**`, `src/lib/connectFormSubmit.ts`. Public form lookups MUST be tenant-scoped (church + slug), never slug alone.
+- FRONTEND: `src/components/hg-link/` (one renderer shared by the public page and the admin preview) and `src/app/(admin)/settings/hg-link/`.
+
 ## Agent Handoff Protocol
 
 When a task spans multiple agents (e.g. adding a new API endpoint AND a UI for it):

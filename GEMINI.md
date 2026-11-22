@@ -61,6 +61,12 @@ SUPABASE_SERVICE_ROLE_KEY=
 NEXT_PUBLIC_APP_URL=https://people.harvestgen.org
 ```
 
+## HG Link Notes
+
+- Public HG Link routes (`/link/**`, `/connect/**`, `/api/public/**`) use the service role server-side with an explicit `church_id` filter. Never resolve a form by slug alone.
+- Admin HG Link mutations call `requireTenantContext({ requireManager: true })`; submission access uses the allow-list in `src/lib/hg-link/access.ts`.
+- Content and form schemas live in `src/lib/hg-link/` and are pure (no `server-only`) so the browser preview and server validate identically.
+
 ## Do Not
 
 - Do not add Prisma. Use Supabase client directly.

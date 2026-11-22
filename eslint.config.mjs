@@ -9,7 +9,6 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     "**/.next/**",
-    "hg-connect/dist/**",
     "out/**",
     "build/**",
     "playwright-report/**",

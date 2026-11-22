@@ -24,7 +24,9 @@ export function SettingsLayoutClient({
     <div className="min-w-0">
       <nav aria-label="Settings" className="flex flex-wrap gap-x-4 border-b bg-card px-[var(--workspace-gutter)]">
         {navItems.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive =
+            pathname === item.href ||
+            (item.href !== '/settings' && pathname.startsWith(`${item.href}/`));
           return (
             <Link key={item.href} href={item.href} aria-current={isActive ? 'page' : undefined}
               className={cn('inline-flex min-h-11 items-center border-b-2 text-[13px] font-semibold',

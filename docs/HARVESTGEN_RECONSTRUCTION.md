@@ -10,18 +10,17 @@ Use Node 24. Run the commands in separate terminals.
 | --- | --- | --- | --- |
 | People | Repository root | `npm ci`, then `npm run dev` | `http://localhost:3000/preview/church-office/events` |
 | Booking Room | `booking-room/` | `npm ci`, then `npm run dev -- --hostname 127.0.0.1 --port 3001` | `http://127.0.0.1:3001/preview` |
-| HG Connect | `hg-connect/` | `npm run dev` | `http://127.0.0.1:4310/` and `/serve` |
+| HG Links | People app (repository root) | `npm run dev` | `http://localhost:3000/link/<church-slug>` |
 
 The calendar previews use fictional data and reset on reload. Booking Room has month and room views, a reservation form with in-memory recurrence through the 12-month window and a fictional booking list. Church Office has Internal Calendar, Public Calendar and filtered Tables. Calendar actions can edit or cancel selected rooms in a fictional occurrence, and publication applies to that occurrence. Table edits and cancellations apply to individual room rows. Recurrence scopes and live reads and writes are pending. The protected Church Office routes require the verified administrator in the HarvestGen workspace and show the status of the integration.
 
-The HG Connect form checks sample inputs in the browser. The local preview server serves the public asset allowlist and returns 503 for the reserved serving endpoint. `npm run build` copies the five public assets. SMTP and server-side submission validation are pending.
+HG Links uses the People database for editable pages and form submissions. See [HG Links setup](HG_LINK.md) for configuration and publishing.
 
 ## Remaining decisions
 
 1. Per-church onboarding and administrator policy, including where horizon-extension alerts should go.
 2. Series controls for booking owners.
 3. Public webpage or subscription feed only, and the room rename/archive/deletion policy.
-4. HG Connect email-only versus later persistence, production domains, and authorized sender identity.
 
 Database design, migrations, credentials, production runtime configuration and integration testing belong to subsequent phases.
 

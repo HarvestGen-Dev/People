@@ -2,6 +2,7 @@
 import { ReactNode } from 'react';
 import { SettingsLayoutClient } from './SettingsLayoutClient';
 import { requireTenantContext } from '@/lib/tenant-context';
+import { canViewSubmissions } from '@/lib/hg-link/access';
 
 const baseSettingsNav = [
   { name: 'General', href: '/settings' },
@@ -20,9 +21,11 @@ export default async function SettingsLayout({ children }: { children: ReactNode
   const { role, isPlatformAdmin } = await requireTenantContext();
   const canAccessDeveloperTools =
     isPlatformAdmin || role === 'owner' || role === 'admin';
+  const canAccessHgLink = canViewSubmissions(role, isPlatformAdmin);
+  const hgLinkNav = canAccessHgLink ? [{ name: 'HG Links', href: '/settings/hg-link' }] : [];
   const navItems = canAccessDeveloperTools
-    ? [...baseSettingsNav.slice(0, 4), ...developerSettingsNav, ...baseSettingsNav.slice(4)]
-    : baseSettingsNav;
+    ? [...baseSettingsNav.slice(0, 4), ...hgLinkNav, ...developerSettingsNav, ...baseSettingsNav.slice(4)]
+    : [...baseSettingsNav.slice(0, 4), ...hgLinkNav, ...baseSettingsNav.slice(4)];
 
   return (
     <SettingsLayoutClient navItems={navItems}>
