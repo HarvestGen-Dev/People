@@ -15,7 +15,7 @@ HarvestGen People operates on a decoupled client-server model wrapped in a full-
 ```mermaid
 flowchart TD
     subgraph EXT["External Systems"]
-        LMS["Shepherd LMS"]
+        LMS["LMS"]
         POS["Drip & Brew Café POS"]
     end
 
