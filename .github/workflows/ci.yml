@@ -12,28 +12,57 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Two commits so the PR merge commit can be compared with main.
+          fetch-depth: 2
+
+      # Documentation-only PRs skip the heavy steps but still report `verify`
+      # as passed, so the required check never hangs. Pushes to main always
+      # run everything.
+      - name: Detect documentation-only change
+        id: changes
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git diff --name-only HEAD^1 HEAD > changed.txt
+          echo "Changed files:"; cat changed.txt
+          if grep -vqE '^(docs/|platform/)|\.md$' changed.txt; then
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "docs_only=true" >> "$GITHUB_OUTPUT"
+            echo "Documentation-only change: skipping install, database and tests."
+          fi
 
       - name: Setup Node.js
+        if: steps.changes.outputs.docs_only != 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: 'npm'
 
       - name: Install dependencies
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm ci
 
       - name: Install Playwright browsers
+        if: steps.changes.outputs.docs_only != 'true'
         run: npx playwright install --with-deps chromium
 
       - name: Install Supabase CLI
+        if: steps.changes.outputs.docs_only != 'true'
         uses: supabase/setup-cli@v1
         with:
           version: v2.95.4
 
       - name: Start local database
+        if: steps.changes.outputs.docs_only != 'true'
         run: supabase start
 
       - name: Configure local Supabase environment
+        if: steps.changes.outputs.docs_only != 'true'
         shell: bash
         run: |
           supabase status -o env > supabase.env
@@ -48,12 +77,13 @@ jobs:
           } > .env.local
 
       - name: Run Verification
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm run verify
         env:
           LOOKUP_TEST_PORT: 3107
 
       - name: Upload Playwright failure artifacts
-        if: failure()
+        if: failure() && steps.changes.outputs.docs_only != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: playwright-failure-artifacts
