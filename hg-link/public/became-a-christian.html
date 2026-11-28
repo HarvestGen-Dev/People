@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en-MY">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>I Just Became A Christian · HG Links</title>
+  <link rel="icon" href="/favicon.svg">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/serve.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <main id="main" class="form-page">
+    <a class="back-link" href="/">← HG Links</a>
+    <h1>I Just Became A Christian</h1>
+    <p class="preview-note" id="preview-note">Local preview. Use fictional details. Your answers stay on this page.</p>
+    <form data-preview-form method="dialog" aria-describedby="preview-note">
+      <div class="field-pair">
+        <label>First name<input name="firstName" autocomplete="given-name" required maxlength="100"></label>
+        <label>Last name<input name="lastName" autocomplete="family-name" required maxlength="100"></label>
+      </div>
+      <label>Email address<input name="email" type="email" autocomplete="email" required maxlength="254"></label>
+      <button type="submit" disabled>Check form</button>
+      <p class="form-result" role="status"></p>
+    </form>
+  </main>
+</body>
+</html>
