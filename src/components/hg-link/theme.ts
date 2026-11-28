@@ -27,13 +27,13 @@ export const ACCENT_STYLES: Record<Accent, { label: string; banner: string; swat
   plum: { label: 'Plum', banner: 'bg-[#5b3a63]', swatch: 'bg-[#5b3a63]', dark: 'bg-[#5b3a63]', circleA: 'bg-[#e2dfef]', circleB: 'bg-[#efc1ae]', ring: 'focus-visible:outline-[#5b3a63]' },
 };
 
-export const CARD_THEME_STYLES: Record<CardTheme, { label: string; card: string; arrow: string; text: string; swatch: string }> = {
-  sand: { label: 'Sand', card: 'bg-[#f1d4bd]', arrow: 'bg-white/45', text: 'text-[#3a3a3a]', swatch: 'bg-[#f1d4bd]' },
-  wheat: { label: 'Wheat', card: 'bg-[#eee0c6]', arrow: 'bg-white/45', text: 'text-[#3a3a3a]', swatch: 'bg-[#eee0c6]' },
-  lavender: { label: 'Lavender', card: 'bg-[#e2dfef]', arrow: 'bg-white/45', text: 'text-[#3a3a3a]', swatch: 'bg-[#e2dfef]' },
-  sky: { label: 'Sky', card: 'bg-[#a3bfd9]', arrow: 'bg-white/45', text: 'text-[#3a3a3a]', swatch: 'bg-[#a3bfd9]' },
-  blush: { label: 'Blush', card: 'bg-[#efc1ae]', arrow: 'bg-white/45', text: 'text-[#3a3a3a]', swatch: 'bg-[#efc1ae]' },
-  mist: { label: 'Mist', card: 'bg-[#dbe4f0]', arrow: 'bg-white/45', text: 'text-[#3a3a3a]', swatch: 'bg-[#dbe4f0]' },
+export const CARD_THEME_STYLES: Record<CardTheme, { label: string; card: string; text: string; swatch: string }> = {
+  sand: { label: 'Sand', card: 'bg-[#f1d4bd]', text: 'text-[#3a3a3a]', swatch: 'bg-[#f1d4bd]' },
+  wheat: { label: 'Wheat', card: 'bg-[#eee0c6]', text: 'text-[#3a3a3a]', swatch: 'bg-[#eee0c6]' },
+  lavender: { label: 'Lavender', card: 'bg-[#e2dfef]', text: 'text-[#3a3a3a]', swatch: 'bg-[#e2dfef]' },
+  sky: { label: 'Sky', card: 'bg-[#a3bfd9]', text: 'text-[#3a3a3a]', swatch: 'bg-[#a3bfd9]' },
+  blush: { label: 'Blush', card: 'bg-[#efc1ae]', text: 'text-[#3a3a3a]', swatch: 'bg-[#efc1ae]' },
+  mist: { label: 'Mist', card: 'bg-[#dbe4f0]', text: 'text-[#3a3a3a]', swatch: 'bg-[#dbe4f0]' },
   // "navy" follows the page accent colour, like the original Serve card.
-  navy: { label: 'Accent (dark)', card: '', arrow: 'bg-black/25', text: 'text-[#fdf6ef]', swatch: 'bg-[#344f66]' },
+  navy: { label: 'Accent (dark)', card: '', text: 'text-[#fdf6ef]', swatch: 'bg-[#344f66]' },
 };

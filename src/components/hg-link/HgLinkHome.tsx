@@ -1,7 +1,6 @@
 // <!-- AGENT: FRONTEND -->
 // One renderer for the public page AND the admin preview, so what an
 // administrator previews is exactly what visitors get.
-import type { ReactNode } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { HgLinkCard, HgLinkContent } from '@/lib/hg-link/contentSchema';
@@ -76,31 +75,25 @@ export function HgLinkHome({ content, formHref, preview = false, compact = false
 
 function CardLink({ card, accentDark, preview, formHref }: { card: HgLinkCard; accentDark: string; preview: boolean; formHref: (slug: string) => string }) {
   const theme = CARD_THEME_STYLES[card.theme];
-  const external = card.destination.type === 'external';
   const Icon = card.icon === 'none' ? null : ICON_COMPONENTS[card.icon];
   const className = cn(
-    'flex min-h-[4.75rem] items-center justify-between gap-3 rounded-[1.15rem] p-4 no-underline sm:min-h-26 sm:p-5',
+    'flex min-h-[4.75rem] items-center rounded-[1.15rem] p-4 no-underline sm:min-h-26 sm:p-5',
     card.theme === 'navy' ? accentDark : theme.card,
     theme.text,
     !preview && 'transition-shadow hover:shadow-[0_6px_14px_#3a3a3a20] focus-visible:outline-[3px] focus-visible:outline-offset-4 focus-visible:outline-[#344f66]'
   );
 
-  const body: ReactNode = (
-    <>
-      <span className="flex min-w-0 items-center gap-3">
-        {Icon && <Icon aria-hidden="true" className="size-6 shrink-0" />}
-        <span className="min-w-0">
-          <span className="block font-[family-name:var(--font-hg-display)] text-xl font-semibold leading-[1.1] tracking-[-0.025em] text-balance sm:text-2xl">
-            {card.title}
-          </span>
-          {card.description && <span className="mt-1 block text-sm leading-5 opacity-85">{card.description}</span>}
-          {card.buttonLabel && <span className="mt-2 inline-block rounded-full bg-white/50 px-3 py-1 text-sm font-semibold">{card.buttonLabel}</span>}
+  const body = (
+    <span className="flex min-w-0 items-center gap-3">
+      {Icon && <Icon aria-hidden="true" className="size-6 shrink-0" />}
+      <span className="min-w-0">
+        <span className="block font-[family-name:var(--font-hg-display)] text-xl font-semibold leading-[1.1] tracking-[-0.025em] text-balance sm:text-2xl">
+          {card.title}
         </span>
+        {card.description && <span className="mt-1 block text-sm leading-5 opacity-85">{card.description}</span>}
+        {card.buttonLabel && <span className="mt-2 inline-block rounded-full bg-white/50 px-3 py-1 text-sm font-semibold">{card.buttonLabel}</span>}
       </span>
-      <span aria-hidden="true" className={cn('grid size-9 shrink-0 place-items-center rounded-full text-xl', theme.arrow)}>
-        {external ? '↗' : '→'}
-      </span>
-    </>
+    </span>
   );
 
   if (preview) return <div className={className}>{body}</div>;
