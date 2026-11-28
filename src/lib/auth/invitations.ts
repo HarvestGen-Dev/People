@@ -1,6 +1,7 @@
 // <!-- AGENT: BACKEND -->
 import { createHash } from 'crypto';
 import { createServiceClient } from '@/lib/supabase/server';
+import { loadConfiguredChurch } from '@/lib/single-church';
 
 export type InvitationDetails = {
   churchId: string;
@@ -20,14 +21,16 @@ export async function getValidInvitation(
   if (!token || token.length < 32) return null;
 
   const supabase = createServiceClient();
-  const { data, error } = await supabase
+  const configuredChurch = await loadConfiguredChurch();
+  let query = supabase
     .from('church_invitations')
     .select('church_id, email, expires_at, churches(name, slug)')
     .eq('token_hash', hashInvitationToken(token))
     .is('accepted_at', null)
     .is('revoked_at', null)
-    .gt('expires_at', new Date().toISOString())
-    .maybeSingle();
+    .gt('expires_at', new Date().toISOString());
+  if (configuredChurch) query = query.eq('church_id', configuredChurch.id);
+  const { data, error } = await query.maybeSingle();
 
   if (error || !data) return null;
 

@@ -1,6 +1,9 @@
 // <!-- AGENT: FRONTEND -->
 import { createServiceClient } from '@/lib/supabase/server';
 import { requirePlatformAdmin } from '@/lib/platform-auth';
+import { redirect } from 'next/navigation';
+import { configuredChurchSlug } from '@/lib/single-church';
+import { requireTenantContext } from '@/lib/tenant-context';
 import {
   PlatformAdminManager,
   type PlatformChurch,
@@ -11,6 +14,10 @@ export const metadata = {
 };
 
 export default async function PlatformPage() {
+  if (configuredChurchSlug()) {
+    await requireTenantContext();
+    redirect('/dashboard');
+  }
   await requirePlatformAdmin();
   const serviceClient = createServiceClient();
   const { data, error } = await serviceClient

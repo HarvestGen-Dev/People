@@ -1,6 +1,8 @@
+// <!-- AGENT: BACKEND -->
 import { NextRequest } from 'next/server';
 import { createServiceClient } from './supabase/server';
 import { ApiKey } from './types';
+import { loadConfiguredChurch } from '@/lib/single-church';
 
 export async function validateApiKey(
   request: NextRequest,
@@ -32,6 +34,10 @@ export async function validateApiKey(
   }
 
   const apiKey = apiKeyData as ApiKey;
+  const configuredChurch = await loadConfiguredChurch();
+  if (configuredChurch && apiKey.church_id !== configuredChurch.id) {
+    return { error: 'Invalid API key', status: 401 };
+  }
 
   if (!apiKey.is_active) {
     return { error: 'API key is revoked or inactive', status: 401 };

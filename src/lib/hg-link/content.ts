@@ -2,6 +2,7 @@
 import 'server-only';
 
 import { createServiceClient } from '@/lib/supabase/server';
+import { configuredChurchSlug } from '@/lib/single-church';
 import { contentSchema, defaultHgLinkContent, type HgLinkContent } from './contentSchema';
 
 export type RevisionRow = {
@@ -27,6 +28,8 @@ export async function loadPublishedContent(churchId: string): Promise<HgLinkCont
 }
 
 export async function resolveChurchBySlug(slug: string) {
+  const configuredSlug = configuredChurchSlug();
+  if (configuredSlug && slug !== configuredSlug) return null;
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from('churches')
@@ -38,7 +41,7 @@ export async function resolveChurchBySlug(slug: string) {
 }
 
 export function defaultChurchSlug(): string | null {
-  return process.env.HG_LINK_CHURCH_SLUG?.trim() || null;
+  return configuredChurchSlug() || process.env.HG_LINK_CHURCH_SLUG?.trim() || null;
 }
 
 export async function loadAdminState(churchId: string) {

@@ -3,6 +3,7 @@ import 'server-only';
 
 import { createServiceClient } from '@/lib/supabase/server';
 import { formDefinitionSchema, type FormDefinition } from '@/lib/hg-link/formSchema';
+import { configuredChurchSlug, loadConfiguredChurch } from '@/lib/single-church';
 
 export type ResolvedConnectForm = {
   churchId: string;
@@ -24,6 +25,8 @@ export async function resolveConnectForm(
   churchSlug: string,
   formSlug: string
 ): Promise<ResolvedConnectForm | null> {
+  const configuredSlug = configuredChurchSlug();
+  if (configuredSlug && churchSlug !== configuredSlug) return null;
   const supabase = createServiceClient();
   const { data: church } = await supabase
     .from('churches')
@@ -41,6 +44,8 @@ export async function resolveConnectForm(
 export async function resolveLegacyConnectForm(
   formSlug: string
 ): Promise<ResolvedConnectForm | null> {
+  const configuredChurch = await loadConfiguredChurch();
+  if (configuredChurch) return loadForm(configuredChurch.id, formSlug);
   const supabase = createServiceClient();
   const { data: churchId } = await supabase.rpc('resolve_unique_connect_form_church', {
     p_slug: formSlug,
@@ -54,6 +59,8 @@ export async function resolveConnectFormById(churchId: string, formSlug: string)
 }
 
 async function loadForm(churchId: string, formSlug: string): Promise<ResolvedConnectForm | null> {
+  const configuredChurch = await loadConfiguredChurch();
+  if (configuredChurch && churchId !== configuredChurch.id) return null;
   const supabase = createServiceClient();
   const { data: form } = await supabase
     .from('connect_forms')

@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { resolveAuthenticatedHome } from '@/lib/platform-auth';
+import { configuredChurchSlug } from '@/lib/single-church';
 
 export default async function ClaimPendingPage() {
   const supabase = await createClient();
@@ -13,7 +14,7 @@ export default async function ClaimPendingPage() {
 
   const { data } = await supabase.rpc('claim_person_profile');
   const result = Array.isArray(data) ? data[0] : data;
-  if (result?.claim_status === 'claimed') redirect('/portal');
+  if (!configuredChurchSlug() && result?.claim_status === 'claimed') redirect('/portal');
 
   const copy =
     result?.claim_status === 'approval_required'

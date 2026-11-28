@@ -4,6 +4,8 @@ import 'server-only';
 import { createHash, randomBytes } from 'crypto';
 import { createServiceClient } from '@/lib/supabase/server';
 import { sendChurchInvitationEmail } from '@/lib/email/send-invitation';
+import { loadConfiguredChurch } from '@/lib/single-church';
+import { ApiRequestError } from '@/lib/tenant-context';
 
 export type InvitationRole =
   | 'owner'
@@ -23,6 +25,10 @@ export async function createChurchInvitation(input: {
   invitedBy: string;
   appUrl: string;
 }) {
+  const configuredChurch = await loadConfiguredChurch();
+  if (configuredChurch && input.churchId !== configuredChurch.id) {
+    throw new ApiRequestError('This deployment serves only the configured church', 403);
+  }
   const serviceClient = createServiceClient();
   const normalizedEmail = input.email.trim().toLowerCase();
   const now = new Date().toISOString();

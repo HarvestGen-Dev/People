@@ -2,6 +2,7 @@
 import { redirect } from 'next/navigation';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { createPeoplePhotoSignedUrl } from '@/lib/people/photos';
+import { loadConfiguredChurch } from '@/lib/single-church';
 
 export default async function PortalPage() {
   const sessionClient = await createClient();
@@ -13,7 +14,8 @@ export default async function PortalPage() {
   await sessionClient.rpc('claim_person_profile');
 
   const serviceClient = createServiceClient();
-  const { data: links } = await serviceClient
+  const configuredChurch = await loadConfiguredChurch();
+  let query = serviceClient
     .from('person_user_links')
     .select(`
       id,
@@ -23,6 +25,8 @@ export default async function PortalPage() {
     `)
     .eq('user_id', user.id)
     .order('claimed_at', { ascending: true });
+  if (configuredChurch) query = query.eq('church_id', configuredChurch.id);
+  const { data: links } = await query;
 
   if (!links?.length) redirect('/claim-pending');
 

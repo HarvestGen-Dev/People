@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { createPeoplePhotoSignedUrl } from '@/lib/people/photos';
+import { loadConfiguredChurch } from '@/lib/single-church';
 
 type PortalPhotoPerson = {
   id: string;
@@ -26,12 +27,14 @@ export async function GET(
 
     const { id } = await params;
     const serviceClient = createServiceClient();
-    const { data: link, error } = await serviceClient
+    const configuredChurch = await loadConfiguredChurch();
+    let query = serviceClient
       .from('person_user_links')
       .select('people!person_user_links_church_person_fk(id, church_id, photo_path, photo_url)')
       .eq('user_id', user.id)
-      .eq('person_id', id)
-      .maybeSingle();
+      .eq('person_id', id);
+    if (configuredChurch) query = query.eq('church_id', configuredChurch.id);
+    const { data: link, error } = await query.maybeSingle();
 
     if (error) throw error;
     if (!link?.people) {

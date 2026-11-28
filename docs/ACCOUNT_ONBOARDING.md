@@ -5,6 +5,22 @@
 People distinguishes tenant dashboard authorization from congregant profile
 access.
 
+## HarvestGen deployment
+
+<!-- AGENT: ARCHITECT -->
+
+`PEOPLE_CHURCH_SLUG` selects the only church available in this deployment;
+Vercel deployments default to `harvestgen` when unset. Platform administrators
+enter its dashboard directly, and the navigation omits Platform administration.
+Church creation and switching are disabled. Existing churches and their data
+remain in the database with tenant isolation intact. Unset the variable outside
+Vercel deployments to use multi-tenant development and test fixtures.
+
+The verified `developer@harvestgen.org` account already has HarvestGen owner and
+platform-administrator access. Sign in with that account; no new account,
+profile claim, or source-code email rule is required. Other signups never gain
+administrator access from their email address or profile claim.
+
 ## CSV profile import
 
 Administrators import profiles through `/people/new`. The server resolves

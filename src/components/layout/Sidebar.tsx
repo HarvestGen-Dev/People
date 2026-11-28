@@ -26,17 +26,17 @@ const administrationNav = [
   { label: 'Platform', href: '/platform', icon: Network },
 ];
 
-type Account = { userEmail: string; role: TenantRole; isPlatformAdmin: boolean };
+type Account = { userEmail: string; role: TenantRole; isPlatformAdmin: boolean; singleChurch?: boolean };
 
 function SidebarContents({ account, collapsed = false, close }: {
   account: Account; collapsed?: boolean; close?: () => void;
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { userEmail, role, isPlatformAdmin } = account;
+  const { userEmail, role, isPlatformAdmin, singleChurch = false } = account;
   const canAccessDeveloperTools = isPlatformAdmin || role === 'owner' || role === 'admin';
   const adminNav = administrationNav.filter(({ href }) =>
-    href === '/platform' ? isPlatformAdmin : canAccessDeveloperTools);
+    href === '/platform' ? isPlatformAdmin && !singleChurch : canAccessDeveloperTools);
 
   async function handleSignOut() {
     const { createBrowserClient } = await import('@supabase/ssr');

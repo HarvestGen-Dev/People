@@ -2,8 +2,9 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
-import { adminApiError } from '@/lib/tenant-context';
+import { adminApiError, ApiRequestError } from '@/lib/tenant-context';
 import { requirePlatformAdmin } from '@/lib/platform-auth';
+import { configuredChurchSlug } from '@/lib/single-church';
 
 export async function POST(
   _request: Request,
@@ -11,6 +12,7 @@ export async function POST(
 ) {
   try {
     await requirePlatformAdmin();
+    if (configuredChurchSlug()) throw new ApiRequestError('Church switching is disabled on this deployment', 403);
     const { id } = await context.params;
     const serviceClient = createServiceClient();
     const { data: church, error } = await serviceClient
