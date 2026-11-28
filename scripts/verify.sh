@@ -20,6 +20,7 @@ npm run test:unit
 echo "=== Running Integration Tests ==="
 npm run test:integration:lookup
 npm run test:integration:onboarding
+npm run test:integration:single-church
 npm run test:integration:authorization
 npm run test:integration:connect-forms
 npm run test:integration:hg-link
@@ -33,6 +34,7 @@ npm run test:integration:operational-observability
 
 echo "=== Running End-to-End Tests ==="
 npm run test:e2e
+npm run test:e2e:single-church
 
 echo "=== Running Production Build ==="
 npm run build

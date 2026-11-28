@@ -9,6 +9,7 @@ import { readJsonObject, validationErrorResponse } from '@/lib/validation';
 import { getOperationalRequestId } from '@/lib/observability/request-id';
 import { recordOperationalIncident } from '@/lib/observability/incidents';
 import { logOperationalEvent, OPERATIONAL_EVENTS } from '@/lib/observability/logger';
+import { loadConfiguredChurch } from '@/lib/single-church';
 
 const MAX_ADDITIONAL_GUESTS = 20;
 
@@ -70,14 +71,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
     if (!parsed.success) return validationErrorResponse(parsed.error);
     const registration = parsed.data;
 
-    const { data: event, error: eventError } = await perf.track(
-      'event.lookup',
-      supabase
-        .from('events')
-        .select('church_id, price')
-        .eq('id', eventId)
-        .single()
-    );
+    const configuredChurch = await loadConfiguredChurch();
+    let eventQuery = supabase.from('events').select('church_id, price').eq('id', eventId);
+    if (configuredChurch) eventQuery = eventQuery.eq('church_id', configuredChurch.id);
+    const { data: event, error: eventError } = await perf.track('event.lookup', eventQuery.maybeSingle());
 
     if (eventError) throw eventError;
 

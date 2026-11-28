@@ -2,12 +2,14 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { createChurchInvitation } from '@/lib/auth/create-invitation';
-import { adminApiError } from '@/lib/tenant-context';
+import { adminApiError, ApiRequestError } from '@/lib/tenant-context';
 import { requirePlatformAdmin } from '@/lib/platform-auth';
+import { configuredChurchSlug } from '@/lib/single-church';
 
 export async function POST(request: Request) {
   try {
     const { user } = await requirePlatformAdmin();
+    if (configuredChurchSlug()) throw new ApiRequestError('Platform owner invitations are disabled on this deployment', 403);
     const body = (await request.json()) as {
       church_id?: string;
       email?: string;

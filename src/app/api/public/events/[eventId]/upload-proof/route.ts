@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { validateImageUpload } from '@/lib/image-upload';
 import { enforcePublicRateLimit } from '@/lib/public-rate-limit';
+import { loadConfiguredChurch } from '@/lib/single-church';
 
 export async function POST(request: Request, { params }: { params: Promise<{ eventId: string }> }) {
   try {
@@ -17,11 +18,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
     if (limited) return limited;
 
     const supabase = createServiceClient();
-    const { data: event } = await supabase
+    const configuredChurch = await loadConfiguredChurch();
+    let eventQuery = supabase
       .from('events')
       .select('id, church_id, price, status')
-      .eq('id', eventId)
-      .maybeSingle();
+      .eq('id', eventId);
+    if (configuredChurch) eventQuery = eventQuery.eq('church_id', configuredChurch.id);
+    const { data: event } = await eventQuery.maybeSingle();
 
     if (!event || event.status !== 'published' || event.price <= 0) {
       return NextResponse.json(

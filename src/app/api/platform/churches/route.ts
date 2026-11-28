@@ -1,17 +1,21 @@
 // <!-- AGENT: BACKEND -->
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
-import { adminApiError } from '@/lib/tenant-context';
+import { adminApiError, ApiRequestError } from '@/lib/tenant-context';
 import { requirePlatformAdmin } from '@/lib/platform-auth';
+import { configuredChurchSlug, loadConfiguredChurch } from '@/lib/single-church';
 
 export async function GET() {
   try {
     await requirePlatformAdmin();
     const serviceClient = createServiceClient();
-    const { data, error } = await serviceClient
+    const configuredChurch = await loadConfiguredChurch();
+    let query = serviceClient
       .from('churches')
       .select('id, name, slug, created_at, church_memberships(id, role)')
       .order('name');
+    if (configuredChurch) query = query.eq('id', configuredChurch.id);
+    const { data, error } = await query;
 
     if (error) throw error;
     return NextResponse.json({ data: data || [] });
@@ -23,6 +27,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const { user } = await requirePlatformAdmin();
+    if (configuredChurchSlug()) throw new ApiRequestError('Church creation is disabled on this deployment', 403);
     const body = (await request.json()) as { name?: string; slug?: string };
     const name = body.name?.trim();
     const slug = body.slug?.trim().toLowerCase();

@@ -299,6 +299,33 @@ to require `p_expected_content JSONB`; it adds no tables or content fields.
 
 ---
 
+## Single-church deployment
+
+<!-- AGENT: ARCHITECT -->
+
+The HarvestGen installation uses server-only `PEOPLE_CHURCH_SLUG` to select its
+church. Vercel deployments default to `harvestgen` when the variable is unset;
+an explicit value overrides that default. In this mode, this is the sole church
+available through the application: dashboard and portal resolution, invitation
+handling, and public church routes must resolve to that church. An unavailable
+configured church denies access rather than falling back to another church.
+Selection cookies cannot override it, and explicit references to another church
+are rejected. Church creation and switching are disabled, and platform
+administrators enter the configured church's dashboard without a selection step.
+
+This deployment configuration preserves existing churches, memberships, data,
+tenant columns, and row-level security; no migration or deletion is required.
+Leaving `PEOPLE_CHURCH_SLUG` unset outside Vercel deployments retains the existing
+multi-tenant behavior for development and tests. Membership roles and platform-administrator records
+remain the authorization sources of truth. Self-signup and verified-email
+profile claiming never grant administrative access; any administrator assignment
+is an explicit, audited operation against an authenticated account.
+The existing verified `developer@harvestgen.org` account already has HarvestGen
+owner and platform-administrator records; it requires no source-code bootstrap
+or email-based privilege rule.
+
+---
+
 ## The Multi-Tenant Pivot
 
 1. **Schema Migration:** Introduce the `churches` table. Add `church_id` to all existing tables (`people`, `households`, `api_keys`, etc.).

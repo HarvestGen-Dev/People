@@ -1,8 +1,10 @@
+// <!-- AGENT: FRONTEND -->
 import React from 'react';
 import './workspace.css';
 import { redirect } from 'next/navigation';
 import { AdminShell } from '@/components/layout/AdminShell';
 import { requireTenantContext, TenantContextError } from '@/lib/tenant-context';
+import { configuredChurchSlug } from '@/lib/single-church';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   let tenant: Awaited<ReturnType<typeof requireTenantContext>>;
@@ -18,6 +20,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       userEmail={tenant.user.email || 'Signed-in account'}
       role={tenant.role}
       isPlatformAdmin={tenant.isPlatformAdmin}
+      singleChurch={configuredChurchSlug() !== null}
     >
       {children}
     </AdminShell>

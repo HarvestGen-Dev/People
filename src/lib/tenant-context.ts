@@ -6,6 +6,7 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import type { User } from '@supabase/supabase-js';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { loadConfiguredChurch } from '@/lib/single-church';
 
 export type TenantRole =
   | 'owner'
@@ -97,9 +98,13 @@ const resolveBaseTenantData = cache(
       throw new TenantContextError('Unauthorized', 401);
     }
 
+    const configuredChurch = await loadConfiguredChurch();
+    if (configuredChurch && targetChurchId && targetChurchId !== configuredChurch.id) {
+      throw new TenantContextError('This deployment serves only the configured church', 403);
+    }
     const cookieStore = await cookies();
     const selectedChurchId =
-      targetChurchId ?? cookieStore.get('people_church_id')?.value;
+      configuredChurch?.id ?? targetChurchId ?? cookieStore.get('people_church_id')?.value;
 
     const serviceClient = createServiceClient();
 

@@ -102,7 +102,10 @@ People lists** (create one list per group). No hardcoded HG1–HG10.
 
 ## Configuration
 
-- `HG_LINK_CHURCH_SLUG` — church served at `/link`. Every church is also at `/link/<slug>`.
+- `PEOPLE_CHURCH_SLUG` — restricts this deployment to one church; Vercel deployments
+  defaults to `harvestgen`. Other church URLs are unavailable in this mode.
+- `HG_LINK_CHURCH_SLUG` — church served at `/link` when single-church mode is unset.
+  In single-church mode, `/link` uses the deployment's church.
 - `NEXT_PUBLIC_APP_URL`, `BREVO_SMTP_USER`, `BREVO_SMTP_KEY` — notification links and email (optional).
 - No new secrets. Service-role key stays server-only.
 

@@ -14,13 +14,13 @@ import { RegistrationForm } from '@/components/events/RegistrationForm';
 import type { Event } from '@/lib/types';
 import { renderSafeMarkdown } from '@/lib/safe-markdown';
 import { createRequestPerformanceTracker } from '@/lib/performance';
+import { loadConfiguredChurch } from '@/lib/single-church';
 
 async function getEventBySlug(slug: string, trackerName = 'public-event') {
   const supabase = createServiceClient();
   const perf = createRequestPerformanceTracker(trackerName);
-  const { data: event, error } = await perf.track(
-    'event.by_slug',
-    supabase
+  const configuredChurch = await loadConfiguredChurch();
+  let query = supabase
       .from('events')
       .select(`
         id,
@@ -44,9 +44,9 @@ async function getEventBySlug(slug: string, trackerName = 'public-event') {
         created_at,
         updated_at
       `)
-      .eq('slug', slug)
-      .single()
-  );
+      .eq('slug', slug);
+  if (configuredChurch) query = query.eq('church_id', configuredChurch.id);
+  const { data: event, error } = await perf.track('event.by_slug', query.single());
   perf.log();
 
   if (error || !event) return null;
